@@ -1,52 +1,65 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
-import { ViewUpdate, PluginValue, EditorView, ViewPlugin, } from "@codemirror/view";
+// import { ViewUpdate, PluginValue, EditorView, ViewPlugin, } from "@codemirror/view";
 import { LangsoftViewPlugin } from 'syntaxHighlight';
 import { Extension } from '@codemirror/state';
 import { LangsoftPluginSettings, DEFAULT_SETTINGS, LangsoftSettingsTab } from 'settings';
+import { DictionaryManager } from 'dictionaries';
 
 
 
 export default class LangsoftPlugin extends Plugin {
 	settings: LangsoftPluginSettings;
 	extensions: Extension[];
-	wordsToOverrideDict: {[word: string]: string}
+	wordsToOverrideDict: { [word: string]: string }
 	styleEl: Element;
+	dictionaryManager: DictionaryManager;
 
+	
 	async onload() {
 		await this.loadSettings();
-		
-		this.addSettingTab(new LangsoftSettingsTab(this.app,this))
+		this.addSettingTab(new LangsoftSettingsTab(this.app, this));
+
+
+		this.dictionaryManager = new DictionaryManager(this);
+
+		// console.log(await this.dictionaryManager.listFiles())
+		// console.log(await this.dictionaryManager.dictFolderExists(".langsoft_dictionaries"))
+
 
 		this.extensions = [LangsoftViewPlugin];
 		this.registerEditorExtension(this.extensions);
-		
+
 		this.styleEl = document.head.createEl("style");
 		this.reloadStyle();
-		
-		// // from chatgpt		
-		// let isMouseDown = false;
-		// let selectedText = "";
-		//
-		// this.registerDomEvent(document.body, "mousedown", () => {
-		// 	isMouseDown = true;
-		// 	selectedText = "";
-		// });
-		//
-		// this.registerDomEvent(document.body, "mouseup", () => {
-		// 	isMouseDown = false;
-		// 	const selection = window.getSelection();
-		// 	selectedText = selection.toString().trim();
-		// 	if (selectedText) {
-		// 		new Notice(selectedText);
-		// 		console.log("Selected text:", selectedText);
-		// 		// Do something with the selected text
-		// 	}
-		// });
-		
+
+			
+		this.registerDomEvent(document.body, "mouseup", () => {
+			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+			if (view) {
+				const selectedText = view.editor.getSelection();
+				if (selectedText !== "") {
+				this.handleSelection(selectedText.trim());
+				}
+			}
+		}
+		);
+
+
+
 	}
 
 	onunload() {
 
+	}
+
+	handleSelection(selection: string) {
+			new Notice(selection);
+			// console.log(selection);
+			const timestamp = Date.now();
+			const date = new Date(timestamp);
+			// console.log(date.toJSON());
+			// console.log(this.settings.user);
+		
 	}
 
 	async loadSettings() {
@@ -56,7 +69,7 @@ export default class LangsoftPlugin extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
 	}
-	
+
 	convertSettingsToStyle(settings: LangsoftPluginSettings) {
 		let style = "";
 
@@ -84,7 +97,7 @@ export default class LangsoftPlugin extends Plugin {
 	}
 
 	loadWordsToOverrideDict() {
-		const dict: {[word: string]: string} = {};
+		const dict: { [word: string]: string } = {};
 
 		const lines = this.settings.wordsToOverride.split("\n");
 		lines.forEach(val => {
@@ -102,7 +115,6 @@ export default class LangsoftPlugin extends Plugin {
 		this.app.workspace.updateOptions();
 		this.extensions.push(LangsoftViewPlugin.extension);
 		this.app.workspace.updateOptions();
-		console.log('reloading entire plugin!')
 	}
 }
 

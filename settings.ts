@@ -5,8 +5,8 @@ import LangsoftPlugin from 'main';
 export interface LangsoftPluginSettings {
 	unknownEnabled: boolean,
 	unknownColor: string,
-	semiKnownEnabled: boolean,
-	semiKnownColor: string,
+	semiknownEnabled: boolean,
+	semiknownColor: string,
 	knownEnabled: boolean,
 	knownColor: string,
 	classToApplyHighlightingTo: string,
@@ -20,8 +20,8 @@ export interface LangsoftPluginSettings {
 export const DEFAULT_SETTINGS: LangsoftPluginSettings = {
 	unknownEnabled: true,
 	unknownColor: "#FF0000",
-	semiKnownEnabled: true,
-	semiKnownColor: "#FFFF00",
+	semiknownEnabled: true,
+	semiknownColor: "#FFFF00",
 	knownEnabled: true,
 	knownColor: "#93FF85",
 	classToApplyHighlightingTo: "",
@@ -83,10 +83,10 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 				semiKnownToggle = toggle.toggleEl;
 				semiKnownToggle.parentElement?.parentElement?.prepend(semiKnownToggle);
 
-				toggle.setValue(this.plugin.settings.semiKnownEnabled)
+				toggle.setValue(this.plugin.settings.semiknownEnabled)
 				.setTooltip("Enable / Disable")
 					.onChange(async (value) => {
-						this.plugin.settings.semiKnownEnabled = value;
+						this.plugin.settings.semiknownEnabled = value;
 						await this.plugin.saveSettings();
 						this.plugin.reloadStyle();
 					})
@@ -94,9 +94,9 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 		);
 
 		semiKnowns.addColorPicker(component => component
-			.setValue(this.plugin.settings.semiKnownColor)
+			.setValue(this.plugin.settings.semiknownColor)
 			.onChange(async (value) => {
-				this.plugin.settings.semiKnownColor = value;
+				this.plugin.settings.semiknownColor = value;
 				await this.plugin.saveSettings();
 				this.plugin.reloadStyle();
 		}));

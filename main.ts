@@ -1,29 +1,46 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, WorkspaceLeaf } from 'obsidian';
-// import { ViewUpdate, PluginValue, EditorView, ViewPlugin, } from "@codemirror/view";
-import { LangsoftViewPlugin } from 'syntaxHighlight';
-import { Extension } from '@codemirror/state';
+import { App, debounce, Editor,MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TAbstractFile, WorkspaceLeaf } from 'obsidian';
+// import { ViewUpdate, PluginValue, EditorView, ViewPlugin, Decoration, DecorationSet } from "@codemirror/view";
+// import { LangsoftViewPlugin } from 'syntaxHighlight';
 import { LangsoftPluginSettings, DEFAULT_SETTINGS, LangsoftSettingsTab } from 'settings';
 import { DictionaryManager } from 'dictionaries';
 import { DefinerView, VIEW_TYPE_DEFINER } from 'definer';
+// import { buildHighlightPlugin } from 'viewPlugin';
+// import { emojiListField, apiRequestExtension } from 'stateTest';
+// import { buildExampleViewPlugin } from 'exampleView';
+
+import { testPlugin, decorationField } from 'simpleView';
 
 
 
 export default class LangsoftPlugin extends Plugin {
 	settings: LangsoftPluginSettings;
-	extensions: Extension[];
+	// extensions: Extension[];
 	wordsToOverrideDict: { [word: string]: string }
 	styleEl: Element;
 	dictionaryManager: DictionaryManager;
+	// viewPlugin: ViewPlugin<PluginValue>;
 
 	
 	async onload() {
 		await this.loadSettings();
 		this.addSettingTab(new LangsoftSettingsTab(this.app, this));
 		this.dictionaryManager = new DictionaryManager(this);
-		this.extensions = [LangsoftViewPlugin];
-		this.registerEditorExtension(this.extensions);
+		const debouncedBuildSmallDict = debounce( async ()=> {
+			await this.dictionaryManager.buildSmallDict()
+		},300,true);
+		this.app.workspace.on("active-leaf-change",() => debouncedBuildSmallDict())
+		// this.extensions = [LangsoftViewPlugin];
+		// this.registerEditorExtension(this.extensions);
+		// this.registerEditorExtension([emojiListField, apiRequestExtension]);
+
+
+		
+		// this.viewPlugin = buildExampleViewPlugin(this);
+		this.registerEditorExtension([testPlugin(this),decorationField]);
+		// this.registerEditorExtension([decorationField,decorationPlugin]);
 		this.styleEl = document.head.createEl("style");
 		this.reloadStyle();
+		
 			
 		this.registerDomEvent(document.body, "mouseup", () => {
 			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
@@ -36,10 +53,16 @@ export default class LangsoftPlugin extends Plugin {
 		}
 		);
 
+
+		
+
 		this.registerView(
 			VIEW_TYPE_DEFINER,
 			(leaf) => new DefinerView(leaf,this)
 		);
+
+
+	
 
 	}
 
@@ -49,20 +72,27 @@ export default class LangsoftPlugin extends Plugin {
 
 
 	handleSelection(selection: string) {
-			new Notice(selection);
-			// console.log(selection);
-      this.activateView();
+		// const results = this.dictionaryManager.searchInWordnetDict(selection);
+		// console.log(results)
+			// new Notice(results);
+
+    this.activateView();
 
     this.app.workspace.getLeavesOfType(VIEW_TYPE_DEFINER).forEach((leaf) => {
 	  if (leaf.view instanceof DefinerView) {
 	    // Access your view instance.
-	    leaf.view.searchTerm.setValue(selection)
+	    leaf.view.searchTerm.setValue(selection);
+	    // if (results.length > 0) {
+	    // 	try {
+	    // leaf.view.wordDefinition.setValue(results[0]["Definition"]);
+	    // console.log()
+	    // 	} catch (e) {
+	    // 		console.log(e)
+	    // 	}
+	    // }
 		  }
 		});
       
-			// console.log(date.toJSON());
-			// console.log(this.settings.user);
-		
 	}
 
 	async loadSettings() {
@@ -76,9 +106,9 @@ export default class LangsoftPlugin extends Plugin {
 	convertSettingsToStyle(settings: LangsoftPluginSettings) {
 		let style = "";
 
-		const knownLevel = ["unknown", "semiKnown", "known"];
-		const enabled = [settings.unknownEnabled, settings.semiKnownEnabled, settings.knownEnabled];
-		const colors = [settings.unknownColor, settings.semiKnownColor, settings.knownColor];
+		const knownLevel = ["unknown", "semiknown", "known"];
+		const enabled = [settings.unknownEnabled, settings.semiknownEnabled, settings.knownEnabled];
+		const colors = [settings.unknownColor, settings.semiknownColor, settings.knownColor];
 
 		for (let i = 0; i < knownLevel.length; i++) {
 			if (enabled[i]) {
@@ -120,12 +150,12 @@ export default class LangsoftPlugin extends Plugin {
 		this.wordsToOverrideDict = dict;
 	}
 
-	reloadEditorExtensions() {
-		this.extensions.pop();
-		this.app.workspace.updateOptions();
-		this.extensions.push(LangsoftViewPlugin.extension);
-		this.app.workspace.updateOptions();
-	}
+	// reloadEditorExtensions() {
+	// 	this.extensions.pop();
+	// 	this.app.workspace.updateOptions();
+	// 	this.extensions.push(LangsoftViewPlugin.extension);
+	// 	this.app.workspace.updateOptions();
+	// }
 
 	async activateView() {
     const { workspace } = this.app;
@@ -145,7 +175,6 @@ export default class LangsoftPlugin extends Plugin {
     // "Reveal" the leaf in case it is in a collapsed sidebar
     workspace.revealLeaf(leaf);
   }
-
 
 
 

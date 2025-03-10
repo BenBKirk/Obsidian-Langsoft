@@ -38,7 +38,7 @@ async function getWordsFromLine(text: string): Promise<WordPositions[]> {
 const highlightDecoration = Decoration.mark({ class: "known" });
 
 // Effect to update decorations
-const setDecorations = StateEffect.define();
+const setDecorations = StateEffect.define<DecorationSet>();
 
 // State field to hold decorations
 export const decorationField = StateField.define<DecorationSet>({

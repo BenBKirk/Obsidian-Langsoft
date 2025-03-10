@@ -1,50 +1,51 @@
 
+import { debounce } from 'obsidian';
 import LangsoftPlugin from 'main';
 import { ViewUpdate, PluginValue, EditorView, ViewPlugin, Decoration, DecorationSet } from "@codemirror/view";
-import { StateField, StateEffect } from "@codemirror/state"
+import { StateField, StateEffect, Transaction } from "@codemirror/state"
+
+export interface WordPositions {
+	word: string,
+	startPosInLine: number,
+	endPosInLine: number
+}
+
+export interface DecorationSpec {
+	knownLevel: string,
+	// Start and end are measured from the start of the *line* the decoration is on
+	start: number,
+	end: number
+}
+
+async function getWordsFromLine(text: string): Promise<WordPositions[]> {
+	if (!text) {
+		return [];
+	}
+	const words: WordPositions[] = [];
+	const wordRegex = /\b\w+\b/g;
+	let match;
+	while ((match = wordRegex.exec(text)) !== null) {
+		words.push({
+			word: match[0],
+			startPosInLine: match.index,
+			endPosInLine: match.index + match[0].length
+		});
+	}
+	return words;
+}
 
 // Define a decoration
 const highlightDecoration = Decoration.mark({ class: "known" });
-
-// Dummy data for highlights
-const dummyHighlightData = {
-	highlights: [
-		{ from: 5, to: 20 },
-		{ from: 30, to: 40 },
-		{ from: 50, to: 60 }
-	]
-};
-
-// Sleep function to simulate API call delay
-function sleep(ms) {
-	return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-// Function to simulate fetching data from an API with a delay
-async function fetchHighlightData() {
-	await sleep(1000); // Simulate a 1 second delay
-	return dummyHighlightData;
-}
-
-// Function to generate decorations based on the fetched data
-async function getDecorations(view: EditorView, plugin: LangsoftPlugin) {
-	const data = await fetchHighlightData();
-	const ranges = [];
-	for (const { from, to } of data.highlights) {
-		ranges.push(highlightDecoration.range(from, to));
-	}
-	return Decoration.set(ranges);
-}
 
 // Effect to update decorations
 const setDecorations = StateEffect.define();
 
 // State field to hold decorations
-export const decorationField = StateField.define({
-	create() {
+export const decorationField = StateField.define<DecorationSet>({
+	create(): DecorationSet {
 		return Decoration.none;
 	},
-	update(decorations, transaction) {
+	update(decorations: DecorationSet, transaction: Transaction) {
 		for (const effect of transaction.effects) {
 			if (effect.is(setDecorations)) {
 				decorations = effect.value;
@@ -55,31 +56,60 @@ export const decorationField = StateField.define({
 	provide: field => EditorView.decorations.from(field)
 });
 
+// Function to generate decorations based on the fetched data
+async function getDecorations(view: EditorView, plugin: LangsoftPlugin) {
+	const { from, to } = view.viewport; // ✅ Get the visible range
+	const visibleText = view.state.doc.sliceString(from, to); // ✅ Extract visible text
+	// const test = await getBenHighlightData(visibleText)
+	// const visibleText = view.state.doc.toString();
+	const words = await getWordsFromLine(visibleText)
+
+	const ranges = [];
+	for (const word of words) {
+		// if (word.word == "Ben") {
+		if (await plugin.dictionaryManager.isWordInDict(word.word)) {
+			// await sleep(100)
+			ranges.push(highlightDecoration.range(word.startPosInLine, word.endPosInLine))
+		}
+	}
+	return Decoration.set(ranges);
+
+}
+
+// async function getLine(view: EditorView) {
+// 	return view.state.doc
+// }
+
+async function updateDecorations(view: EditorView, plugin: LangsoftPlugin) {
+	const decorations = await getDecorations(view, plugin);
+	view.dispatch({
+		effects: setDecorations.of(decorations)
+	});
+}
+
+const debouncedUpdate = debounce((view: EditorView, plugin: LangsoftPlugin) => updateDecorations(view, plugin), 500, true);
+
+
 // Plugin to handle asynchronous updates
 export const testPlugin = (plugin: LangsoftPlugin) => {
 	return ViewPlugin.fromClass(
 		class testPlugin {
 			constructor(view: EditorView) {
-				this.updateDecorations(view);
-			}
-
-			async updateDecorations(view: EditorView) {
-				const decorations = await getDecorations(view, plugin);
-				console.log(view.visibleRanges)
-				view.dispatch({
-					effects: setDecorations.of(decorations)
-				});
+				// this.dictionaryManager = plugin.dictionaryManager
+				// this.updateDecorations(view);
 			}
 
 			update(update: ViewUpdate) {
 				if (update.docChanged || update.viewportChanged) {
 					// It seems that if the document changes, then the viewport will have automatically changed too
+					console.log(update.view.viewport.from)
+					console.log(update.view.viewport.to)
 
-					console.log(`did the viewport change? ${update.viewportChanged}`)
-					console.log(`did the document change? ${update.docChanged}`)
+					// console.log(`did the viewport change? ${update.viewportChanged}`)
+					// console.log(`did the document change? ${update.docChanged}`)
 
-
-					this.updateDecorations(update.view);
+					// updateDecorations(update.view, plugin);
+					// debouncedUpdate(update.view, plugin)
 
 				}
 			}
@@ -88,7 +118,7 @@ export const testPlugin = (plugin: LangsoftPlugin) => {
 	);
 };
 
-
+// -------------------------------------
 
 // Too scared to delete this for now
 //

@@ -1,4 +1,4 @@
-import { App, debounce, Editor,MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TAbstractFile, WorkspaceLeaf } from 'obsidian';
+import { App, debounce, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TAbstractFile, WorkspaceLeaf } from 'obsidian';
 // import { ViewUpdate, PluginValue, EditorView, ViewPlugin, Decoration, DecorationSet } from "@codemirror/view";
 // import { LangsoftViewPlugin } from 'syntaxHighlight';
 import { LangsoftPluginSettings, DEFAULT_SETTINGS, LangsoftSettingsTab } from 'settings';
@@ -20,49 +20,49 @@ export default class LangsoftPlugin extends Plugin {
 	dictionaryManager: DictionaryManager;
 	// viewPlugin: ViewPlugin<PluginValue>;
 
-	
+
 	async onload() {
 		await this.loadSettings();
 		this.addSettingTab(new LangsoftSettingsTab(this.app, this));
 		this.dictionaryManager = new DictionaryManager(this);
-		const debouncedBuildSmallDict = debounce( async ()=> {
-			await this.dictionaryManager.buildSmallDict()
-		},300,true);
-		this.app.workspace.on("active-leaf-change",() => debouncedBuildSmallDict())
+		// const debouncedBuildSmallDict = debounce( async ()=> {
+		// 	await this.dictionaryManager.buildSmallDict()
+		// },300,true);
+		// this.app.workspace.on("active-leaf-change",() => debouncedBuildSmallDict())
 		// this.extensions = [LangsoftViewPlugin];
 		// this.registerEditorExtension(this.extensions);
 		// this.registerEditorExtension([emojiListField, apiRequestExtension]);
 
 
-		
+
 		// this.viewPlugin = buildExampleViewPlugin(this);
-		this.registerEditorExtension([testPlugin(this),decorationField]);
+		this.registerEditorExtension([testPlugin(this), decorationField]);
 		// this.registerEditorExtension([decorationField,decorationPlugin]);
 		this.styleEl = document.head.createEl("style");
 		this.reloadStyle();
-		
-			
+
+
 		this.registerDomEvent(document.body, "mouseup", () => {
 			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 			if (view) {
 				const selectedText = view.editor.getSelection();
 				if (selectedText !== "") {
-				this.handleSelection(selectedText.trim());
+					this.handleSelection(selectedText.trim());
 				}
 			}
 		}
 		);
 
 
-		
+
 
 		this.registerView(
 			VIEW_TYPE_DEFINER,
-			(leaf) => new DefinerView(leaf,this)
+			(leaf) => new DefinerView(leaf, this)
 		);
 
 
-	
+
 
 	}
 
@@ -74,25 +74,25 @@ export default class LangsoftPlugin extends Plugin {
 	handleSelection(selection: string) {
 		// const results = this.dictionaryManager.searchInWordnetDict(selection);
 		// console.log(results)
-			// new Notice(results);
+		// new Notice(results);
 
-    this.activateView();
+		this.activateView();
 
-    this.app.workspace.getLeavesOfType(VIEW_TYPE_DEFINER).forEach((leaf) => {
-	  if (leaf.view instanceof DefinerView) {
-	    // Access your view instance.
-	    leaf.view.searchTerm.setValue(selection);
-	    // if (results.length > 0) {
-	    // 	try {
-	    // leaf.view.wordDefinition.setValue(results[0]["Definition"]);
-	    // console.log()
-	    // 	} catch (e) {
-	    // 		console.log(e)
-	    // 	}
-	    // }
-		  }
+		this.app.workspace.getLeavesOfType(VIEW_TYPE_DEFINER).forEach((leaf) => {
+			if (leaf.view instanceof DefinerView) {
+				// Access your view instance.
+				leaf.view.searchTerm.setValue(selection);
+				// if (results.length > 0) {
+				// 	try {
+				// leaf.view.wordDefinition.setValue(results[0]["Definition"]);
+				// console.log()
+				// 	} catch (e) {
+				// 		console.log(e)
+				// 	}
+				// }
+			}
 		});
-      
+
 	}
 
 	async loadSettings() {
@@ -128,11 +128,11 @@ export default class LangsoftPlugin extends Plugin {
 	reloadStyle() {
 		this.styleEl.textContent = this.convertSettingsToStyle(this.settings);
 
-    this.app.workspace.getLeavesOfType(VIEW_TYPE_DEFINER).forEach((leaf) => {
-	  if (leaf.view instanceof DefinerView) {
-	    // Access your view instance.
-	    leaf.detach()
-		  }
+		this.app.workspace.getLeavesOfType(VIEW_TYPE_DEFINER).forEach((leaf) => {
+			if (leaf.view instanceof DefinerView) {
+				// Access your view instance.
+				leaf.detach()
+			}
 		});
 	}
 
@@ -158,27 +158,27 @@ export default class LangsoftPlugin extends Plugin {
 	// }
 
 	async activateView() {
-    const { workspace } = this.app;
+		const { workspace } = this.app;
 
-    let leaf: WorkspaceLeaf | null = null;
-    const leaves = workspace.getLeavesOfType(VIEW_TYPE_DEFINER);
+		let leaf: WorkspaceLeaf | null = null;
+		const leaves = workspace.getLeavesOfType(VIEW_TYPE_DEFINER);
 
-    if (leaves.length > 0) {
-      // A leaf with our view already exists, use that
-      leaf = leaves[0];
-    } else {
-      // Our view could not be found in the workspace, create a new leaf
-      // in the right sidebar for it
-      leaf = workspace.getRightLeaf(false);
-      await leaf.setViewState({ type: VIEW_TYPE_DEFINER, active: true });
-    }
-    // "Reveal" the leaf in case it is in a collapsed sidebar
-    workspace.revealLeaf(leaf);
-  }
+		if (leaves.length > 0) {
+			// A leaf with our view already exists, use that
+			leaf = leaves[0];
+		} else {
+			// Our view could not be found in the workspace, create a new leaf
+			// in the right sidebar for it
+			leaf = workspace.getRightLeaf(false);
+			await leaf.setViewState({ type: VIEW_TYPE_DEFINER, active: true });
+		}
+		// "Reveal" the leaf in case it is in a collapsed sidebar
+		workspace.revealLeaf(leaf);
+	}
 
 
 
-	
+
 }
 
 // class SampleModal extends Modal {

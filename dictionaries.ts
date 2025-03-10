@@ -118,19 +118,51 @@ export class DictionaryManager {
 
 
 
-	async isWordInDict(term: string) {
-		if (!term) {
-			return false
-		}
-		const result = this.smallWordnet.find(element => element.SearchTerm === term)
-		if (result) {
-			return true
-		} else {
-			return false
-		}
+	// async isWordInDict(term: string) {
+	// 	if (!term) {
+	// 		return false
+	// 	}
+	// 	// const result = this.wordnet.find(element => element.SearchTerm === term)
+	// 	for (const wordnet of this.wordnet) {
+	// 		if (wordnet.Term === term) {
+	// 			return true
+	// 		}
+	// 	}
+	// 	return false
+	// 	// if (result) {
+	// 	// 	return true
+	// 	// } else {
+	// 	// 	return false
+	// 	// }
+	// }
+
+
+	async isWordInDict(term: string): Promise<boolean> {
+		if (!term) return false;
+		return new Promise(resolve => {
+			setTimeout(() => {
+				// if (term in this.wordnet) {
+				// 	// console.log(term)
+				// 	return true
+				// }
+				for (const wordnet of this.wordnet) {
+					if (wordnet.Term === term) {
+						resolve(true);
+						return;
+					}
+				}
+				resolve(false);
+			}, 0); // Delay of 0ms to push execution to the event loop
+		});
 	}
 
 
+	// async isWordInDict(term: string): Promise<boolean> {
+	// 	return Promise.resolve().then(() => {
+	// 		if (!term) return false;
+	// 		return this.wordnet.some(entry => entry.Term === term);
+	// 	});
+	// }
 
 
 

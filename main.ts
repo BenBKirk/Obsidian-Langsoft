@@ -1,18 +1,27 @@
 import { Editor, MarkdownView, Plugin } from "obsidian";
-import { EditorView, Decoration, DecorationSet, ViewUpdate } from "@codemirror/view";
+import { EditorView, } from "@codemirror/view";
 import { Highlighter } from "highlighter";
+import { DEFAULT_SETTINGS, LangsoftPluginSettings, LangsoftSettingsTab } from "settings";
+import { DictionaryManager } from "dictionaries";
 
 
 export default class LangsoftPlugin extends Plugin {
-	highlighter: Highlighter
+	highlighter: Highlighter;
+	settings: LangsoftPluginSettings;
+	settingsTab: LangsoftSettingsTab
+	dictManager: DictionaryManager
+	styleEl: Element;
 
 
 	async onload() {
-
-		// Register the highlight extension in CodeMirror
-		// this.registerEditorExtension(wordEditTracker);
+		await this.loadSettings()
+		this.settingsTab = new LangsoftSettingsTab(this.app, this)
+		this.addSettingTab(this.settingsTab)
 		this.highlighter = new Highlighter;
 		this.registerEditorExtension(this.highlighter.highlightField);
+		this.dictManager = new DictionaryManager(this)
+		this.styleEl = document.head.createEl("style");
+		this.updateStyle()
 		// this.registerEditorExtension(updateListener);
 
 		// Add command to trigger highlighting
@@ -46,14 +55,40 @@ export default class LangsoftPlugin extends Plugin {
 
 	}
 
+	updateStyle() {
+		this.styleEl.textContent = this.settingsToStyle()
+	}
+
+	settingsToStyle() {
+		let style = "";
+
+		const highlightTypes = ["unknown", "semiknown", "known"]
+		const enabled = [this.settings.unknownEnabled, this.settings.semiknownEnabled, this.settings.knownEnabled]
+		const colors = [this.settings.unknownColor, this.settings.semiknownColor, this.settings.knownColor]
+		for (let i = 0; i < highlightTypes.length; i++) {
+			if (enabled[i]) {
+				style = style.concat(`.${highlightTypes[i]} { color: ${colors[i]};} \n`);
+			}
+		}
+		console.log(style)
+		return style;
+	}
+
+	async loadSettings() {
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+	}
+
+	async saveSettings() {
+		await this.saveData(this.settings)
+	}
+
+
 
 	onunload() {
+		this.styleEl.remove();
 	}
 
 }
-
-
-
 
 
 

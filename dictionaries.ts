@@ -1,8 +1,5 @@
 import LangsoftPlugin from "main";
-import { DecorationSpec, WordPositions } from "syntaxHighlight";
 import * as path from 'path';
-import { EditorView } from "@codemirror/view";
-import { buildHighlightPlugin } from "viewPlugin";
 
 interface Context {
 	Level: string;
@@ -44,7 +41,9 @@ export class DictionaryManager {
 	async init() {
 		//check dictionary folder exists
 		const dictFolder = this.plugin.settings.dictionaryFolder;
+		console.log(dictFolder)
 		const isDictFolder = await this.plugin.app.vault.adapter.exists(dictFolder)
+		console.log("isDictFolder", isDictFolder)
 		if (!isDictFolder) {
 			try {
 				this.plugin.app.vault.adapter.mkdir(dictFolder)
@@ -57,8 +56,8 @@ export class DictionaryManager {
 		const allFilesInFolder = await this.plugin.app.vault.adapter.list(dictFolder);
 		const jsonFiles: string[] = allFilesInFolder.files.filter((file: string) => file.endsWith(".json"));
 
-		//check if primary dictionary exists (<user>_<language>.json)
-		const primaryDict = this.plugin.settings.user + "_" + this.plugin.settings.language + ".json";
+		//check if primary dictionary exists (<user>.json)
+		const primaryDict = this.plugin.settings.user + ".json";
 		const primaryDictFullPath = path.join(dictFolder, primaryDict)
 
 
@@ -166,33 +165,33 @@ export class DictionaryManager {
 
 
 
-	searchInWordnetDict(words: WordPositions[]): DecorationSpec[] {
+	// searchInWordnetDict(words: WordPositions[]): DecorationSpec[] {
+	//
+	// 	const decoSpec: DecorationSpec[] = [];
+	//
+	// 	for (const wordnet of this.wordnet) {
+	// 		for (const word of words) {
+	// 			if (wordnet.SearchTerm === word.word) {
+	// 				decoSpec.push({
+	// 					knownLevel: "known",
+	// 					start: word.startPosInLine,
+	// 					end: word.endPosInLine
+	// 				});
+	// 			}
+	// 		}
+	//
+	// 	}
+	// 	return decoSpec;
+	// }
 
-		const decoSpec: DecorationSpec[] = [];
-
-		for (const wordnet of this.wordnet) {
-			for (const word of words) {
-				if (wordnet.SearchTerm === word.word) {
-					decoSpec.push({
-						knownLevel: "known",
-						start: word.startPosInLine,
-						end: word.endPosInLine
-					});
-				}
-			}
-
-		}
-		return decoSpec;
-	}
-
-	searchWordInDict(word: string) {
-		const results = [];
-		const result = this.wordnet.find(element => element.SearchTerm === word);
-		if (result) {
-			results.push(result);
-		}
-		return results
-	}
+	// searchWordInDict(word: string) {
+	// 	const results = [];
+	// 	const result = this.wordnet.find(element => element.SearchTerm === word);
+	// 	if (result) {
+	// 		results.push(result);
+	// 	}
+	// 	return results
+	// }
 
 
 

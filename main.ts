@@ -1,15 +1,21 @@
-import { Editor, MarkdownView, Plugin, Tfile } from "obsidian";
+import { Editor, MarkdownView, Plugin } from "obsidian";
 import { EditorState, StateField, StateEffect } from "@codemirror/state";
 import { EditorView, Decoration, DecorationSet, ViewUpdate } from "@codemirror/view";
+import { Highlighter } from "highlighter";
 
-export default class HighlightPlugin extends Plugin {
+
+export default class LangsoftPlugin extends Plugin {
+	highlighter: Highlighter
+
+
 	async onload() {
 		console.log("Highlight Plugin loaded");
 
 		// Register the highlight extension in CodeMirror
-		this.registerEditorExtension(highlightField);
 		// this.registerEditorExtension(wordEditTracker);
-		this.registerEditorExtension(updateListener);
+		this.highlighter = new Highlighter;
+		this.registerEditorExtension(this.highlighter.highlightField);
+		// this.registerEditorExtension(updateListener);
 
 
 
@@ -20,7 +26,8 @@ export default class HighlightPlugin extends Plugin {
 			editorCallback: (editor: Editor) => {
 				const view = editor.cm as EditorView; // Get CodeMirror view from Obsidian
 				// if (view) highlightSelection(view);
-				if (view) highlightAllWords(view);
+
+				if (view) this.highlighter.highlightAllWords(view);
 			},
 		});
 
@@ -36,7 +43,7 @@ export default class HighlightPlugin extends Plugin {
 				const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (activeView) {
 					const editorView = activeView.editor.cm as EditorView;
-					highlightAllWords(editorView)
+					this.highlighter.highlightAllWords(editorView);
 				}
 			})
 		);
@@ -67,48 +74,48 @@ export default class HighlightPlugin extends Plugin {
 
 }
 
-function highlightAllWords(view: EditorView) {
-
-	const words: { text: string; from: number; to: number }[] = [];
-	const text = view.state.doc.toString();
-	const regex = /\b\w+\b/g;
-	let match;
-
-	while ((match = regex.exec(text)) !== null) {
-		words.push({ text: match[0], from: match.index, to: match.index + match[0].length });
-	}
-
-	for (const word of words) {
-		if (word.text === "Ben") {
-			view.dispatch({ effects: addHighlight.of({ from: word.from, to: word.to }) });
-		}
-	}
-}
-
-// Define an effect to trigger decoration updates
-const addHighlight = StateEffect.define<{ from: number; to: number }>();
-
-// Define a StateField to manage decorations
-const highlightField = StateField.define<DecorationSet>({
-	create() {
-		return Decoration.none;
-	},
-	update(deco, tr) {
-		// Apply existing decorations to the new state
-		deco = deco.map(tr.changes);
-
-		// Apply effects (e.g., adding a highlight)
-		for (const effect of tr.effects) {
-			if (effect.is(addHighlight)) {
-				const mark = Decoration.mark({ class: "cm-highlight" });
-				deco = deco.update({ add: [mark.range(effect.value.from, effect.value.to)] });
-			}
-		}
-
-		return deco;
-	},
-	provide: (f) => EditorView.decorations.from(f),
-});
+// function highlightAllWords(view: EditorView) {
+//
+// 	const words: { text: string; from: number; to: number }[] = [];
+// 	const text = view.state.doc.toString();
+// 	const regex = /\b\w+\b/g;
+// 	let match;
+//
+// 	while ((match = regex.exec(text)) !== null) {
+// 		words.push({ text: match[0], from: match.index, to: match.index + match[0].length });
+// 	}
+//
+// 	for (const word of words) {
+// 		if (word.text === "Ben") {
+// 			view.dispatch({ effects: addHighlight.of({ from: word.from, to: word.to }) });
+// 		}
+// 	}
+// }
+//
+// // Define an effect to trigger decoration updates
+// const addHighlight = StateEffect.define<{ from: number; to: number }>();
+//
+// // Define a StateField to manage decorations
+// const highlightField = StateField.define<DecorationSet>({
+// 	create() {
+// 		return Decoration.none;
+// 	},
+// 	update(deco, tr) {
+// 		// Apply existing decorations to the new state
+// 		deco = deco.map(tr.changes);
+//
+// 		// Apply effects (e.g., adding a highlight)
+// 		for (const effect of tr.effects) {
+// 			if (effect.is(addHighlight)) {
+// 				const mark = Decoration.mark({ class: "cm-highlight" });
+// 				deco = deco.update({ add: [mark.range(effect.value.from, effect.value.to)] });
+// 			}
+// 		}
+//
+// 		return deco;
+// 	},
+// 	provide: (f) => EditorView.decorations.from(f),
+// });
 
 // // Function to highlight selected text
 // function highlightSelection(view: EditorView) {
@@ -162,35 +169,35 @@ const highlightField = StateField.define<DecorationSet>({
 // });
 
 
-// Update listener to check if user is typing inside a decoration
-const updateListener = EditorView.updateListener.of((update: ViewUpdate) => {
-	if (!update.docChanged) return;
-	const state = update.state;
-	const pos = state.selection.main.head;
-
-	if (isCursorInsideDecoration(state, pos)) {
-		console.log("Cursor is inside a marked word.");
-	} else {
-		console.log("Cursor is in plain text.");
-	}
-});
-
-
+// // Update listener to check if user is typing inside a decoration
+// const updateListener = EditorView.updateListener.of((update: ViewUpdate) => {
+// 	if (!update.docChanged) return;
+// 	const state = update.state;
+// 	const pos = state.selection.main.head;
 //
-// Function to check if cursor is inside a decoration
-// function isUserTyping(state: EditorState,)
-function isCursorInsideDecoration(state: EditorState, pos: number): boolean {
-	const decorations = state.field(highlightField, false);
-	if (!decorations) return false;
-
-	let found = false;
-	decorations.between(pos, pos, () => {
-		found = true;
-		return false; // Stop searching once we find a decoration
-	});
-
-	return found;
-}
+// 	if (isCursorInsideDecoration(state, pos)) {
+// 		console.log("Cursor is inside a marked word.");
+// 	} else {
+// 		console.log("Cursor is in plain text.");
+// 	}
+// });
 
 
-
+////
+//// Function to check if cursor is inside a decoration
+//// function isUserTyping(state: EditorState,)
+//function isCursorInsideDecoration(state: EditorState, pos: number): boolean {
+//	const decorations = state.field(highlightField, false);
+//	if (!decorations) return false;
+//
+//	let found = false;
+//	decorations.between(pos, pos, () => {
+//		found = true;
+//		return false; // Stop searching once we find a decoration
+//	});
+//
+//	return found;
+//}
+//
+//
+//

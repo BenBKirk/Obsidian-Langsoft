@@ -2,9 +2,11 @@
 import { EditorState, StateField, StateEffect } from "@codemirror/state";
 import { EditorView, Decoration, DecorationSet, ViewUpdate } from "@codemirror/view";
 
+// Define an effect to trigger decoration updates
+// Needs to be outside the class properties
+const highlightEffect = StateEffect.define<{ from: number; to: number }>();
+
 export class Highlighter {
-	// Define an effect to trigger decoration updates
-	highlightEffect = StateEffect.define<{ from: number; to: number }>();
 	// Define a StateField to manage decorations
 	highlightField = StateField.define<DecorationSet>({
 		create() {
@@ -15,8 +17,7 @@ export class Highlighter {
 			deco = deco.map(tr.changes);
 			// Apply effects (e.g., adding a highlight)
 			for (const effect of tr.effects) {
-				if (effect.is(this.highlightEffect)) {
-					console.log(effect.value)
+				if (effect.is(highlightEffect)) {
 					const mark = Decoration.mark({ class: "cm-highlight" });
 					deco = deco.update({ add: [mark.range(effect.value.from, effect.value.to)] });
 				}
@@ -39,7 +40,7 @@ export class Highlighter {
 
 		for (const word of words) {
 			if (word.text === "Ben") {
-				view.dispatch({ effects: this.highlightEffect.of({ from: word.from, to: word.to }) });
+				view.dispatch({ effects: highlightEffect.of({ from: word.from, to: word.to }) });
 			}
 		}
 	}

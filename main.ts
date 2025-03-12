@@ -1,5 +1,4 @@
 import { Editor, MarkdownView, Plugin } from "obsidian";
-import { EditorState, StateField, StateEffect } from "@codemirror/state";
 import { EditorView, Decoration, DecorationSet, ViewUpdate } from "@codemirror/view";
 import { Highlighter } from "highlighter";
 
@@ -9,7 +8,6 @@ export default class LangsoftPlugin extends Plugin {
 
 
 	async onload() {
-		console.log("Highlight Plugin loaded");
 
 		// Register the highlight extension in CodeMirror
 		// this.registerEditorExtension(wordEditTracker);
@@ -50,7 +48,6 @@ export default class LangsoftPlugin extends Plugin {
 
 
 	onunload() {
-		console.log("Highlight Plugin unloaded");
 	}
 
 }

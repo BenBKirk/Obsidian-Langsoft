@@ -1,5 +1,5 @@
 import { Editor, MarkdownView, Plugin } from "obsidian";
-import { EditorView, } from "@codemirror/view";
+import { EditorView, hoverTooltip } from "@codemirror/view";
 import { Highlighter } from "highlighter";
 import { DEFAULT_SETTINGS, LangsoftPluginSettings, LangsoftSettingsTab } from "settings";
 import { DictionaryManager } from "dictionaries";
@@ -22,6 +22,7 @@ export default class LangsoftPlugin extends Plugin {
 		this.dictManager = new DictionaryManager(this)
 		this.styleEl = document.head.createEl("style");
 		this.updateStyle()
+		this.registerEditorExtension(wordHover);
 		// this.registerEditorExtension(updateListener);
 
 		// Add command to trigger highlighting
@@ -91,6 +92,33 @@ export default class LangsoftPlugin extends Plugin {
 }
 
 
+export const wordHover = hoverTooltip((view, pos, side) => {
+	const { from, to, text } = view.state.doc.lineAt(pos);
+	let start = pos,
+		end = pos;
+
+	// Expand selection to include the full word
+	while (start > from && /\w/.test(text[start - from - 1])) start--;
+	while (end < to && /\w/.test(text[end - from])) end++;
+
+	if ((start == pos && side < 0) || (end == pos && side > 0)) return null;
+
+	const word = text.slice(start - from, end - from);
+
+
+	return {
+		pos: start,
+		end,
+		above: false, // Position below by default
+		strictSide: true, // Prevents tooltip flipping side unexpectedly
+		create(view) {
+			const dom = document.createElement("div");
+			dom.classList.add("tooltip");
+			dom.textContent = word;
+			return { dom };
+		},
+	};
+});
 
 // // Update listener to check if user is typing inside a decoration
 // const updateListener = EditorView.updateListener.of((update: ViewUpdate) => {

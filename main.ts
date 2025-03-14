@@ -57,6 +57,25 @@ export default class LangsoftPlugin extends Plugin {
 			})
 		);
 
+
+		let debounceTimer: number | null = null;
+		this.registerEvent(
+			this.app.workspace.on("active-leaf-change", (leaf) => {
+				if (debounceTimer) {
+					clearTimeout(debounceTimer);
+				}
+
+				debounceTimer = window.setTimeout(() => {
+					if (leaf?.view instanceof MarkdownView) {
+						const editorView = leaf.view.editor.cm;
+						console.log("called");
+						this.highlighter.highlightAllWords(editorView);
+					}
+				}, 200);
+			})
+		);
+
+
 	}
 
 	updateStyle() {

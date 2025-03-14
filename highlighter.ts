@@ -62,7 +62,7 @@ export class Highlighter {
 	}
 
 	async removeAllHightlights(view: EditorView) {
-		console.log("clearrrrrring")
+		// console.log("clearrrrrring")
 		view.dispatch({ effects: removeAllDecorationsEffect.of() });
 	}
 }

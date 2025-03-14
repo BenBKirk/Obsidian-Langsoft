@@ -22,7 +22,7 @@ export default class LangsoftPlugin extends Plugin {
 		this.dictManager = new DictionaryManager(this)
 		this.styleEl = document.head.createEl("style");
 		this.updateStyle()
-		this.registerEditorExtension(wordHover);
+		this.registerEditorExtension(this.wordHover);
 		// this.registerEditorExtension(updateListener);
 
 		// Add command to trigger highlighting
@@ -71,7 +71,6 @@ export default class LangsoftPlugin extends Plugin {
 				style = style.concat(`.${highlightTypes[i]} { color: ${colors[i]};} \n`);
 			}
 		}
-		console.log(style)
 		return style;
 	}
 
@@ -83,6 +82,70 @@ export default class LangsoftPlugin extends Plugin {
 		await this.saveData(this.settings)
 	}
 
+	wordHover = hoverTooltip((view, pos, side) => {
+		const { from, to, text } = view.state.doc.lineAt(pos);
+		let start = pos,
+			end = pos;
+
+		// Expand selection to include the full word
+		while (start > from && /\w/.test(text[start - from - 1])) start--;
+		while (end < to && /\w/.test(text[end - from])) end++;
+
+		if ((start == pos && side < 0) || (end == pos && side > 0)) return null;
+
+		const word = text.slice(start - from, end - from);
+
+		// Placeholder tooltip while we fetch the definition
+		const dom = document.createElement("div");
+		dom.classList.add("tooltip");
+		dom.textContent = `Looking up "${word}"...`;
+
+		// Fetch the dictionary definition asynchronously
+		this.dictManager.searchUserDict(word).then((definition) => {
+			dom.textContent = definition ? `${word}: ${definition}` : `"${word}" not found.`;
+		});
+
+		return {
+			pos: start,
+			end,
+			above: false,
+			strictSide: true,
+			create(view) {
+				return { dom };
+			},
+		};
+	});
+
+	// wordHover = hoverTooltip((view, pos, side) => {
+	// 	const { from, to, text } = view.state.doc.lineAt(pos);
+	// 	let start = pos,
+	// 		end = pos;
+	//
+	// 	// Expand selection to include the full word
+	// 	while (start > from && /\w/.test(text[start - from - 1])) start--;
+	// 	while (end < to && /\w/.test(text[end - from])) end++;
+	//
+	// 	if ((start == pos && side < 0) || (end == pos && side > 0)) return null;
+	//
+	// 	const word = text.slice(start - from, end - from);
+	//
+	// 	this.dictManager.searchUserDict(word).then((definition) => {
+	// 		// dom.textContent = definition ? `${word}: ${definition}` : `"${word}" not found.`;
+	// 	});
+	//
+	// 	return {
+	// 		pos: start,
+	// 		end,
+	// 		above: false,
+	// 		strictSide: true,
+	// 		create(view) {
+	// 			const dom = document.createElement("div");
+	// 			dom.classList.add("tooltip");
+	// 			dom.textContent = word;
+	// 			return { dom };
+	// 		},
+	// 	};
+	// });
 
 
 	onunload() {
@@ -92,33 +155,34 @@ export default class LangsoftPlugin extends Plugin {
 }
 
 
-export const wordHover = hoverTooltip((view, pos, side) => {
-	const { from, to, text } = view.state.doc.lineAt(pos);
-	let start = pos,
-		end = pos;
+// export const wordHover = hoverTooltip((view, pos, side) => {
+// 	const { from, to, text } = view.state.doc.lineAt(pos);
+// 	let start = pos,
+// 		end = pos;
+//
+// 	// Expand selection to include the full word
+// 	while (start > from && /\w/.test(text[start - from - 1])) start--;
+// 	while (end < to && /\w/.test(text[end - from])) end++;
+//
+// 	if ((start == pos && side < 0) || (end == pos && side > 0)) return null;
+//
+// 	const word = text.slice(start - from, end - from);
+//
+//
+// 	return {
+// 		pos: start,
+// 		end,
+// 		above: false, // Position below by default
+// 		strictSide: true, // Prevents tooltip flipping side unexpectedly
+// 		create(view) {
+// 			const dom = document.createElement("div");
+// 			dom.classList.add("tooltip");
+// 			dom.textContent = word;
+// 			return { dom };
+// 		},
+// 	};
+// });
 
-	// Expand selection to include the full word
-	while (start > from && /\w/.test(text[start - from - 1])) start--;
-	while (end < to && /\w/.test(text[end - from])) end++;
-
-	if ((start == pos && side < 0) || (end == pos && side > 0)) return null;
-
-	const word = text.slice(start - from, end - from);
-
-
-	return {
-		pos: start,
-		end,
-		above: false, // Position below by default
-		strictSide: true, // Prevents tooltip flipping side unexpectedly
-		create(view) {
-			const dom = document.createElement("div");
-			dom.classList.add("tooltip");
-			dom.textContent = word;
-			return { dom };
-		},
-	};
-});
 
 // // Update listener to check if user is typing inside a decoration
 // const updateListener = EditorView.updateListener.of((update: ViewUpdate) => {

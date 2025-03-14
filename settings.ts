@@ -9,7 +9,6 @@ export interface LangsoftPluginSettings {
 	semiknownColor: string,
 	knownEnabled: boolean,
 	knownColor: string,
-	wordsToOverride: string,
 	user: string,
 	dictionaryFolder: string
 }
@@ -21,7 +20,6 @@ export const DEFAULT_SETTINGS: LangsoftPluginSettings = {
 	semiknownColor: "#FFFF00",
 	knownEnabled: true,
 	knownColor: "#93FF85",
-	wordsToOverride: "",
 	user: "ben",
 	dictionaryFolder: ".langsoft_dictionaries"
 }

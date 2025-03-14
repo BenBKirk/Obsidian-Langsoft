@@ -1,76 +1,128 @@
 import LangsoftPlugin from "main";
 import * as path from 'path';
 
+
 interface Context {
-	Level: string;
-	TimeStamp: Date;
-	File: string;
-	Sentence: string;
+	level: string;
+	timeStamp: string;
+	file: string;
+	sentence: string;
 }
 
 interface Definition {
 	Definition: string;
-	Contexts: Context[];
+	contexts: Context[];
 }
 
-interface Term {
+// a list of entries makes up a dictionary
+interface Entry {
 	Term: string;
 	Definitions: Definition[];
 }
 
-
-interface Definition {
-	SearchTerm: string,
-	Term: string,
-	Definition: string
+interface Dictionary {
+	entry: Entry[];
 }
+// a bookself can hold more than one dictionary (useful for holding coworkers dictionaries)
+interface Bookshelf {
+	dictionary: Dictionary[];
+}
+
 
 
 export class DictionaryManager {
 	plugin: LangsoftPlugin;
-	wordnet: Definition[];
-	smallWordnet: Definition[];
+	userDict: Entry[];
+	coworkersDict: Bookshelf;
+	dictFolder: string;
+	availableDictionaries: string[];
+	wordnet: string;
 
 	constructor(plugin: LangsoftPlugin) {
 		this.plugin = plugin;
-		this.loadWordnetDict();
+		this.loadWordnetDict()
 		this.init();
-		// this.buildSmallDict();
 	}
 
 	async init() {
 		//check dictionary folder exists
-		const dictFolder = this.plugin.settings.dictionaryFolder;
-		console.log(dictFolder)
-		const isDictFolder = await this.plugin.app.vault.adapter.exists(dictFolder)
-		console.log("isDictFolder", isDictFolder)
+		//
+		this.dictFolder = await this.getDictionaryFolder();
+		this.availableDictionaries = await this.getAvailableDictionaries();
+		this.userDict = await this.loadPrimaryDictionary();
+
+
+
+	}
+
+	async getDictionaryFolder() {
+		const dictName = this.plugin.settings.dictionaryFolder;
+		const isDictFolder = await this.plugin.app.vault.adapter.exists(dictName, true);
+
 		if (!isDictFolder) {
 			try {
-				this.plugin.app.vault.adapter.mkdir(dictFolder)
+				this.plugin.app.vault.adapter.mkdir(dictName);
 			} catch (e) {
-				console.log(e)
+				console.log(e);
 			}
 		}
+		return dictName;
 
+	}
+
+	async getAvailableDictionaries() {
 		//get a list of JSON dictionaries in folder
-		const allFilesInFolder = await this.plugin.app.vault.adapter.list(dictFolder);
+		const allFilesInFolder = await this.plugin.app.vault.adapter.list(this.dictFolder);
 		const jsonFiles: string[] = allFilesInFolder.files.filter((file: string) => file.endsWith(".json"));
+		return jsonFiles;
+	}
 
+	async loadPrimaryDictionary() {
 		//check if primary dictionary exists (<user>.json)
 		const primaryDict = this.plugin.settings.user + ".json";
-		const primaryDictFullPath = path.join(dictFolder, primaryDict)
+		const primaryDictFullPath: string = path.join(this.dictFolder, primaryDict).toString();
 
+		if (this.availableDictionaries.includes(primaryDictFullPath)) {
 
-		if (jsonFiles.includes(primaryDictFullPath) !== true) {
-			//need to create one
+			const dict = await this.plugin.app.vault.adapter.read(primaryDictFullPath);
+			// load into memory
+			// this.userDict = JSON.parse(dict);
+			return JSON.parse(dict);
+
+		} else {
+			//need to create a dcin
 			try {
+				console.log("creating new empty dictionary: ", primaryDictFullPath)
 				await this.plugin.app.vault.adapter.write(primaryDictFullPath, '')
 			} catch (e) {
 				console.log(e)
 			}
+			return {} as JSON;
+		}
+	}
+
+	async searchUserDict(searchTerm: string) {
+		if (!searchTerm) {
+			return;
+		}
+		if (!this.userDict) {
+			return;
 		}
 
+		for (const entry of this.userDict) {
+			if (entry.Term.toLowerCase() === searchTerm.toLowerCase()) {
+				return entry.Definitions[0].Definition;
+			}
+		}
+
+		// for (const item of this.wordnet) {
+		// 	if (item.Term === searchTerm.toLowerCase()) {
+		// 		return item.Definition;
+		// 	}
+		// }
+
 	}
+
 
 	async loadWordnetDict() {
 		const jsonPath = "dict-WordNet.json";
@@ -80,124 +132,6 @@ export class DictionaryManager {
 
 		}
 	}
-
-	async buildSmallDict() {
-		// loop through all words in current file and append them to a smaller list of unique words that have been seen
-		const activeFile = this.plugin.app.workspace.getActiveFile()
-		if (activeFile) {
-			const file = await this.plugin.app.vault.read(activeFile)
-			const wordRegex = /\b\w+\b/g;
-			const words = file.match(wordRegex);
-			const uniqueWords = new Set(words);
-
-			const results = [];
-
-			for (const word of uniqueWords) {
-				const result = this.wordnet.find(element => element.SearchTerm === word);
-				if (result) {
-					results.push(result);
-				}
-			}
-			this.smallWordnet = results;
-		}
-
-	}
-
-	isWordInSmallDict(term: string) {
-		if (!term) {
-			return false
-		}
-		const result = this.smallWordnet.find(element => element.SearchTerm === term)
-		if (result) {
-			return true
-		} else {
-			return false
-		}
-	}
-
-
-
-	// async isWordInDict(term: string) {
-	// 	if (!term) {
-	// 		return false
-	// 	}
-	// 	// const result = this.wordnet.find(element => element.SearchTerm === term)
-	// 	for (const wordnet of this.wordnet) {
-	// 		if (wordnet.Term === term) {
-	// 			return true
-	// 		}
-	// 	}
-	// 	return false
-	// 	// if (result) {
-	// 	// 	return true
-	// 	// } else {
-	// 	// 	return false
-	// 	// }
-	// }
-
-
-	async isWordInDict(term: string): Promise<boolean> {
-		if (!term) return false;
-		return new Promise(resolve => {
-			setTimeout(() => {
-				// if (term in this.wordnet) {
-				// 	// console.log(term)
-				// 	return true
-				// }
-				for (const wordnet of this.wordnet) {
-					if (wordnet.Term === term) {
-						resolve(true);
-						return;
-					}
-				}
-				resolve(false);
-			}, 0); // Delay of 0ms to push execution to the event loop
-		});
-	}
-
-
-	// async isWordInDict(term: string): Promise<boolean> {
-	// 	return Promise.resolve().then(() => {
-	// 		if (!term) return false;
-	// 		return this.wordnet.some(entry => entry.Term === term);
-	// 	});
-	// }
-
-
-
-	// searchInWordnetDict(words: WordPositions[]): DecorationSpec[] {
-	//
-	// 	const decoSpec: DecorationSpec[] = [];
-	//
-	// 	for (const wordnet of this.wordnet) {
-	// 		for (const word of words) {
-	// 			if (wordnet.SearchTerm === word.word) {
-	// 				decoSpec.push({
-	// 					knownLevel: "known",
-	// 					start: word.startPosInLine,
-	// 					end: word.endPosInLine
-	// 				});
-	// 			}
-	// 		}
-	//
-	// 	}
-	// 	return decoSpec;
-	// }
-
-	// searchWordInDict(word: string) {
-	// 	const results = [];
-	// 	const result = this.wordnet.find(element => element.SearchTerm === word);
-	// 	if (result) {
-	// 		results.push(result);
-	// 	}
-	// 	return results
-	// }
-
-
-
-
-
-
 
 
 

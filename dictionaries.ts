@@ -10,14 +10,14 @@ interface Context {
 }
 
 interface Definition {
-	Definition: string;
+	definition: string;
 	contexts: Context[];
 }
 
 // a list of entries makes up a dictionary
 interface Entry {
-	Term: string;
-	Definitions: Definition[];
+	term: string;
+	definitions: Definition[];
 }
 
 interface Dictionary {
@@ -47,12 +47,9 @@ export class DictionaryManager {
 	async init() {
 		//check dictionary folder exists
 		//
-		this.dictFolder = await this.getDictionaryFolder();
-		this.availableDictionaries = await this.getAvailableDictionaries();
-		this.userDict = await this.loadPrimaryDictionary();
-
-
-
+		await this.getDictionaryFolder();
+		await this.getAvailableDictionaries();
+		await this.loadPrimaryDictionary();
 	}
 
 	async getDictionaryFolder() {
@@ -66,15 +63,14 @@ export class DictionaryManager {
 				console.log(e);
 			}
 		}
-		return dictName;
-
+		this.dictFolder = dictName;
 	}
 
 	async getAvailableDictionaries() {
 		//get a list of JSON dictionaries in folder
 		const allFilesInFolder = await this.plugin.app.vault.adapter.list(this.dictFolder);
-		const jsonFiles: string[] = allFilesInFolder.files.filter((file: string) => file.endsWith(".json"));
-		return jsonFiles;
+		const jsonFiles = allFilesInFolder.files.filter((file: string) => file.endsWith(".json"));
+		this.availableDictionaries = jsonFiles;
 	}
 
 	async loadPrimaryDictionary() {
@@ -87,31 +83,33 @@ export class DictionaryManager {
 			const dict = await this.plugin.app.vault.adapter.read(primaryDictFullPath);
 			// load into memory
 			// this.userDict = JSON.parse(dict);
-			return JSON.parse(dict);
+			if (dict) {
+				this.userDict = JSON.parse(dict);
+			}
 
 		} else {
 			//need to create a dcin
 			try {
 				console.log("creating new empty dictionary: ", primaryDictFullPath)
-				await this.plugin.app.vault.adapter.write(primaryDictFullPath, '')
+				await this.plugin.app.vault.adapter.write(primaryDictFullPath, "[]")
+				this.userDict = [];
 			} catch (e) {
 				console.log(e)
 			}
-			return {} as JSON;
 		}
 	}
 
 	async searchUserDict(searchTerm: string) {
 		if (!searchTerm) {
-			return;
+			return false;
 		}
-		if (!this.userDict) {
-			return;
+		if (this.userDict.length < 1) {
+			return false;
 		}
 
 		for (const entry of this.userDict) {
-			if (entry.Term.toLowerCase() === searchTerm.toLowerCase()) {
-				return entry.Definitions[0].Definition;
+			if (entry.term.toLowerCase() === searchTerm.toLowerCase()) {
+				return entry;
 			}
 		}
 

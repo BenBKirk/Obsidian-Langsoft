@@ -1,12 +1,19 @@
 
 import { EditorState, StateField, StateEffect } from "@codemirror/state";
 import { EditorView, Decoration, DecorationSet, ViewUpdate } from "@codemirror/view";
+import LangsoftPlugin from "main";
 
 // Define an effect to trigger decoration updates
 // Needs to be outside the class properties
 const highlightEffect = StateEffect.define<{ class: string; from: number; to: number }>();
+const removeAllDecorationsEffect = StateEffect.define<void>();
 
 export class Highlighter {
+	plugin: LangsoftPlugin;
+
+	constructor(plugin: LangsoftPlugin) {
+		this.plugin = plugin
+	}
 	// Define a StateField to manage decorations
 	highlightField = StateField.define<DecorationSet>({
 		create() {
@@ -25,6 +32,8 @@ export class Highlighter {
 					}).range(effect.value.from, effect.value.to);
 
 					deco = deco.update({ add: [mark] });
+				} else if (effect.is(removeAllDecorationsEffect)) {
+					deco = Decoration.none;
 				}
 			}
 			return deco;
@@ -33,7 +42,7 @@ export class Highlighter {
 	});
 
 
-	highlightAllWords(view: EditorView) {
+	async highlightAllWords(view: EditorView) {
 		const words: { text: string; from: number; to: number }[] = [];
 		const text = view.state.doc.toString();
 		const regex = /\b\w+\b/g;
@@ -44,12 +53,17 @@ export class Highlighter {
 		}
 
 		for (const word of words) {
-			if (word.text === "Ben") {
-				view.dispatch({ effects: highlightEffect.of({ class: "known", from: word.from, to: word.to }) });
+			const entry = await this.plugin.dictManager.searchUserDict(word.text)
+			if (entry) {
+				const fam = entry.definitions[0].contexts[0].level
+				view.dispatch({ effects: highlightEffect.of({ class: fam, from: word.from, to: word.to }) });
 			}
-			if (word.text === "Tabea")
-				view.dispatch({ effects: highlightEffect.of({ class: "unknown", from: word.from, to: word.to }) });
 		}
+	}
+
+	async removeAllHightlights(view: EditorView) {
+		console.log("clearrrrrring")
+		view.dispatch({ effects: removeAllDecorationsEffect.of() });
 	}
 }
 

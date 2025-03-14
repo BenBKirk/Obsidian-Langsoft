@@ -17,7 +17,7 @@ export default class LangsoftPlugin extends Plugin {
 		await this.loadSettings()
 		this.settingsTab = new LangsoftSettingsTab(this.app, this)
 		this.addSettingTab(this.settingsTab)
-		this.highlighter = new Highlighter;
+		this.highlighter = new Highlighter(this);
 		this.registerEditorExtension(this.highlighter.highlightField);
 		this.dictManager = new DictionaryManager(this)
 		this.styleEl = document.head.createEl("style");
@@ -33,7 +33,10 @@ export default class LangsoftPlugin extends Plugin {
 				const view = editor.cm as EditorView; // Get CodeMirror view from Obsidian
 				// if (view) highlightSelection(view);
 
-				if (view) this.highlighter.highlightAllWords(view);
+				if (view) {
+					this.highlighter.removeAllHightlights(view);
+					this.highlighter.highlightAllWords(view);
+				}
 			},
 		});
 
@@ -79,7 +82,8 @@ export default class LangsoftPlugin extends Plugin {
 	}
 
 	async saveSettings() {
-		await this.saveData(this.settings)
+		await this.saveData(this.settings);
+		await this.dictManager.init();
 	}
 
 	wordHover = hoverTooltip((view, pos, side) => {
@@ -102,7 +106,7 @@ export default class LangsoftPlugin extends Plugin {
 
 		// Fetch the dictionary definition asynchronously
 		this.dictManager.searchUserDict(word).then((definition) => {
-			dom.textContent = definition ? `${word}: ${definition}` : `"${word}" not found.`;
+			dom.textContent = definition ? `${word}: ${definition.definitions[0].definition}` : `"${word}" not found.`;
 		});
 
 		return {

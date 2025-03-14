@@ -28,6 +28,13 @@ export const DEFAULT_SETTINGS: LangsoftPluginSettings = {
 export class LangsoftSettingsTab extends PluginSettingTab {
 	plugin: LangsoftPlugin;
 
+	hide(): void {
+		console.log("Settings tab closed");
+		// Perform any cleanup or actions you need
+		this.plugin.saveSettings()
+		super.hide();
+	}
+
 	constructor(app: App, plugin: LangsoftPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
@@ -50,7 +57,7 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 				.setTooltip("Enable / Disable")
 				.onChange(async (value) => {
 					this.plugin.settings.unknownEnabled = value;
-					await this.plugin.saveSettings();
+					// await this.plugin.saveSettings();
 					this.plugin.updateStyle();
 				})
 
@@ -62,7 +69,7 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 			.setValue(this.plugin.settings.unknownColor)
 			.onChange(async (value) => {
 				this.plugin.settings.unknownColor = value;
-				await this.plugin.saveSettings();
+				// await this.plugin.saveSettings();
 				this.plugin.updateStyle();
 			}));
 
@@ -78,7 +85,7 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 				.setTooltip("Enable / Disable")
 				.onChange(async (value) => {
 					this.plugin.settings.semiknownEnabled = value;
-					await this.plugin.saveSettings();
+					// await this.plugin.saveSettings();
 					this.plugin.updateStyle();
 				})
 		}
@@ -88,7 +95,7 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 			.setValue(this.plugin.settings.semiknownColor)
 			.onChange(async (value) => {
 				this.plugin.settings.semiknownColor = value;
-				await this.plugin.saveSettings();
+				// await this.plugin.saveSettings();
 				this.plugin.updateStyle();
 			}));
 
@@ -105,7 +112,7 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 				.setTooltip("Enable / Disable")
 				.onChange(async (value) => {
 					this.plugin.settings.knownEnabled = value;
-					await this.plugin.saveSettings();
+					// await this.plugin.saveSettings();
 					this.plugin.updateStyle();
 				})
 		}
@@ -115,7 +122,7 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 			.setValue(this.plugin.settings.knownColor)
 			.onChange(async (value) => {
 				this.plugin.settings.knownColor = value;
-				await this.plugin.saveSettings();
+				// await this.plugin.saveSettings();
 				this.plugin.updateStyle();
 			}));
 
@@ -130,7 +137,7 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 					.setTooltip("Reset to default")
 					.onClick(async () => {
 						this.plugin.settings.dictionaryFolder = DEFAULT_SETTINGS.dictionaryFolder;
-						await this.plugin.saveSettings();
+						// await this.plugin.saveSettings();
 						tac.setValue(this.plugin.settings.dictionaryFolder)
 					});
 			})
@@ -140,7 +147,7 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 				c.onChange(async (value: string) => {
 					const newValue = value.trim().length === 0 ? DEFAULT_SETTINGS.dictionaryFolder : value.trim();
 					this.plugin.settings.dictionaryFolder = newValue;
-					await this.plugin.saveSettings();
+					// await this.plugin.saveSettings();
 				})
 			});
 
@@ -157,7 +164,7 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 				c.onChange(async (value: string) => {
 					const newValue = value.trim().length === 0 ? DEFAULT_SETTINGS.user : value.trim();
 					this.plugin.settings.user = newValue;
-					await this.plugin.saveSettings();
+					// await this.plugin.saveSettings();
 				});
 			});
 		users.addDropdown((dropdown) => {
@@ -168,7 +175,7 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 			dropdown.onChange(async (value: string) => {
 				const newValue = value.trim().length === 0 ? DEFAULT_SETTINGS.user : value.trim();
 				this.plugin.settings.user = newValue;
-				await this.plugin.saveSettings();
+				// await this.plugin.saveSettings();
 				tac.setValue(this.plugin.settings.user);
 			})
 		});

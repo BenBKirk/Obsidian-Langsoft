@@ -21,6 +21,7 @@ export class DefinerView extends ItemView {
 	constructor(leaf: WorkspaceLeaf, plugin: LangsoftPlugin) {
 		super(leaf);
 		this.plugin = plugin;
+		console.log("instance created")
 	}
 
 	getViewType() {

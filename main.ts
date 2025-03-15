@@ -1,4 +1,4 @@
-import { Editor, MarkdownView, Plugin } from "obsidian";
+import { Editor, MarkdownView, Plugin, WorkspaceLeaf } from "obsidian";
 import { EditorView, hoverTooltip, ViewUpdate } from "@codemirror/view";
 import { Highlighter } from "highlighter";
 import { DEFAULT_SETTINGS, LangsoftPluginSettings, LangsoftSettingsTab } from "settings";
@@ -41,51 +41,26 @@ export default class LangsoftPlugin extends Plugin {
 			},
 		});
 
+		this.registerView(
+			VIEW_TYPE_DEFINER,
+			(leaf) => new DefinerView(leaf, this)
+		);
+
 		this.registerDomEvent(document.body, "mouseup", () => {
 			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 			if (view) {
 				const selectedText = view.editor.getSelection();
 				const cursor = view.editor.getCursor();
 				if (selectedText !== "") {
-					console.log(selectedText);
-					console.log(cursor)
-					console.log(view.editor.posToOffset(cursor))
+					// console.log(selectedText);
+					// console.log(cursor)
+					// console.log(view.editor.posToOffset(cursor))
+					this.activateView()
 
 				}
 			}
 		}
 		);
-		//
-		this.registerView(
-			VIEW_TYPE_DEFINER,
-			(leaf) => new DefinerView(leaf, this)
-		);
-
-		// async activateView() {
-		// 	const { workspace } = this.app;
-		//
-		// 	let leaf: WorkspaceLeaf | null = null;
-		// 	const leaves = workspace.getLeavesOfType(VIEW_TYPE_EXAMPLE);
-		//
-		// 	if (leaves.length > 0) {
-		// 		// A leaf with our view already exists, use that
-		// 		leaf = leaves[0];
-		// 	} else {
-		// 		// Our view could not be found in the workspace, create a new leaf
-		// 		// in the right sidebar for it
-		// 		leaf = workspace.getRightLeaf(false);
-		// 		await leaf.setViewState({ type: VIEW_TYPE_EXAMPLE, active: true });
-		// 	}
-		//
-		// 	// "Reveal" the leaf in case it is in a collapsed sidebar
-		// 	workspace.revealLeaf(leaf);
-		// }
-
-		// this.registerEvent(
-		// 	this.app.workspace.on("active-leaf-change", () => {
-		// 		this.highlightInActiveView();
-		// 	})
-		// );
 
 		this.registerEvent(
 			this.app.workspace.onLayoutReady(() => {
@@ -178,6 +153,27 @@ export default class LangsoftPlugin extends Plugin {
 			},
 		};
 	});
+
+	async activateView() {
+		console.log("called")
+		const { workspace } = this.app;
+
+		let leaf: WorkspaceLeaf | null = null;
+		const leaves = workspace.getLeavesOfType(VIEW_TYPE_DEFINER);
+
+		if (leaves.length > 0) {
+			// A leaf with our view already exists, use that
+			leaf = leaves[0];
+		} else {
+			// Our view could not be found in the workspace, create a new leaf
+			// in the right sidebar for it
+			leaf = workspace.getRightLeaf(false);
+
+			await leaf.setViewState({ type: VIEW_TYPE_DEFINER, active: true });
+		}
+		// "Reveal" the leaf in case it is in a collapsed sidebar
+		workspace.revealLeaf(leaf);
+	}
 
 
 

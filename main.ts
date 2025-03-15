@@ -1,8 +1,9 @@
 import { Editor, MarkdownView, Plugin } from "obsidian";
-import { EditorView, hoverTooltip } from "@codemirror/view";
+import { EditorView, hoverTooltip, ViewUpdate } from "@codemirror/view";
 import { Highlighter } from "highlighter";
 import { DEFAULT_SETTINGS, LangsoftPluginSettings, LangsoftSettingsTab } from "settings";
 import { DictionaryManager } from "dictionaries";
+import { VIEW_TYPE_DEFINER, DefinerView } from "definer";
 
 
 export default class LangsoftPlugin extends Plugin {
@@ -23,7 +24,7 @@ export default class LangsoftPlugin extends Plugin {
 		this.styleEl = document.head.createEl("style");
 		this.updateStyle()
 		this.registerEditorExtension(this.wordHover);
-		// this.registerEditorExtension(updateListener);
+		// this.registerEditorExtension(selectionUpdateListener);
 
 		// Add command to trigger highlighting
 		this.addCommand({
@@ -39,6 +40,46 @@ export default class LangsoftPlugin extends Plugin {
 				}
 			},
 		});
+
+		this.registerDomEvent(document.body, "mouseup", () => {
+			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+			if (view) {
+				const selectedText = view.editor.getSelection();
+				const cursor = view.editor.getCursor();
+				if (selectedText !== "") {
+					console.log(selectedText);
+					console.log(cursor)
+					console.log(view.editor.posToOffset(cursor))
+
+				}
+			}
+		}
+		);
+		//
+		this.registerView(
+			VIEW_TYPE_DEFINER,
+			(leaf) => new DefinerView(leaf, this)
+		);
+
+		// async activateView() {
+		// 	const { workspace } = this.app;
+		//
+		// 	let leaf: WorkspaceLeaf | null = null;
+		// 	const leaves = workspace.getLeavesOfType(VIEW_TYPE_EXAMPLE);
+		//
+		// 	if (leaves.length > 0) {
+		// 		// A leaf with our view already exists, use that
+		// 		leaf = leaves[0];
+		// 	} else {
+		// 		// Our view could not be found in the workspace, create a new leaf
+		// 		// in the right sidebar for it
+		// 		leaf = workspace.getRightLeaf(false);
+		// 		await leaf.setViewState({ type: VIEW_TYPE_EXAMPLE, active: true });
+		// 	}
+		//
+		// 	// "Reveal" the leaf in case it is in a collapsed sidebar
+		// 	workspace.revealLeaf(leaf);
+		// }
 
 		// this.registerEvent(
 		// 	this.app.workspace.on("active-leaf-change", () => {
@@ -58,17 +99,16 @@ export default class LangsoftPlugin extends Plugin {
 		);
 
 
-		let debounceTimer: number | null = null;
+		let debounceTimerLeafChange: number | null = null;
 		this.registerEvent(
 			this.app.workspace.on("active-leaf-change", (leaf) => {
-				if (debounceTimer) {
-					clearTimeout(debounceTimer);
+				if (debounceTimerLeafChange) {
+					clearTimeout(debounceTimerLeafChange);
 				}
 
-				debounceTimer = window.setTimeout(() => {
+				debounceTimerLeafChange = window.setTimeout(() => {
 					if (leaf?.view instanceof MarkdownView) {
 						const editorView = leaf.view.editor.cm;
-						console.log("called");
 						this.highlighter.highlightAllWords(editorView);
 					}
 				}, 200);
@@ -139,36 +179,6 @@ export default class LangsoftPlugin extends Plugin {
 		};
 	});
 
-	// wordHover = hoverTooltip((view, pos, side) => {
-	// 	const { from, to, text } = view.state.doc.lineAt(pos);
-	// 	let start = pos,
-	// 		end = pos;
-	//
-	// 	// Expand selection to include the full word
-	// 	while (start > from && /\w/.test(text[start - from - 1])) start--;
-	// 	while (end < to && /\w/.test(text[end - from])) end++;
-	//
-	// 	if ((start == pos && side < 0) || (end == pos && side > 0)) return null;
-	//
-	// 	const word = text.slice(start - from, end - from);
-	//
-	// 	this.dictManager.searchUserDict(word).then((definition) => {
-	// 		// dom.textContent = definition ? `${word}: ${definition}` : `"${word}" not found.`;
-	// 	});
-	//
-	// 	return {
-	// 		pos: start,
-	// 		end,
-	// 		above: false,
-	// 		strictSide: true,
-	// 		create(view) {
-	// 			const dom = document.createElement("div");
-	// 			dom.classList.add("tooltip");
-	// 			dom.textContent = word;
-	// 			return { dom };
-	// 		},
-	// 	};
-	// });
 
 
 	onunload() {
@@ -207,19 +217,29 @@ export default class LangsoftPlugin extends Plugin {
 // });
 
 
-// // Update listener to check if user is typing inside a decoration
-// const updateListener = EditorView.updateListener.of((update: ViewUpdate) => {
-// 	if (!update.docChanged) return;
-// 	const state = update.state;
-// 	const pos = state.selection.main.head;
-//
-// 	if (isCursorInsideDecoration(state, pos)) {
-// 		console.log("Cursor is inside a marked word.");
-// 	} else {
-// 		console.log("Cursor is in plain text.");
-// 	}
-// });
+let debounceTimerSelectionChange: number | null = null;
+const selectionUpdateListener = EditorView.updateListener.of((update: ViewUpdate) => {
+	if (!update.selectionSet) return;
+	if (debounceTimerSelectionChange) clearTimeout(debounceTimerSelectionChange);
+	debounceTimerSelectionChange = setTimeout(() => {
+		const from = update.state.selection.ranges[0].from;
+		const to = update.state.selection.ranges[0].to;
+		if (from === to) {
+			console.log("just clicked")
+		} else {
+			console.log("selected something")
+		}
+		// console.log(from, to);
+		// if (update.state.selection.ranges.length)
+	}, 200);
+});
 
+
+	// if (isCursorInsideDecoration(state, pos)) {
+	// 	console.log("Cursor is inside a marked word.");
+	// } else {
+	// 	console.log("Cursor is in plain text.");
+	// }
 
 ////
 //// Function to check if cursor is inside a decoration

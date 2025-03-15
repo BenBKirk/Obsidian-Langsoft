@@ -41,6 +41,7 @@ export default class LangsoftPlugin extends Plugin {
 			},
 		});
 
+
 		this.registerView(
 			VIEW_TYPE_DEFINER,
 			(leaf) => new DefinerView(leaf, this)
@@ -50,12 +51,14 @@ export default class LangsoftPlugin extends Plugin {
 			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 			if (view) {
 				const selectedText = view.editor.getSelection();
-				const cursor = view.editor.getCursor();
+				// const cursor = view.editor.getCursor();
 				if (selectedText !== "") {
 					// console.log(selectedText);
 					// console.log(cursor)
 					// console.log(view.editor.posToOffset(cursor))
 					this.activateView()
+					const leaf = this.getDefinerViewLeaf()
+					leaf.searchTerm.setValue(selectedText.trim());
 
 				}
 			}
@@ -90,6 +93,11 @@ export default class LangsoftPlugin extends Plugin {
 			})
 		);
 
+
+	}
+
+	getDefinerViewLeaf() {
+		return this.app.workspace.getLeavesOfType(VIEW_TYPE_DEFINER)[0].view as DefinerView;
 
 	}
 
@@ -155,26 +163,24 @@ export default class LangsoftPlugin extends Plugin {
 	});
 
 	async activateView() {
-		console.log("called")
 		const { workspace } = this.app;
 
-		let leaf: WorkspaceLeaf | null = null;
-		const leaves = workspace.getLeavesOfType(VIEW_TYPE_DEFINER);
-
-		if (leaves.length > 0) {
-			// A leaf with our view already exists, use that
-			leaf = leaves[0];
-		} else {
-			// Our view could not be found in the workspace, create a new leaf
-			// in the right sidebar for it
-			leaf = workspace.getRightLeaf(false);
-
-			await leaf.setViewState({ type: VIEW_TYPE_DEFINER, active: true });
-		}
-		// "Reveal" the leaf in case it is in a collapsed sidebar
-		workspace.revealLeaf(leaf);
+		// let leaf: WorkspaceLeaf | null = null;
+		// const leaves = workspace.getLeavesOfType(VIEW_TYPE_DEFINER);
+		//
+		// if (leaves.length > 0) {
+		// 	// A leaf with our view already exists, use that
+		// 	leaf = leaves[0];
+		// } else {
+		// 	// Our view could not be found in the workspace, create a new leaf
+		// 	// in the right sidebar for it
+		// 	leaf = workspace.getRightLeaf(false);
+		// 	await leaf.setViewState({ type: VIEW_TYPE_DEFINER, active: true });
+		// }
+		// // "Reveal" the leaf in case it is in a collapsed sidebar
+		const leaf = this.getDefinerViewLeaf()
+		workspace.revealLeaf(leaf.leaf);
 	}
-
 
 
 	onunload() {

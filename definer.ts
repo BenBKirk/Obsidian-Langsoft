@@ -13,15 +13,15 @@ export class DefinerView extends ItemView {
 	semiknown: ToggleComponent;
 	known: ToggleComponent;
 	style: Element;
-
-
-
-
+	listContainer: HTMLUListElement;
+	noSelectionStyle: string;
+	unknownSelectionStyle: string;
+	semiknownSelectionStyle: string;
+	knownSelectionStyle: string;
 
 	constructor(leaf: WorkspaceLeaf, plugin: LangsoftPlugin) {
 		super(leaf);
 		this.plugin = plugin;
-		console.log("instance created")
 	}
 
 	getViewType() {
@@ -39,6 +39,65 @@ export class DefinerView extends ItemView {
 
 
 	async onOpen() {
+
+		this.noSelectionStyle = `
+      Button.unknownButton {
+        background-color: var(--interactive-normal);
+        color: black;
+      }
+      Button.semiknownButton {
+        background-color: var(--interactive-normal);
+        color: black;
+      }
+      Button.knownButton {
+        background-color: var(--interactive-normal);
+        color: black;
+      }
+      `;
+
+		this.unknownSelectionStyle = `
+      Button.unknownButton {
+        background-color: ${this.plugin.settings.unknownColor};
+        color: black;
+      }
+      Button.semiknownButton {
+        background-color: var(--interactive-normal);
+        color: black;
+      }
+      Button.knownButton {
+        background-color: var(--interactive-normal);
+        color: black;
+      }
+      `;
+		this.semiknownSelectionStyle = `
+      Button.unknownButton {
+        background-color: var(--interactive-normal);
+        color: black;
+      }
+      Button.semiknownButton {
+        background-color: ${this.plugin.settings.semiknownColor};
+        color: black;
+      }
+      Button.knownButton {
+        background-color: var(--interactive-normal);
+        color: black;
+      }`;
+
+		this.knownSelectionStyle = `
+      Button.unknownButton {
+        background-color: var(--interactive-normal);
+        color: black;
+      }
+      Button.semiknownButton {
+        background-color: var(--interactive-normal);
+        color: black;
+      }
+      Button.knownButton {
+        background-color: var(--interactive-normal);
+        background-color: ${this.plugin.settings.knownColor};
+        color: black;
+      }`;
+
 		const container = this.containerEl.children[1];
 		container.empty();
 
@@ -56,24 +115,9 @@ export class DefinerView extends ItemView {
 		const proEl = container.createEl("h5", { text: "Progress Tracker: " });
 
 		this.style = container.createEl("style")
-		this.style.textContent = `
+		this.style.textContent = this.noSelectionStyle;
 
-      Button.unknownButton {
-        background-color: var(--interactive-normal);
-        color: black;
-      }
-      Button.semiknownButton {
-        background-color: var(--interactive-normal);
-        color: black;
-      }
-      Button.knownButton {
-        background-color: var(--interactive-normal);
-        color: black;
-      }
-      
-      `;
-
-		// ".slider { --slider-thumb-border-color: green; --slider-thumb-border-width: 2; }"    // container.setAttribute("style",`input.slider { --slider-thumb-border-color: green; }`)
+		// ".slider { --slider-thumb-border-color: green; --slider-thumb-border-width: 2; }"    // container.setAttribute("style",`input.slider { --slider - thumb - border - color: green; } `)
 
 
 		const unknownButton = new ButtonComponent(container);
@@ -81,22 +125,7 @@ export class DefinerView extends ItemView {
 		unknownButton.setIcon("thumbs-down")
 		unknownButton.setClass("unknownButton")
 		unknownButton.onClick(() => {
-			this.style.textContent = `
-
-      Button.unknownButton {
-        background-color: ${this.plugin.settings.unknownColor};
-        color: black;
-      }
-      Button.semiknownButton {
-        background-color: var(--interactive-normal);
-        color: black;
-      }
-      Button.knownButton {
-        background-color: var(--interactive-normal);
-        color: black;
-      }
-      
-      `;
+			this.style.textContent = this.unknownSelectionStyle;
 		})
 
 		const semiknownButton = new ButtonComponent(container);
@@ -104,22 +133,7 @@ export class DefinerView extends ItemView {
 		semiknownButton.setIcon("grab")
 		semiknownButton.setClass("semiknownButton")
 		semiknownButton.onClick(() => {
-			this.style.textContent = `
-
-      Button.unknownButton {
-        background-color: var(--interactive-normal);
-        color: black;
-      }
-      Button.semiknownButton {
-        background-color: ${this.plugin.settings.semiknownColor};
-        color: black;
-      }
-      Button.knownButton {
-        background-color: var(--interactive-normal);
-        color: black;
-      }
-      
-      `;
+			this.style.textContent = this.semiknownSelectionStyle
 		})
 
 		const knownButton = new ButtonComponent(container);
@@ -127,75 +141,15 @@ export class DefinerView extends ItemView {
 		knownButton.setIcon("thumbs-up")
 		knownButton.setClass("knownButton")
 		knownButton.onClick(() => {
-			this.style.textContent = `
-      Button.unknownButton {
-        background-color: var(--interactive-normal);
-        color: black;
-      }
-      Button.semiknownButton {
-        background-color: var(--interactive-normal);
-        color: black;
-      }
-      Button.knownButton {
-        background-color: ${this.plugin.settings.knownColor};
-        color: black;
-      }
-        
-      `
+			this.style.textContent = this.knownSelectionStyle
 		})
 
 
+		container.createEl("h1", { text: " " })
 
-
-		// const unknownColor = new ColorComponent(container)
-		// // this.unknownColor = new ColorComponent(container);
-		// unknownColor.setDisabled(true);
-		// unknownColor.setValue(this.plugin.settings.unknownColor)
-		// container.createEl("b", {text: " "})
-		// this.unknown = new ToggleComponent(container);
-		// this.unknown.onChange((value) => {
-		//   if (value){
-		//   this.semiknown.setValue(false);
-		//   this.known.setValue(false);
-		//   this.unknown.setDisabled(true);
-		//   this.semiknown.setDisabled(false);
-		//   this.known.setDisabled(false);
-		//   }
-		// });
 
 		container.createEl("h1", { text: " " })
 
-		// const semiKnownColor = new ColorComponent(container);
-		// semiKnownColor.setDisabled(true);
-		// semiKnownColor.setValue(this.plugin.settings.semiknownColor)
-		// container.createEl("b", {text: " "})
-		// this.semiknown = new ToggleComponent(container);
-		// this.semiknown.onChange((value) => {
-		//   if (value){
-		//   this.unknown.setValue(false);
-		//   this.known.setValue(false);
-		//   this.unknown.setDisabled(false);
-		//   this.semiknown.setDisabled(true);
-		//   this.known.setDisabled(false);
-		//   }
-		// });
-
-		container.createEl("h1", { text: " " })
-
-		// const knownColor = new ColorComponent(container);
-		// knownColor.setDisabled(true);
-		// knownColor.setValue(this.plugin.settings.knownColor)
-		// container.createEl("b", {text: " "})
-		// this.known = new ToggleComponent(container);
-		// this.known.onChange((value) => {
-		//   if (value){
-		//   this.unknown.setValue(false);
-		//   this.semiknown.setValue(false);
-		//   this.unknown.setDisabled(false);
-		//   this.semiknown.setDisabled(false);
-		//   this.known.setDisabled(true);
-		//   }
-		// });
 
 		container.createEl("h2", { text: " " })
 		const submitButton = new ButtonComponent(container);
@@ -208,18 +162,38 @@ export class DefinerView extends ItemView {
 
 
 
+		// Create the list container
+		this.listContainer = container.createEl("ul", { cls: "my-dynamic-list" });
 
+		// Add an example item
+		this.addListItem("Item 1");
+		this.addListItem("Item 2");
 
-
-
+		// Example: Adding a button to add new items dynamically
+		const addButton = container.createEl("button", { text: "Add Item" });
+		addButton.addEventListener("click", () => {
+			this.addListItem(`Item ${this.listContainer.children.length + 1} `);
+		});
 
 
 	}
 
+	private addListItem(text: string) {
+		const listItem = this.listContainer.createEl("li");
+		listItem.textContent = text;
+
+		// Add remove functionality
+		const removeButton = listItem.createEl("button", { text: "Remove" });
+		removeButton.addEventListener("click", () => {
+			listItem.remove();
+		});
+	}
 
 	async onClose() {
 		// Nothing to clean up.
 	}
 }
+
+
 
 

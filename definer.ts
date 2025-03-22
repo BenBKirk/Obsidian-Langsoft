@@ -8,18 +8,11 @@ export class DefinerView extends ItemView {
 	plugin: LangsoftPlugin;
 	searchTerm: TextAreaComponent;
 	wordDefinition: TextAreaComponent;
-	progressTracker: SliderComponent;
-	unknownColor: ColorComponent;
-	unknown: ToggleComponent;
-	semiknown: ToggleComponent;
-	known: ToggleComponent;
-	style: Element;
 	listContainer: HTMLUListElement;
-	noSelectionStyle: string;
-	unknownSelectionStyle: string;
-	semiknownSelectionStyle: string;
-	knownSelectionStyle: string;
 	knownLevelSelected: string;
+	unknownButton: ButtonComponent;
+	semiknownButton: ButtonComponent;
+	knownButton: ButtonComponent;
 
 	constructor(leaf: WorkspaceLeaf, plugin: LangsoftPlugin) {
 		super(leaf);
@@ -44,67 +37,6 @@ export class DefinerView extends ItemView {
 
 		this.knownLevelSelected = "none";
 
-		this.noSelectionStyle = `
-      Button.unknownButton {
-        background-color: var(--interactive-normal);
-        color: black;
-      }
-      Button.semiknownButton {
-        background-color: var(--interactive-normal);
-        color: black;
-      }
-      Button.knownButton {
-        background-color: var(--interactive-normal);
-        color: black;
-      }
-      `;
-
-		this.unknownSelectionStyle = `
-      Button.unknownButton {
-        background-color: ${this.plugin.settings.unknownColor};
-        color: black;
-      }
-      Button.semiknownButton {
-        background-color: var(--interactive-normal);
-        color: black;
-      }
-      Button.knownButton {
-        background-color: var(--interactive-normal);
-        color: black;
-      }
-      `;
-		this.semiknownSelectionStyle = `
-      Button.unknownButton {
-        background-color: var(--interactive-normal);
-        color: black;
-      }
-      Button.semiknownButton {
-        background-color: ${this.plugin.settings.semiknownColor};
-        color: black;
-      }
-      Button.knownButton {
-        background-color: var(--interactive-normal);
-        color: black;
-      }`;
-
-		this.knownSelectionStyle = `
-      Button.unknownButton {
-        background-color: var(--interactive-normal);
-        color: black;
-      }
-      Button.semiknownButton {
-        background-color: var(--interactive-normal);
-        color: black;
-      }
-      Button.knownButton {
-        background-color: var(--interactive-normal);
-        background-color: ${this.plugin.settings.knownColor};
-        color: black;
-      }`;
-
-		// const separator = document.createElement("h1", { text: " " });
-
-
 		const container = this.containerEl.children[1];
 		container.empty();
 
@@ -116,46 +48,37 @@ export class DefinerView extends ItemView {
 		this.searchTerm.setPlaceholder("Select some text in main window");
 		this.searchTerm.setDisabled(true);
 
-		// const proEl = container.createEl("h5", { text: "Progress Tracker: " });
-		// container.append(separator);
 		container.createEl("h1", { text: " " });
 
-		this.style = container.createEl("style")
-		this.style.textContent = this.noSelectionStyle;
-
-		// ".slider { --slider-thumb-border-color: green; --slider-thumb-border-width: 2; }"    // container.setAttribute("style",`input.slider { --slider - thumb - border - color: green; } `)
-
-
-		const unknownButton = new ButtonComponent(container);
-		// unknownButton.setButtonText("unknown");
-		// unknownButton.setIcon("star-half")
-		// unknownButton.setIcon("battery-low")
-		// unknownButton.setIcon("wrench")
-		// unknownButton.setIcon("traffic-cone")
-		unknownButton.setIcon("plane-takeoff")
-		unknownButton.setClass("unknownButton")
-		unknownButton.onClick(() => {
-			this.style.textContent = this.unknownSelectionStyle;
+		this.unknownButton = new ButtonComponent(container);
+		this.unknownButton.setIcon("plane-takeoff")
+		this.unknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
+		this.unknownButton.buttonEl.style.color = "black";
+		this.unknownButton.onClick(() => {
+			this.knownLevelSelected = "unknown";
+			this.handleLevelChange("unknown")
 		})
 
-		const semiknownButton = new ButtonComponent(container);
-		// semiknownButton.setButtonText("semi-known");
-		// semiknownButton.setIcon("star")
-		// semiknownButton.setIcon("battery-medium")
-		semiknownButton.setIcon("plane")
-		semiknownButton.setClass("semiknownButton")
-		semiknownButton.onClick(() => {
-			this.style.textContent = this.semiknownSelectionStyle
+		this.semiknownButton = new ButtonComponent(container);
+		this.semiknownButton.setIcon("plane")
+		this.semiknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
+		this.semiknownButton.buttonEl.style.color = "black";
+		this.semiknownButton.onClick(() => {
+			this.knownLevelSelected = "semiknown";
+			this.handleLevelChange("semiknown")
 		})
 
-		const knownButton = new ButtonComponent(container);
+		this.knownButton = new ButtonComponent(container);
 		// knownButton.setButtonText("known");
-		knownButton.setIcon("rocket")
+		this.knownButton.setIcon("rocket")
 		// knownButton.setIcon("sparles")
 		// knownButton.setIcon("battery-full")
-		knownButton.setClass("knownButton")
-		knownButton.onClick(() => {
-			this.style.textContent = this.knownSelectionStyle
+		// this.knownButton.setClass("knownButton")
+		this.knownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
+		this.knownButton.buttonEl.style.color = "black";
+		this.knownButton.onClick(() => {
+			this.knownLevelSelected = "known";
+			this.handleLevelChange("known")
 		})
 
 		container.createEl("h1", { text: "" });
@@ -164,10 +87,6 @@ export class DefinerView extends ItemView {
 
 		// Create the list container
 		this.listContainer = userDictEl.createEl("ul", { cls: "my-dynamic-list" });
-
-		// Add an example item
-		// this.addListItem("Item 1");
-		// this.addListItem("Item 2");
 
 		const newMeaningEl = container.createEl("div", { text: " " });
 
@@ -181,7 +100,7 @@ export class DefinerView extends ItemView {
 		addButton.addEventListener("click", () => {
 			const val = this.wordDefinition.getValue();
 			if (val !== "") {
-				this.addListItem(val);
+				this.addListItem(val, { file: "whatever.md", context: "surrounding text", date: "2020-02-20" });
 				this.wordDefinition.setValue("");
 			}
 		});
@@ -232,6 +151,44 @@ export class DefinerView extends ItemView {
 		table.appendChild(dateRow);
 
 		return table;
+	}
+
+	styleButtons(state: string) {
+		if (state === "unknown") {
+			this.unknownButton.setClass(`background-color: ${this.plugin.settings.unknownColor};\n color: black;`);
+			this.semiknownButton.setClass(`background-color: var(--interactive-normal);\n color: black;`);
+			this.knownButton.setClass(`background-color: var(--interactive-normal);\n color: black;`);
+		}
+		if (state === "semiknown") {
+			this.unknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
+			this.unknownButton.buttonEl.style.color = "black";
+
+			this.unknownButton.setClass(`background-color: var(--interactive-normal);\n color: black;`);
+			this.semiknownButton.setClass(`background-color: ${this.plugin.settings.semiknownColor};\n color: black;`);
+			this.knownButton.setClass(`background-color: var(--interactive-normal);\n color: black;`);
+
+		}
+		if (state === "known") {
+			this.unknownButton.setClass(`background-color: var(--interactive-normal);\n color: black;`);
+			this.semiknownButton.setClass(`background-color: var(--interactive-normal);\n color: black;`);
+			this.knownButton.setClass(`background-color: ${this.plugin.settings.knownColor};\n color: black; `);
+
+		}
+	}
+
+	handleLevelChange(levelSelected: string) {
+		this.unknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
+		this.semiknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
+		this.knownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
+		if (levelSelected === "unknown") {
+			this.unknownButton.buttonEl.style.backgroundColor = this.plugin.settings.unknownColor;
+		}
+		if (levelSelected === "semiknown") {
+			this.semiknownButton.buttonEl.style.backgroundColor = this.plugin.settings.semiknownColor;
+		}
+		if (levelSelected === "known") {
+			this.knownButton.buttonEl.style.backgroundColor = this.plugin.settings.knownColor;
+		}
 
 
 

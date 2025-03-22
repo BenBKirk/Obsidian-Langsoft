@@ -109,6 +109,7 @@ export default class LangsoftPlugin extends Plugin {
 		this.dictManager.searchUserDict(selection).then((definition) => {
 			// const firstDef = definition ? `${selection}: ${definition.definitions[0].definition}` : `"${selection}" not found.`;
 			if (definition) {
+				leaf.handleLevelChange(definition.definitions[0].contexts[0].level)
 				for (const def of definition.definitions) {
 					console.log(def.definition)
 					// should get the most recent context here
@@ -117,6 +118,9 @@ export default class LangsoftPlugin extends Plugin {
 						console.log(con)
 					}
 				}
+
+			} else {
+				leaf.handleLevelChange("unknown")
 
 			}
 

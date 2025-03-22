@@ -51,17 +51,7 @@ export default class LangsoftPlugin extends Plugin {
 			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 			if (view) {
 				const selectedText = view.editor.getSelection();
-				// const cursor = view.editor.getCursor();
 				this.handleSelection(selectedText.trim());
-				// if (selectedText !== "") {
-				// 	// console.log(selectedText);
-				// 	// console.log(cursor)
-				// 	// console.log(view.editor.posToOffset(cursor))
-				// 	this.activateView()
-				// 	const leaf = this.getDefinerViewLeaf()
-				// 	leaf.searchTerm.setValue(selectedText.trim());
-				//
-				// }
 			}
 		}
 		);
@@ -102,26 +92,19 @@ export default class LangsoftPlugin extends Plugin {
 		const leaf = this.getDefinerViewLeaf()
 		leaf.searchTerm.setValue(selection);
 		leaf.listContainer.empty();
-		// if (selection === "") {
-		//
-		// } else {
-		// }
 		this.dictManager.searchUserDict(selection).then((definition) => {
-			// const firstDef = definition ? `${selection}: ${definition.definitions[0].definition}` : `"${selection}" not found.`;
 			if (definition) {
 				leaf.handleLevelChange(definition.definitions[0].contexts[0].level)
 				for (const def of definition.definitions) {
-					console.log(def.definition)
 					// should get the most recent context here
+					// in order to do that we need to compare the all the timestamps
 					leaf.addListItem(def.definition, def.contexts[0])
 					for (const con of def.contexts) {
 						console.log(con)
 					}
 				}
-
 			} else {
 				leaf.handleLevelChange("unknown")
-
 			}
 
 
@@ -251,22 +234,22 @@ export default class LangsoftPlugin extends Plugin {
 // });
 
 
-let debounceTimerSelectionChange: number | null = null;
-const selectionUpdateListener = EditorView.updateListener.of((update: ViewUpdate) => {
-	if (!update.selectionSet) return;
-	if (debounceTimerSelectionChange) clearTimeout(debounceTimerSelectionChange);
-	debounceTimerSelectionChange = setTimeout(() => {
-		const from = update.state.selection.ranges[0].from;
-		const to = update.state.selection.ranges[0].to;
-		if (from === to) {
-			console.log("just clicked")
-		} else {
-			console.log("selected something")
-		}
-		// console.log(from, to);
-		// if (update.state.selection.ranges.length)
-	}, 200);
-});
+// let debounceTimerSelectionChange: number | null = null;
+// const selectionUpdateListener = EditorView.updateListener.of((update: ViewUpdate) => {
+// 	if (!update.selectionSet) return;
+// 	if (debounceTimerSelectionChange) clearTimeout(debounceTimerSelectionChange);
+// 	debounceTimerSelectionChange = setTimeout(() => {
+// 		const from = update.state.selection.ranges[0].from;
+// 		const to = update.state.selection.ranges[0].to;
+// 		if (from === to) {
+// 			console.log("just clicked")
+// 		} else {
+// 			console.log("selected something")
+// 		}
+// 		// console.log(from, to);
+// 		// if (update.state.selection.ranges.length)
+// 	}, 200);
+// });
 
 
 	// if (isCursorInsideDecoration(state, pos)) {

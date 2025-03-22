@@ -1,11 +1,11 @@
 import LangsoftPlugin from "main";
-import { ItemView, WorkspaceLeaf, Setting, TextAreaComponent, TextComponent, CheckboxComponent, SliderComponent, ToggleComponent, ColorComponent, ButtonComponent, Menu, MenuItem } from "obsidian";
+import { ItemView, WorkspaceLeaf, Setting, TextAreaComponent, TextComponent, CheckboxComponent, SliderComponent, ToggleComponent, ColorComponent, ButtonComponent, Menu, MenuItem, SearchComponent } from "obsidian";
 
 export const VIEW_TYPE_DEFINER = "definer-view";
 
 export class DefinerView extends ItemView {
 	plugin: LangsoftPlugin;
-	searchTerm: TextComponent;
+	searchTerm: TextAreaComponent;
 	wordDefinition: TextAreaComponent;
 	progressTracker: SliderComponent;
 	unknownColor: ColorComponent;
@@ -18,6 +18,7 @@ export class DefinerView extends ItemView {
 	unknownSelectionStyle: string;
 	semiknownSelectionStyle: string;
 	knownSelectionStyle: string;
+	knownLevelSelected: string;
 
 	constructor(leaf: WorkspaceLeaf, plugin: LangsoftPlugin) {
 		super(leaf);
@@ -39,6 +40,8 @@ export class DefinerView extends ItemView {
 
 
 	async onOpen() {
+
+		this.knownLevelSelected = "none";
 
 		this.noSelectionStyle = `
       Button.unknownButton {
@@ -98,21 +101,23 @@ export class DefinerView extends ItemView {
         color: black;
       }`;
 
+		// const separator = document.createElement("h1", { text: " " });
+
+
 		const container = this.containerEl.children[1];
 		container.empty();
 
 		container.createEl("h1", { text: "Langsoft 📖" });
-		const searchEl = container.createEl("h5", { text: "Term: " });
-		this.searchTerm = new TextComponent(searchEl);
+		// const searchEl = container.createEl("h5", { text: "Word / Phrase: " });
+		// const searchEl = container.createEl("h5", { text: "" });
+		this.searchTerm = new TextAreaComponent(container);
+		// this.searchTerm = new SearchComponent(searchEl);
 		this.searchTerm.setPlaceholder("Select some text in main window");
 		this.searchTerm.setDisabled(true);
 
-		const defEl = container.createEl("h5", { text: "Definition: " });
-		this.wordDefinition = new TextAreaComponent(defEl);
-		this.wordDefinition.setPlaceholder("Enter a definition");
-		// this.wordDefinition.setValue("hahaha")
-
-		const proEl = container.createEl("h5", { text: "Progress Tracker: " });
+		// const proEl = container.createEl("h5", { text: "Progress Tracker: " });
+		// container.append(separator);
+		container.createEl("h1", { text: " " });
 
 		this.style = container.createEl("style")
 		this.style.textContent = this.noSelectionStyle;
@@ -122,7 +127,11 @@ export class DefinerView extends ItemView {
 
 		const unknownButton = new ButtonComponent(container);
 		// unknownButton.setButtonText("unknown");
-		unknownButton.setIcon("thumbs-down")
+		// unknownButton.setIcon("star-half")
+		// unknownButton.setIcon("battery-low")
+		// unknownButton.setIcon("wrench")
+		// unknownButton.setIcon("traffic-cone")
+		unknownButton.setIcon("plane-takeoff")
 		unknownButton.setClass("unknownButton")
 		unknownButton.onClick(() => {
 			this.style.textContent = this.unknownSelectionStyle;
@@ -130,7 +139,9 @@ export class DefinerView extends ItemView {
 
 		const semiknownButton = new ButtonComponent(container);
 		// semiknownButton.setButtonText("semi-known");
-		semiknownButton.setIcon("grab")
+		// semiknownButton.setIcon("star")
+		// semiknownButton.setIcon("battery-medium")
+		semiknownButton.setIcon("plane")
 		semiknownButton.setClass("semiknownButton")
 		semiknownButton.onClick(() => {
 			this.style.textContent = this.semiknownSelectionStyle
@@ -138,55 +149,91 @@ export class DefinerView extends ItemView {
 
 		const knownButton = new ButtonComponent(container);
 		// knownButton.setButtonText("known");
-		knownButton.setIcon("thumbs-up")
+		knownButton.setIcon("rocket")
+		// knownButton.setIcon("sparles")
+		// knownButton.setIcon("battery-full")
 		knownButton.setClass("knownButton")
 		knownButton.onClick(() => {
 			this.style.textContent = this.knownSelectionStyle
 		})
 
+		container.createEl("h1", { text: "" });
 
-		container.createEl("h1", { text: " " })
-
-
-		container.createEl("h1", { text: " " })
-
-
-		container.createEl("h2", { text: " " })
-		const submitButton = new ButtonComponent(container);
-		submitButton.setButtonText("Submit");
-		submitButton.onClick(() => {
-			// submitButton.setDisabled(true);
-			const timestamp = Date.now();
-			const date = new Date(timestamp);
-		})
-
-
+		const userDictEl = container.createEl("div", { text: "My Definitions: " });
 
 		// Create the list container
-		this.listContainer = container.createEl("ul", { cls: "my-dynamic-list" });
+		this.listContainer = userDictEl.createEl("ul", { cls: "my-dynamic-list" });
 
 		// Add an example item
 		this.addListItem("Item 1");
 		this.addListItem("Item 2");
 
+		const newMeaningEl = container.createEl("div", { text: " " });
+
+		this.wordDefinition = new TextAreaComponent(newMeaningEl);
+		this.wordDefinition.setPlaceholder("New definition");
+		// this.wordDefinition.setValue("blank")
+		newMeaningEl.createEl("br", { text: " " });
+
 		// Example: Adding a button to add new items dynamically
-		const addButton = container.createEl("button", { text: "Add Item" });
+		const addButton = newMeaningEl.createEl("button", { text: "Add Definition" });
 		addButton.addEventListener("click", () => {
-			this.addListItem(`Item ${this.listContainer.children.length + 1} `);
+			const val = this.wordDefinition.getValue();
+			if (val !== "") {
+				this.addListItem(val);
+				this.wordDefinition.setValue("");
+			}
 		});
 
 
 	}
 
 	private addListItem(text: string) {
-		const listItem = this.listContainer.createEl("li");
-		listItem.textContent = text;
-
-		// Add remove functionality
-		const removeButton = listItem.createEl("button", { text: "Remove" });
+		const details = this.listContainer.createEl("details");
+		const summary = this.listContainer.createEl("summary");
+		summary.textContent = text;
+		details.appendChild(summary);
+		const table = this.createTable("because <u>Ben</u> decided to go", "test.md", "2025-03-20");
+		details.appendChild(table);
+		const removeButton = details.createEl("a", { text: "Delete", class: "--color-red" });
 		removeButton.addEventListener("click", () => {
-			listItem.remove();
+			details.remove();
 		});
+	}
+
+	createTable(context: string, file: string, date: string): HTMLTableElement {
+		const table = document.createElement("table");
+		table.createEl("tr");
+		const contextRow = document.createElement("tr");
+		const contextTitle = document.createElement("td");
+		const contextContent = document.createElement("td");
+		contextTitle.innerHTML = '<strong>Context: </strong>';
+		contextContent.innerHTML = context;
+		contextRow.appendChild(contextTitle);
+		contextRow.appendChild(contextContent);
+		const fileRow = document.createElement("tr");
+		const fileTitle = document.createElement("td");
+		const fileContent = document.createElement("td");
+		fileTitle.innerHTML = '<strong>File: </strong>';
+		fileContent.innerHTML = file;
+		fileRow.appendChild(fileTitle);
+		fileRow.appendChild(fileContent);
+		const dateRow = document.createElement("tr");
+		const dateTitle = document.createElement("td");
+		const dateContent = document.createElement("td");
+		dateTitle.innerHTML = '<strong>Date: </strong>';
+		dateContent.innerHTML = date;
+		dateRow.appendChild(dateTitle);
+		dateRow.appendChild(dateContent);
+
+		table.appendChild(contextRow);
+		table.appendChild(fileRow);
+		table.appendChild(dateRow);
+
+		return table;
+
+
+
 	}
 
 	async onClose() {

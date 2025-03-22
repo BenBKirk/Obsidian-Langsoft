@@ -92,23 +92,28 @@ export default class LangsoftPlugin extends Plugin {
 		const leaf = this.getDefinerViewLeaf()
 		leaf.searchTerm.setValue(selection);
 		leaf.listContainer.empty();
-		this.dictManager.searchUserDict(selection).then((definition) => {
-			if (definition) {
-				leaf.handleLevelChange(definition.definitions[0].contexts[0].level)
-				for (const def of definition.definitions) {
-					// should get the most recent context here
-					// in order to do that we need to compare the all the timestamps
-					leaf.addListItem(def.definition, def.contexts[0])
-					for (const con of def.contexts) {
-						console.log(con)
+		if (selection === "") {
+			leaf.handleLevelChange("none");
+		} else {
+			this.dictManager.searchUserDict(selection).then((definition) => {
+				if (definition) {
+					leaf.handleLevelChange(definition.definitions[0].contexts[0].level)
+					for (const def of definition.definitions) {
+						// should get the most recent context here
+						// in order to do that we need to compare the all the timestamps
+						leaf.addListItem(def.definition, def.contexts[0])
+						for (const con of def.contexts) {
+							// console.log(con)
+						}
 					}
+				} else {
+					leaf.handleLevelChange("unknown")
 				}
-			} else {
-				leaf.handleLevelChange("unknown")
-			}
 
 
-		});
+			});
+
+		}
 	}
 
 	getDefinerViewLeaf() {

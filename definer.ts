@@ -1,5 +1,6 @@
 import LangsoftPlugin from "main";
 import { ItemView, WorkspaceLeaf, Setting, TextAreaComponent, TextComponent, CheckboxComponent, SliderComponent, ToggleComponent, ColorComponent, ButtonComponent, Menu, MenuItem, SearchComponent } from "obsidian";
+import { Context } from "dictionaries";
 
 export const VIEW_TYPE_DEFINER = "definer-view";
 
@@ -165,8 +166,8 @@ export class DefinerView extends ItemView {
 		this.listContainer = userDictEl.createEl("ul", { cls: "my-dynamic-list" });
 
 		// Add an example item
-		this.addListItem("Item 1");
-		this.addListItem("Item 2");
+		// this.addListItem("Item 1");
+		// this.addListItem("Item 2");
 
 		const newMeaningEl = container.createEl("div", { text: " " });
 
@@ -188,14 +189,14 @@ export class DefinerView extends ItemView {
 
 	}
 
-	private addListItem(text: string) {
+	addListItem(text: string, context: Context) {
 		const details = this.listContainer.createEl("details");
 		const summary = this.listContainer.createEl("summary");
 		summary.textContent = text;
 		details.appendChild(summary);
-		const table = this.createTable("because <u>Ben</u> decided to go", "test.md", "2025-03-20");
+		const table = this.createTable(context.sentence, context.file, context.timeStamp);
 		details.appendChild(table);
-		const removeButton = details.createEl("a", { text: "Delete", class: "--color-red" });
+		const removeButton = details.createEl("a", { text: "Delete" });
 		removeButton.addEventListener("click", () => {
 			details.remove();
 		});

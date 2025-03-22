@@ -52,15 +52,16 @@ export default class LangsoftPlugin extends Plugin {
 			if (view) {
 				const selectedText = view.editor.getSelection();
 				// const cursor = view.editor.getCursor();
-				if (selectedText !== "") {
-					// console.log(selectedText);
-					// console.log(cursor)
-					// console.log(view.editor.posToOffset(cursor))
-					this.activateView()
-					const leaf = this.getDefinerViewLeaf()
-					leaf.searchTerm.setValue(selectedText.trim());
-
-				}
+				this.handleSelection(selectedText.trim());
+				// if (selectedText !== "") {
+				// 	// console.log(selectedText);
+				// 	// console.log(cursor)
+				// 	// console.log(view.editor.posToOffset(cursor))
+				// 	this.activateView()
+				// 	const leaf = this.getDefinerViewLeaf()
+				// 	leaf.searchTerm.setValue(selectedText.trim());
+				//
+				// }
 			}
 		}
 		);
@@ -94,6 +95,33 @@ export default class LangsoftPlugin extends Plugin {
 		);
 
 
+	}
+
+	handleSelection(selection: string) {
+		this.activateView()
+		const leaf = this.getDefinerViewLeaf()
+		leaf.searchTerm.setValue(selection);
+		leaf.listContainer.empty();
+		// if (selection === "") {
+		//
+		// } else {
+		// }
+		this.dictManager.searchUserDict(selection).then((definition) => {
+			// const firstDef = definition ? `${selection}: ${definition.definitions[0].definition}` : `"${selection}" not found.`;
+			if (definition) {
+				for (const def of definition.definitions) {
+					console.log(def.definition)
+					// should get the most recent context here
+					leaf.addListItem(def.definition, def.contexts[0])
+					for (const con of def.contexts) {
+						console.log(con)
+					}
+				}
+
+			}
+
+
+		});
 	}
 
 	getDefinerViewLeaf() {

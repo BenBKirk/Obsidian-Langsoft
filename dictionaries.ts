@@ -2,7 +2,7 @@ import LangsoftPlugin from "main";
 import * as path from 'path';
 
 
-interface Context {
+export interface Context {
 	level: string;
 	timeStamp: string;
 	file: string;

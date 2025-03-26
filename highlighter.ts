@@ -55,8 +55,11 @@ export class Highlighter {
 		for (const word of words) {
 			const entry = await this.plugin.dictManager.searchUserDict(word.text)
 			if (entry) {
-				const fam = entry.definitions[0].contexts[0].level
-				view.dispatch({ effects: highlightEffect.of({ class: fam, from: word.from, to: word.to }) });
+				if (!entry.deleted) {
+					const recentContext = this.plugin.dictManager.findMostRecentContextFromEntry(entry);
+					const fam = recentContext.level;
+					view.dispatch({ effects: highlightEffect.of({ class: fam, from: word.from, to: word.to }) });
+				}
 			}
 		}
 	}

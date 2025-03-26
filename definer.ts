@@ -1,6 +1,7 @@
 import LangsoftPlugin from "main";
 import { ItemView, WorkspaceLeaf, Setting, TextAreaComponent, TextComponent, CheckboxComponent, SliderComponent, ToggleComponent, ColorComponent, ButtonComponent, Menu, MenuItem, SearchComponent } from "obsidian";
-import { Context } from "dictionaries";
+import { Context, Entry } from "dictionaries";
+
 
 export const VIEW_TYPE_DEFINER = "definer-view";
 
@@ -13,6 +14,7 @@ export class DefinerView extends ItemView {
 	unknownButton: ButtonComponent;
 	semiknownButton: ButtonComponent;
 	knownButton: ButtonComponent;
+	dictFindings: [];
 
 	constructor(leaf: WorkspaceLeaf, plugin: LangsoftPlugin) {
 		super(leaf);
@@ -56,7 +58,7 @@ export class DefinerView extends ItemView {
 		this.unknownButton.buttonEl.style.color = "black";
 		this.unknownButton.onClick(() => {
 			this.knownLevelSelected = "unknown";
-			this.handleLevelChange();
+			this.changeKnownLevelButtonColor();
 		})
 
 		this.semiknownButton = new ButtonComponent(container);
@@ -65,7 +67,7 @@ export class DefinerView extends ItemView {
 		this.semiknownButton.buttonEl.style.color = "black";
 		this.semiknownButton.onClick(() => {
 			this.knownLevelSelected = "semiknown";
-			this.handleLevelChange();
+			this.changeKnownLevelButtonColor();
 		})
 
 		this.knownButton = new ButtonComponent(container);
@@ -78,7 +80,7 @@ export class DefinerView extends ItemView {
 		this.knownButton.buttonEl.style.color = "black";
 		this.knownButton.onClick(() => {
 			this.knownLevelSelected = "known";
-			this.handleLevelChange();
+			this.changeKnownLevelButtonColor();
 		})
 
 		container.createEl("h1", { text: "" });
@@ -113,7 +115,7 @@ export class DefinerView extends ItemView {
 		const summary = this.listContainer.createEl("summary");
 		summary.textContent = text;
 		details.appendChild(summary);
-		const table = this.createTable(context.sentence, context.file, context.timeStamp);
+		const table = this.createTable(context.sentence, context.file, context.timestamp);
 		details.appendChild(table);
 		const removeButton = details.createEl("a", { text: "Delete" });
 		removeButton.addEventListener("click", () => {
@@ -153,12 +155,12 @@ export class DefinerView extends ItemView {
 		return table;
 	}
 
-	handleLevelChange() {
-		if (this.knownLevelSelected === "none") {
-			this.unknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
-			this.semiknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
-			this.knownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
-		}
+	changeKnownLevelButtonColor() {
+		// only one can be selected at a time, so this clear out every highlighted button ready for the new color
+		// If the knownLevelSelected is "none" then all of them will stay blank
+		this.unknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
+		this.semiknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
+		this.knownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
 		if (this.knownLevelSelected === "unknown") {
 			this.unknownButton.buttonEl.style.backgroundColor = this.plugin.settings.unknownColor;
 		}
@@ -168,10 +170,50 @@ export class DefinerView extends ItemView {
 		if (this.knownLevelSelected === "known") {
 			this.knownButton.buttonEl.style.backgroundColor = this.plugin.settings.knownColor;
 		}
-
-
-
 	}
+
+	handleSelection(selection: string) {
+		this.searchTerm.setValue(selection);
+		this.listContainer.empty();
+		this.dictFindings = [];
+		if (selection === "") {
+			this.knownLevelSelected = "none";
+			this.changeKnownLevelButtonColor();
+		} else {
+			this.plugin.dictManager.searchUserDict(selection).then((entry) => {
+				if (entry) {
+					const recentContext = this.plugin.dictManager.findMostRecentContextFromEntry(entry);
+					// console.log(recentContext)
+
+					// this.dictFindings.push(entry);
+					// this.knownLevelSelected = entry.definitions[0].contexts[0].level
+					if (recentContext) {
+						this.knownLevelSelected = recentContext.level
+						this.changeKnownLevelButtonColor();
+					}
+					for (const def of entry.definitions) {
+						if (def.deleted) {
+							continue;
+						}
+						// should get the most recent context here
+						// in order to do that we need to compare the all the timestamps
+						if (def.contexts.length > 1) {
+							this.addListItem(def.definition, this.plugin.dictManager.findMostRecentContextDefinition(def))
+							console.log("had to choose")
+						} else {
+							this.addListItem(def.definition, def.contexts[0])
+						}
+					}
+				} else {
+					this.knownLevelSelected = "unknown";
+					this.changeKnownLevelButtonColor();
+				}
+			});
+		}
+	}
+
+
+
 
 
 	async onClose() {

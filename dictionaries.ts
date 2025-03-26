@@ -4,27 +4,29 @@ import * as path from 'path';
 
 export interface Context {
 	level: string;
-	timeStamp: string;
+	timestamp: string;
 	file: string;
 	sentence: string;
 }
 
-interface Definition {
+export interface Definition {
 	definition: string;
+	deleted: boolean;
 	contexts: Context[];
 }
 
 // a list of entries makes up a dictionary
-interface Entry {
+export interface Entry {
 	term: string;
+	deleted: boolean;
 	definitions: Definition[];
 }
 
-interface Dictionary {
+export interface Dictionary {
 	entry: Entry[];
 }
 // a bookself can hold more than one dictionary (useful for holding coworkers dictionaries)
-interface Bookshelf {
+export interface Bookshelf {
 	dictionary: Dictionary[];
 }
 
@@ -121,7 +123,67 @@ export class DictionaryManager {
 
 	}
 
+	findMostRecentContextFromEntry(term: Entry): Context {
+		let latestContext = null;
+		let latestTimestamp = null;
 
+		// for (const term of data) {
+		// 	if (term.deleted) continue;
+
+		for (const definition of term.definitions) {
+			if (definition.deleted) continue;
+
+			for (const context of definition.contexts) {
+				const currentTimestamp = moment(context.timestamp, "YYYY-MM-DD HH:mm:ss");
+
+				if (!latestTimestamp || currentTimestamp.isAfter(latestTimestamp)) {
+					latestTimestamp = currentTimestamp;
+					latestContext = context;
+				}
+			}
+		}
+		// }
+
+		// return latestContext;
+		return latestContext ?? {
+			level: "unknown",
+			timestamp: "1970-01-01 00:00:00", // Default old timestamp
+			file: "default.md",
+			sentence: "No context available."
+		};
+	}
+
+
+	findMostRecentContextDefinition(definition: Definition): Context {
+		let latestContext = null;
+		let latestTimestamp = null;
+
+		// for (const term of data) {
+		// 	if (term.deleted) continue;
+
+		// for (const definition of term.definitions) {
+		// 	if (definition.deleted) continue;
+
+		for (const context of definition.contexts) {
+			const currentTimestamp = moment(context.timestamp, "YYYY-MM-DD HH:mm:ss");
+
+			if (!latestTimestamp || currentTimestamp.isAfter(latestTimestamp)) {
+				latestTimestamp = currentTimestamp;
+				latestContext = context;
+			}
+		}
+		// }
+		// }
+
+		// return latestContext;
+		return latestContext ?? {
+			level: "unknown",
+			timestamp: "1970-01-01 00:00:00", // Default old timestamp
+			file: "default.md",
+			sentence: "No context available."
+		};
+
+	}
 	async loadWordnetDict() {
 		const jsonPath = "dict-WordNet.json";
 		if (await this.plugin.app.vault.adapter.exists(jsonPath)) {

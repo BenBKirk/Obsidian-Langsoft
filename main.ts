@@ -51,7 +51,10 @@ export default class LangsoftPlugin extends Plugin {
 			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 			if (view) {
 				const selectedText = view.editor.getSelection();
-				this.handleSelection(selectedText.trim());
+				this.activateView();
+				const leaf = this.getDefinerViewLeaf();
+				leaf.handleSelection(selectedText.trim());
+				// this.handleSelection(selectedText.trim());
 			}
 		}
 		);
@@ -87,37 +90,12 @@ export default class LangsoftPlugin extends Plugin {
 
 	}
 
-	handleSelection(selection: string) {
-		this.activateView();
-		const leaf = this.getDefinerViewLeaf();
-		leaf.searchTerm.setValue(selection);
-		leaf.listContainer.empty();
-		if (selection === "") {
-			leaf.knownLevelSelected = "none";
-			leaf.handleLevelChange();
-		} else {
-			this.dictManager.searchUserDict(selection).then((definition) => {
-				if (definition) {
-					leaf.knownLevelSelected = definition.definitions[0].contexts[0].level
-					leaf.handleLevelChange();
-					for (const def of definition.definitions) {
-						// should get the most recent context here
-						// in order to do that we need to compare the all the timestamps
-						leaf.addListItem(def.definition, def.contexts[0])
-						for (const con of def.contexts) {
-							// console.log(con)
-						}
-					}
-				} else {
-					leaf.knownLevelSelected = "unknown";
-					leaf.handleLevelChange();
-				}
-
-
-			});
-
-		}
-	}
+	// handleSelection(selection: string) {
+	// 	this.activateView();
+	// 	const leaf = this.getDefinerViewLeaf();
+	// 	// leaf.searchTerm.setValue(selection);
+	// 	// leaf.listContainer.empty();
+	// }
 
 	getDefinerViewLeaf() {
 		return this.app.workspace.getLeavesOfType(VIEW_TYPE_DEFINER)[0].view as DefinerView;

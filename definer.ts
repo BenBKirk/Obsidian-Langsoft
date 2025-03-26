@@ -56,7 +56,7 @@ export class DefinerView extends ItemView {
 		this.unknownButton.buttonEl.style.color = "black";
 		this.unknownButton.onClick(() => {
 			this.knownLevelSelected = "unknown";
-			this.handleLevelChange("unknown")
+			this.handleLevelChange();
 		})
 
 		this.semiknownButton = new ButtonComponent(container);
@@ -65,7 +65,7 @@ export class DefinerView extends ItemView {
 		this.semiknownButton.buttonEl.style.color = "black";
 		this.semiknownButton.onClick(() => {
 			this.knownLevelSelected = "semiknown";
-			this.handleLevelChange("semiknown")
+			this.handleLevelChange();
 		})
 
 		this.knownButton = new ButtonComponent(container);
@@ -78,7 +78,7 @@ export class DefinerView extends ItemView {
 		this.knownButton.buttonEl.style.color = "black";
 		this.knownButton.onClick(() => {
 			this.knownLevelSelected = "known";
-			this.handleLevelChange("known")
+			this.handleLevelChange();
 		})
 
 		container.createEl("h1", { text: "" });
@@ -153,46 +153,26 @@ export class DefinerView extends ItemView {
 		return table;
 	}
 
-	styleButtons(state: string) {
-		if (state === "unknown") {
-			this.unknownButton.setClass(`background-color: ${this.plugin.settings.unknownColor};\n color: black;`);
-			this.semiknownButton.setClass(`background-color: var(--interactive-normal);\n color: black;`);
-			this.knownButton.setClass(`background-color: var(--interactive-normal);\n color: black;`);
-		}
-		if (state === "semiknown") {
+	handleLevelChange() {
+		if (this.knownLevelSelected === "none") {
 			this.unknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
-			this.unknownButton.buttonEl.style.color = "black";
-
-			this.unknownButton.setClass(`background-color: var(--interactive-normal);\n color: black;`);
-			this.semiknownButton.setClass(`background-color: ${this.plugin.settings.semiknownColor};\n color: black;`);
-			this.knownButton.setClass(`background-color: var(--interactive-normal);\n color: black;`);
-
+			this.semiknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
+			this.knownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
 		}
-		if (state === "known") {
-			this.unknownButton.setClass(`background-color: var(--interactive-normal);\n color: black;`);
-			this.semiknownButton.setClass(`background-color: var(--interactive-normal);\n color: black;`);
-			this.knownButton.setClass(`background-color: ${this.plugin.settings.knownColor};\n color: black; `);
-
-		}
-	}
-
-	handleLevelChange(levelSelected: string) {
-		this.unknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
-		this.semiknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
-		this.knownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
-		if (levelSelected === "unknown") {
+		if (this.knownLevelSelected === "unknown") {
 			this.unknownButton.buttonEl.style.backgroundColor = this.plugin.settings.unknownColor;
 		}
-		if (levelSelected === "semiknown") {
+		if (this.knownLevelSelected === "semiknown") {
 			this.semiknownButton.buttonEl.style.backgroundColor = this.plugin.settings.semiknownColor;
 		}
-		if (levelSelected === "known") {
+		if (this.knownLevelSelected === "known") {
 			this.knownButton.buttonEl.style.backgroundColor = this.plugin.settings.knownColor;
 		}
 
 
 
 	}
+
 
 	async onClose() {
 		// Nothing to clean up.

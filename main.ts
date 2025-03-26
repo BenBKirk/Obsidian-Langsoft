@@ -88,16 +88,18 @@ export default class LangsoftPlugin extends Plugin {
 	}
 
 	handleSelection(selection: string) {
-		this.activateView()
-		const leaf = this.getDefinerViewLeaf()
+		this.activateView();
+		const leaf = this.getDefinerViewLeaf();
 		leaf.searchTerm.setValue(selection);
 		leaf.listContainer.empty();
 		if (selection === "") {
-			leaf.handleLevelChange("none");
+			leaf.knownLevelSelected = "none";
+			leaf.handleLevelChange();
 		} else {
 			this.dictManager.searchUserDict(selection).then((definition) => {
 				if (definition) {
-					leaf.handleLevelChange(definition.definitions[0].contexts[0].level)
+					leaf.knownLevelSelected = definition.definitions[0].contexts[0].level
+					leaf.handleLevelChange();
 					for (const def of definition.definitions) {
 						// should get the most recent context here
 						// in order to do that we need to compare the all the timestamps
@@ -107,7 +109,8 @@ export default class LangsoftPlugin extends Plugin {
 						}
 					}
 				} else {
-					leaf.handleLevelChange("unknown")
+					leaf.knownLevelSelected = "unknown";
+					leaf.handleLevelChange();
 				}
 
 

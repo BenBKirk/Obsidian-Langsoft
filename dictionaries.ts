@@ -88,7 +88,7 @@ export class DictionaryManager {
 			}
 
 		} else {
-			//need to create a dcin
+			//need to create a dict
 			try {
 				console.log("creating new empty dictionary: ", primaryDictFullPath)
 				await this.plugin.app.vault.adapter.write(primaryDictFullPath, "[]")

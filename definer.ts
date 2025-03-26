@@ -10,7 +10,6 @@ export class DefinerView extends ItemView {
 	searchTerm: TextAreaComponent;
 	wordDefinition: TextAreaComponent;
 	listContainer: HTMLUListElement;
-	knownLevelSelected: string;
 	unknownButton: ButtonComponent;
 	semiknownButton: ButtonComponent;
 	knownButton: ButtonComponent;
@@ -36,7 +35,6 @@ export class DefinerView extends ItemView {
 
 	async onOpen() {
 
-		this.knownLevelSelected = "none";
 
 		const container = this.containerEl.children[1];
 		container.empty();
@@ -56,8 +54,7 @@ export class DefinerView extends ItemView {
 		this.unknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
 		this.unknownButton.buttonEl.style.color = "black";
 		this.unknownButton.onClick(() => {
-			this.knownLevelSelected = "unknown";
-			this.changeKnownLevelButtonColor();
+			this.changeKnownLevelButtonColor("unknown");
 		})
 
 		this.semiknownButton = new ButtonComponent(container);
@@ -65,8 +62,7 @@ export class DefinerView extends ItemView {
 		this.semiknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
 		this.semiknownButton.buttonEl.style.color = "black";
 		this.semiknownButton.onClick(() => {
-			this.knownLevelSelected = "semiknown";
-			this.changeKnownLevelButtonColor();
+			this.changeKnownLevelButtonColor("semiknown");
 		})
 
 		this.knownButton = new ButtonComponent(container);
@@ -78,8 +74,7 @@ export class DefinerView extends ItemView {
 		this.knownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
 		this.knownButton.buttonEl.style.color = "black";
 		this.knownButton.onClick(() => {
-			this.knownLevelSelected = "known";
-			this.changeKnownLevelButtonColor();
+			this.changeKnownLevelButtonColor("known");
 		})
 
 		container.createEl("h1", { text: "" });
@@ -154,19 +149,40 @@ export class DefinerView extends ItemView {
 		return table;
 	}
 
-	changeKnownLevelButtonColor() {
+	getCurrentHighlight() {
+		let currentHighlight = "none";
+		if (this.unknownButton.buttonEl.style.backgroundColor !== "var(--interactive-normal)") {
+			currentHighlight = "unknown";
+		}
+		if (this.semiknownButton.buttonEl.style.backgroundColor !== "var(--interactive-normal)") {
+			currentHighlight = "semiknown";
+		}
+		if (this.knownButton.buttonEl.style.backgroundColor !== "var(--interactive-normal)") {
+			currentHighlight = "known";
+		}
+		return currentHighlight;
+	}
+
+	changeKnownLevelButtonColor(selection: string) {
+		const currentHighlight = this.getCurrentHighlight();
+		if (currentHighlight === selection) { // don't change it if it is the same
+			return;
+		}
+		if (this.listContainer.getElementsByTagName("summary").length > 0) {
+			// find out if we need to write the change (only if there at least one definition)
+			console.log("there is an item")
+		}
 		// only one can be selected at a time, so this clear out every highlighted button ready for the new color
-		// If the knownLevelSelected is "none" then all of them will stay blank
 		this.unknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
 		this.semiknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
 		this.knownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
-		if (this.knownLevelSelected === "unknown") {
+		if (selection === "unknown") {
 			this.unknownButton.buttonEl.style.backgroundColor = this.plugin.settings.unknownColor;
 		}
-		if (this.knownLevelSelected === "semiknown") {
+		if (selection === "semiknown") {
 			this.semiknownButton.buttonEl.style.backgroundColor = this.plugin.settings.semiknownColor;
 		}
-		if (this.knownLevelSelected === "known") {
+		if (selection === "known") {
 			this.knownButton.buttonEl.style.backgroundColor = this.plugin.settings.knownColor;
 		}
 	}
@@ -175,14 +191,12 @@ export class DefinerView extends ItemView {
 		this.searchTerm.setValue(selection);
 		this.listContainer.empty();
 		if (selection === "") {
-			this.knownLevelSelected = "none";
-			this.changeKnownLevelButtonColor();
+			this.changeKnownLevelButtonColor("none");
 		} else {
 			this.plugin.dictManager.searchUserDict(selection).then((entry) => {
 				if (entry) {
 					const highlightLevel = this.plugin.dictManager.findMostRecentHighlightLevel(entry);
-					this.knownLevelSelected = highlightLevel;
-					this.changeKnownLevelButtonColor();
+					this.changeKnownLevelButtonColor(highlightLevel);
 					for (const def of entry.definitions) {
 						if (def.deleted) {
 							continue;
@@ -190,8 +204,7 @@ export class DefinerView extends ItemView {
 						this.addListItem(def.definition, def.firstcontext)
 					}
 				} else {
-					this.knownLevelSelected = "unknown";
-					this.changeKnownLevelButtonColor();
+					this.changeKnownLevelButtonColor("unknown");
 				}
 			});
 		}

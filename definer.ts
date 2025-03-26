@@ -14,7 +14,6 @@ export class DefinerView extends ItemView {
 	unknownButton: ButtonComponent;
 	semiknownButton: ButtonComponent;
 	knownButton: ButtonComponent;
-	dictFindings: [];
 
 	constructor(leaf: WorkspaceLeaf, plugin: LangsoftPlugin) {
 		super(leaf);
@@ -175,34 +174,20 @@ export class DefinerView extends ItemView {
 	handleSelection(selection: string) {
 		this.searchTerm.setValue(selection);
 		this.listContainer.empty();
-		this.dictFindings = [];
 		if (selection === "") {
 			this.knownLevelSelected = "none";
 			this.changeKnownLevelButtonColor();
 		} else {
 			this.plugin.dictManager.searchUserDict(selection).then((entry) => {
 				if (entry) {
-					const recentContext = this.plugin.dictManager.findMostRecentContextFromEntry(entry);
-					// console.log(recentContext)
-
-					// this.dictFindings.push(entry);
-					// this.knownLevelSelected = entry.definitions[0].contexts[0].level
-					if (recentContext) {
-						this.knownLevelSelected = recentContext.level
-						this.changeKnownLevelButtonColor();
-					}
+					const highlightLevel = this.plugin.dictManager.findMostRecentHighlightLevel(entry);
+					this.knownLevelSelected = highlightLevel;
+					this.changeKnownLevelButtonColor();
 					for (const def of entry.definitions) {
 						if (def.deleted) {
 							continue;
 						}
-						// should get the most recent context here
-						// in order to do that we need to compare the all the timestamps
-						if (def.contexts.length > 1) {
-							this.addListItem(def.definition, this.plugin.dictManager.findMostRecentContextDefinition(def))
-							console.log("had to choose")
-						} else {
-							this.addListItem(def.definition, def.contexts[0])
-						}
+						this.addListItem(def.definition, def.firstcontext)
 					}
 				} else {
 					this.knownLevelSelected = "unknown";

@@ -119,13 +119,6 @@ export class DictionaryManager {
 				return entry;
 			}
 		}
-
-		// for (const item of this.wordnet) {
-		// 	if (item.Term === searchTerm.toLowerCase()) {
-		// 		return item.Definition;
-		// 	}
-		// }
-
 	}
 
 	findMostRecentHighlightLevel(entry: Entry) {
@@ -142,37 +135,6 @@ export class DictionaryManager {
 	}
 
 
-
-	// findMostRecentContextDefinition(definition: Definition): Context {
-	// 	let latestContext = null;
-	// 	let latestTimestamp = null;
-	//
-	// 	// for (const term of data) {
-	// 	// 	if (term.deleted) continue;
-	//
-	// 	// for (const definition of term.definitions) {
-	// 	// 	if (definition.deleted) continue;
-	//
-	// 	for (const context of definition.contexts) {
-	// 		const currentTimestamp = moment(context.timestamp, "YYYY-MM-DD HH:mm:ss");
-	//
-	// 		if (!latestTimestamp || currentTimestamp.isAfter(latestTimestamp)) {
-	// 			latestTimestamp = currentTimestamp;
-	// 			latestContext = context;
-	// 		}
-	// 	}
-	// 	// }
-	// 	// }
-	//
-	// 	// return latestContext;
-	// 	return latestContext ?? {
-	// 		level: "unknown",
-	// 		timestamp: "1970-01-01 00:00:00", // Default old timestamp
-	// 		file: "default.md",
-	// 		sentence: "No context available."
-	// 	};
-	//
-	// }
 	async loadWordnetDict() {
 		const jsonPath = "dict-WordNet.json";
 		if (await this.plugin.app.vault.adapter.exists(jsonPath)) {
@@ -180,6 +142,17 @@ export class DictionaryManager {
 			this.wordnet = JSON.parse(wordnetFile)
 
 		}
+	}
+
+	writeNewDefinitionToJson(term: string, definition: Definition) {
+		// could be an addition, or a deletion
+		// console.log("for the word: ", term)
+		// console.log("add ", definition)
+	}
+
+	markDefinitionDeleted(term: string, definition: string) {
+		// console.log("for the word: ", term)
+		// console.log("delete ", definition)
 	}
 
 

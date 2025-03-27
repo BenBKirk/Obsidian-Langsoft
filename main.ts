@@ -4,6 +4,7 @@ import { Highlighter } from "highlighter";
 import { DEFAULT_SETTINGS, LangsoftPluginSettings, LangsoftSettingsTab } from "settings";
 import { DictionaryManager } from "dictionaries";
 import { VIEW_TYPE_DEFINER, DefinerView } from "definer";
+import { reverse } from "dns";
 
 
 export default class LangsoftPlugin extends Plugin {
@@ -51,9 +52,18 @@ export default class LangsoftPlugin extends Plugin {
 			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 			if (view) {
 				const selectedText = view.editor.getSelection();
+				let context = " ";
+				if (selectedText !== "") {
+					context = this.getContextForSelection(view.editor)
+				} else {
+					context = " ";
+				}
+
+				// const cursor = view.editor
 				this.activateView();
 				const leaf = this.getDefinerViewLeaf();
-				leaf.handleSelection(selectedText.trim());
+				leaf.handleSelection(selectedText.trim(), context);
+				console.log(context)
 				// this.handleSelection(selectedText.trim());
 			}
 		}
@@ -181,6 +191,30 @@ export default class LangsoftPlugin extends Plugin {
 		// // "Reveal" the leaf in case it is in a collapsed sidebar
 		const leaf = this.getDefinerViewLeaf()
 		workspace.revealLeaf(leaf.leaf);
+	}
+
+	getContextForSelection(editor: Editor) {
+		const lenContextWords = 7;
+		const selection = editor.getSelection();
+		const cursor = editor.getCursor();
+		const line = editor.getLine(cursor.line);
+		const regex = /\s+/;
+		const textBeforeSel = line.slice(0, cursor.ch - selection.length)
+		const textAfterSel = line.slice(cursor.ch, line.length)
+		let wordListBefore = textBeforeSel.split(regex);
+		let wordListAfter = textAfterSel.split(regex);
+		if (wordListBefore.length > lenContextWords) {
+			wordListBefore = wordListBefore.reverse().slice(0, lenContextWords);
+			wordListBefore[lenContextWords - 1] = "..." + wordListBefore[lenContextWords - 1];
+			wordListBefore = wordListBefore.reverse();
+		}
+		if (wordListAfter.length > lenContextWords) {
+			wordListAfter = wordListAfter.slice(0, lenContextWords);
+			wordListAfter[lenContextWords - 1] = wordListAfter[lenContextWords - 1] + "...";
+		}
+		const wordsBefore = wordListBefore.join(" ")
+		const wordsAfter = wordListAfter.join(" ")
+		return `${wordsBefore}<u>${selection}</u>${wordsAfter}`
 	}
 
 

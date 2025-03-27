@@ -29,7 +29,6 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 	plugin: LangsoftPlugin;
 
 	hide(): void {
-		console.log("Settings tab closed");
 		// Perform any cleanup or actions you need
 		this.plugin.saveSettings()
 		super.hide();

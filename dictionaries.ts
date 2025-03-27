@@ -148,8 +148,6 @@ export class DictionaryManager {
 	writeHighlightChangeToJson(term: string, level: string) {
 		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
 		for (const entry of this.userDict) {
-			console.log(entry.term)
-			console.log(term)
 			if (entry.term.trim().toLowerCase() === term.trim().toLowerCase()) {
 				entry.highlights.push({ level: level, timestamp });
 			}
@@ -158,10 +156,18 @@ export class DictionaryManager {
 
 	}
 
-	writeNewDefinitionToJson(term: string, definition: Definition) {
-		// could be an addition, or a deletion
-		// console.log("for the word: ", term)
-		// console.log("add ", definition)
+	writeNewDefinitionToJson(term: string, level: string, definition: Definition) {
+		for (const entry of this.userDict) {
+			// update if already in userDict
+			if (entry.term.trim().toLowerCase() === term.trim().toLowerCase()) {
+				entry.definitions.push(definition);
+				this.writeUserDictToJson();
+				return;
+			}
+		}
+		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
+		this.userDict.push({ term: term, deleted: false, highlights: [{ level: level, timestamp: timestamp }], definitions: [definition] })
+		this.writeUserDictToJson();
 	}
 
 	markDefinitionDeleted(term: string, definition: string) {

@@ -120,7 +120,7 @@ export class DefinerView extends ItemView {
 				// this.addListItem(val, { file: "whatever.md", context: "surrounding text", date: "2020-02-20" });
 				this.addListItem(val, context);
 				this.newDefinition.setValue("");
-				this.plugin.dictManager.writeNewDefinitionToJson(this.selectetedText.getValue(), { definition: val, deleted: false, firstcontext: context });
+				this.plugin.dictManager.writeNewDefinitionToJson(this.selectetedText.getValue(), this.getCurrentHighlightState(), { definition: val, deleted: false, firstcontext: context });
 			}
 		});
 

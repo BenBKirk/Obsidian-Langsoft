@@ -1,3 +1,4 @@
+import { Highlighter } from "highlighter";
 import LangsoftPlugin from "main";
 import * as path from 'path';
 
@@ -144,6 +145,19 @@ export class DictionaryManager {
 		}
 	}
 
+	writeHighlightChangeToJson(term: string, level: string) {
+		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
+		for (const entry of this.userDict) {
+			console.log(entry.term)
+			console.log(term)
+			if (entry.term.trim().toLowerCase() === term.trim().toLowerCase()) {
+				entry.highlights.push({ level: level, timestamp });
+			}
+		}
+		this.writeUserDictToJson();
+
+	}
+
 	writeNewDefinitionToJson(term: string, definition: Definition) {
 		// could be an addition, or a deletion
 		// console.log("for the word: ", term)
@@ -155,6 +169,14 @@ export class DictionaryManager {
 		// console.log("delete ", definition)
 	}
 
+	writeUserDictToJson() {
+		const primaryDict = this.plugin.settings.user + ".json";
+		const primaryDictFullPath: string = path.join(this.dictFolder, primaryDict).toString();
+
+		if (this.availableDictionaries.includes(primaryDictFullPath)) {
+			this.plugin.app.vault.adapter.write(primaryDictFullPath, JSON.stringify(this.userDict));
+		}
+	}
 
 
 

@@ -34,7 +34,6 @@ export default class LangsoftPlugin extends Plugin {
 			editorCallback: (editor: Editor) => {
 				const view = editor.cm as EditorView; // Get CodeMirror view from Obsidian
 				// if (view) highlightSelection(view);
-
 				if (view) {
 					this.highlighter.removeAllHightlights(view);
 					this.highlighter.highlightAllWords(view);
@@ -63,8 +62,6 @@ export default class LangsoftPlugin extends Plugin {
 				this.activateView();
 				const leaf = this.getDefinerViewLeaf();
 				leaf.handleSelection(selectedText.trim(), context);
-				console.log(context)
-				// this.handleSelection(selectedText.trim());
 			}
 		}
 		);

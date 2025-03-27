@@ -7,7 +7,7 @@ export const VIEW_TYPE_DEFINER = "definer-view";
 
 export class DefinerView extends ItemView {
 	plugin: LangsoftPlugin;
-	searchTerm: TextAreaComponent;
+	selectetedText: TextAreaComponent;
 	newDefinition: TextAreaComponent;
 	listContainer: HTMLUListElement;
 	unknownButton: ButtonComponent;
@@ -43,10 +43,10 @@ export class DefinerView extends ItemView {
 		container.createEl("h1", { text: "Langsoft 📖" });
 		// const searchEl = container.createEl("h5", { text: "Word / Phrase: " });
 		// const searchEl = container.createEl("h5", { text: "" });
-		this.searchTerm = new TextAreaComponent(container);
+		this.selectetedText = new TextAreaComponent(container);
 		// this.searchTerm = new SearchComponent(searchEl);
-		this.searchTerm.setPlaceholder("Select some text in main window");
-		this.searchTerm.setDisabled(true);
+		this.selectetedText.setPlaceholder("Select some text in main window");
+		this.selectetedText.setDisabled(true);
 
 		container.createEl("h1", { text: " " });
 
@@ -57,7 +57,8 @@ export class DefinerView extends ItemView {
 		this.unknownButton.onClick(() => {
 			if (this.getCurrentHighlightState() !== "unknown") {
 				if (this.listContainer.getElementsByTagName("summary").length > 0) {
-					this.writeNewKnownLevelToDict("unknown")
+					// this.writeNewKnownLevelToDict("unknown")
+					this.plugin.dictManager.writeHighlightChangeToJson(this.selectetedText.getValue(), "unknown")
 				}
 			}
 			this.changeKnownLevelButtonColor("unknown");
@@ -71,7 +72,8 @@ export class DefinerView extends ItemView {
 		this.semiknownButton.onClick(() => {
 			if (this.getCurrentHighlightState() !== "semiknown") {
 				if (this.listContainer.getElementsByTagName("summary").length > 0) {
-					this.writeNewKnownLevelToDict("semiknown")
+					// this.writeNewKnownLevelToDict("semiknown")
+					this.plugin.dictManager.writeHighlightChangeToJson(this.selectetedText.getValue(), "semiknown")
 				}
 			}
 			this.changeKnownLevelButtonColor("semiknown");
@@ -88,7 +90,8 @@ export class DefinerView extends ItemView {
 		this.knownButton.onClick(() => {
 			if (this.getCurrentHighlightState() !== "known") {
 				if (this.listContainer.getElementsByTagName("summary").length > 0) {
-					this.writeNewKnownLevelToDict("known")
+					// this.writeNewKnownLevelToDict("known")
+					this.plugin.dictManager.writeHighlightChangeToJson(this.selectetedText.getValue(), "known")
 				}
 			}
 			this.changeKnownLevelButtonColor("known");
@@ -117,18 +120,18 @@ export class DefinerView extends ItemView {
 				// this.addListItem(val, { file: "whatever.md", context: "surrounding text", date: "2020-02-20" });
 				this.addListItem(val, context);
 				this.newDefinition.setValue("");
-				this.plugin.dictManager.writeNewDefinitionToJson(this.searchTerm.getValue(), { definition: val, deleted: false, firstcontext: context });
+				this.plugin.dictManager.writeNewDefinitionToJson(this.selectetedText.getValue(), { definition: val, deleted: false, firstcontext: context });
 			}
 		});
 
 
 	}
+
+
+
 	getFirstContext(): Context {
 		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
-		console.log(timestamp)
 		const sent = this.selectionContext;
-		console.log(sent)
-
 		return { timestamp: timestamp, file: "test.md", sentence: this.selectionContext };
 	}
 
@@ -143,7 +146,7 @@ export class DefinerView extends ItemView {
 		removeButton.addEventListener("click", () => {
 			details.remove();
 			const definitionToDelete = details.find("summary").getText();
-			this.plugin.dictManager.markDefinitionDeleted(this.searchTerm.getValue(), definitionToDelete);
+			this.plugin.dictManager.markDefinitionDeleted(this.selectetedText.getValue(), definitionToDelete);
 		});
 	}
 
@@ -193,19 +196,17 @@ export class DefinerView extends ItemView {
 		return currentHighlight;
 	}
 
-	writeNewKnownLevelToDict() {
-		console.log("should save highlight change")
-	}
+	// writeNewKnownLevelToDict() {
+	// 	console.log("should save highlight change")
+	// }
 
 	changeKnownLevelButtonColor(selection: string) {
 		const currentHighlight = this.getCurrentHighlightState();
 		if (currentHighlight === selection) { // don't change it if it is the same
 			return;
 		}
-		if (this.listContainer.getElementsByTagName("summary").length > 0) {
-			// find out if we need to write the change (only if there at least one definition)
-			console.log("there is an item")
-		}
+		// if (this.listContainer.getElementsByTagName("summary").length > 0) {
+		// find out if we need to write the change (only if there at least one definition)
 		// only one can be selected at a time, so this clears out every highlighted button ready for the new color
 		this.unknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
 		this.semiknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
@@ -219,10 +220,11 @@ export class DefinerView extends ItemView {
 		if (selection === "known") {
 			this.knownButton.buttonEl.style.backgroundColor = this.plugin.settings.knownColor;
 		}
+		// }
 	}
 
 	handleSelection(selection: string, context: string) {
-		this.searchTerm.setValue(selection);
+		this.selectetedText.setValue(selection);
 		this.selectionContext = context;
 		this.listContainer.empty();
 		if (selection === "") {

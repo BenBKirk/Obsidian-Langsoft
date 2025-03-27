@@ -136,38 +136,31 @@ export default class LangsoftPlugin extends Plugin {
 		await this.dictManager.init();
 	}
 
+
 	wordHover = hoverTooltip((view, pos, side) => {
 		const { from, to, text } = view.state.doc.lineAt(pos);
-		let start = pos,
-			end = pos;
-
+		let start = pos, end = pos;
 		// Expand selection to include the full word
 		while (start > from && /\w/.test(text[start - from - 1])) start--;
 		while (end < to && /\w/.test(text[end - from])) end++;
-
 		if ((start == pos && side < 0) || (end == pos && side > 0)) return null;
-
 		const word = text.slice(start - from, end - from);
-
-		// Placeholder tooltip while we fetch the definition
-		const dom = document.createElement("div");
-		dom.classList.add("tooltip");
-		dom.textContent = `Looking up "${word}"...`;
-
 		// Fetch the dictionary definition asynchronously
-		this.dictManager.searchUserDict(word).then((definition) => {
-			dom.textContent = definition ? `${word}: ${definition.definitions[0].definition}` : `"${word}" not found.`;
+		return this.dictManager.searchUserDict(word).then((entry) => {
+			if (!entry || entry.definitions.length === 0) return null; // No tooltip if nothing is found
+			const dom = document.createElement("div");
+			dom.classList.add("tooltip");
+			dom.textContent = entry.definitions.map(d => d.definition).join(" / ");
+			return {
+				pos: start,
+				end,
+				above: false,
+				strictSide: true,
+				create(view) {
+					return { dom };
+				},
+			};
 		});
-
-		return {
-			pos: start,
-			end,
-			above: false,
-			strictSide: true,
-			create(view) {
-				return { dom };
-			},
-		};
 	});
 
 	async activateView() {
@@ -211,7 +204,7 @@ export default class LangsoftPlugin extends Plugin {
 		}
 		const wordsBefore = wordListBefore.join(" ")
 		const wordsAfter = wordListAfter.join(" ")
-		return `${wordsBefore}<u>${selection}</u>${wordsAfter}`
+		return `${wordsBefore} <u>${selection} </u>${wordsAfter}`
 	}
 
 

@@ -193,6 +193,7 @@ export class DefinerView extends ItemView {
 		if (this.knownButton.buttonEl.style.backgroundColor !== "var(--interactive-normal)") {
 			currentHighlight = "known";
 		}
+		console.log("currenthigh...", currentHighlight)
 		return currentHighlight;
 	}
 
@@ -232,6 +233,11 @@ export class DefinerView extends ItemView {
 		} else {
 			this.plugin.dictManager.searchUserDict(selection).then((entry) => {
 				if (entry) {
+					if (entry.deleted) {
+						// this.selectetedText.setValue("")
+						this.changeKnownLevelButtonColor("unknown");
+						return;
+					}
 					const highlightLevel = this.plugin.dictManager.findMostRecentHighlightLevel(entry);
 					this.changeKnownLevelButtonColor(highlightLevel);
 					for (const def of entry.definitions) {

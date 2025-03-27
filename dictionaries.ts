@@ -157,23 +157,47 @@ export class DictionaryManager {
 	}
 
 	writeNewDefinitionToJson(term: string, level: string, definition: Definition) {
+		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
 		for (const entry of this.userDict) {
 			// update if already in userDict
 			if (entry.term.trim().toLowerCase() === term.trim().toLowerCase()) {
+				entry.highlights.push({ level: level, timestamp: timestamp });
 				entry.definitions.push(definition);
+				entry.deleted = false;
 				this.writeUserDictToJson();
 				return;
 			}
 		}
-		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
 		this.userDict.push({ term: term, deleted: false, highlights: [{ level: level, timestamp: timestamp }], definitions: [definition] })
 		this.writeUserDictToJson();
 	}
 
 	markDefinitionDeleted(term: string, definition: string) {
-		// console.log("for the word: ", term)
-		// console.log("delete ", definition)
+		let isOtherDefFlag = false;
+		for (const entry of this.userDict) {
+			if (entry.term.trim().toLowerCase() === term.trim().toLowerCase()) {
+				for (const def of entry.definitions) {
+
+					if (def.definition.trim().toLowerCase() === definition.trim().toLowerCase()) {
+						def.deleted = true;
+					}
+					if (!def.deleted) {
+						isOtherDefFlag = true;
+					}
+				}
+				if (isOtherDefFlag) {
+					this.writeUserDictToJson();
+				} else {
+					entry.deleted = true;
+					this.writeUserDictToJson();
+				}
+			}
+		}
 	}
+	// if (entry.definitions.length === 0) {
+	// 	entry.deleted = true;
+	// 	entry.definitions[0].deleted = true;
+	// 	this.writeUserDictToJson();
 
 	writeUserDictToJson() {
 		const primaryDict = this.plugin.settings.user + ".json";

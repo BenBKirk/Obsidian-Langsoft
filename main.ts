@@ -136,7 +136,6 @@ export default class LangsoftPlugin extends Plugin {
 		await this.dictManager.init();
 	}
 
-
 	wordHover = hoverTooltip((view, pos, side) => {
 		const { from, to, text } = view.state.doc.lineAt(pos);
 		let start = pos, end = pos;
@@ -147,10 +146,14 @@ export default class LangsoftPlugin extends Plugin {
 		const word = text.slice(start - from, end - from);
 		// Fetch the dictionary definition asynchronously
 		return this.dictManager.searchUserDict(word).then((entry) => {
-			if (!entry || entry.definitions.length === 0) return null; // No tooltip if nothing is found
+			if (!entry || entry.deleted) return null; // No tooltip if nothing is found
 			const dom = document.createElement("div");
 			dom.classList.add("tooltip");
-			dom.textContent = entry.definitions.map(d => d.definition).join(" / ");
+			// dom.textContent = entry.definitions.map(d => d.definition).join(" / ");
+			dom.textContent = entry.definitions
+				.filter(def => !def.deleted) // Exclude deleted definitions
+				.map(def => def.definition)
+				.join(" / ");
 			return {
 				pos: start,
 				end,

@@ -52,22 +52,56 @@ export class Highlighter {
 			words.push({ text: match[0], from: match.index, to: match.index + match[0].length });
 		}
 
-		for (const word of words) {
-			const entry = await this.plugin.dictManager.searchUserDict(word.text)
-			if (entry) {
-				if (!entry.deleted) {
-					// const recentContext = this.plugin.dictManager.findMostRecentContextFromEntry(entry);
-					// const fam = recentContext.level;
-					const highlightLevel = this.plugin.dictManager.findMostRecentHighlightLevel(entry);
+		// for (const word of words) {
+		// 	const entry = await this.plugin.dictManager.searchUserDict(word.text)
+		// 	if (entry) {
+		// 		if (!entry.deleted) {
+		// 			// const recentContext = this.plugin.dictManager.findMostRecentContextFromEntry(entry);
+		// 			// const fam = recentContext.level;
+		// 			const highlightLevel = this.plugin.dictManager.findMostRecentHighlightLevel(entry);
+		//
+		// 			view.dispatch({ effects: highlightEffect.of({ class: highlightLevel, from: word.from, to: word.to }) });
+		// 		}
+		// 	}
+		// }
 
-					view.dispatch({ effects: highlightEffect.of({ class: highlightLevel, from: word.from, to: word.to }) });
+		console.log("searching")
+		for (const [index, word] of words.entries()) {
+			const result = this.plugin.dictManager.userDict[word.text];
+			if (result) {
+				if (!result.deleted) {
+
+					view.dispatch({ effects: highlightEffect.of({ class: result.highlight, from: word.from, to: word.to }) });
+				}
+				for (const phrase of result.firstwordofphrase) {
+					const parts = phrase.match(regex);
+					const lookAhead = [];
+					let end = 0;
+					for (let i = 0; i < parts.length; i++) {
+						lookAhead.push(words[index + i].text);
+						if (i === parts?.length - 1) {
+							end = words[index + i].to
+						}
+					}
+					if (lookAhead.join(" ") === parts.join(" ")) {
+						console.log("phrase found")
+						console.log("start: ", word.from)
+						console.log("end: ", end)
+						//look up phrase in dict
+						const phraseResult = this.plugin.dictManager.userDict[phrase];
+						console.log(phraseResult.highlight)
+						view.dispatch({ effects: highlightEffect.of({ class: "knownunderline", from: word.from, to: end }) });
+
+					}
+
 				}
 			}
 		}
+		console.log("done")
 	}
 
+
 	async removeAllHightlights(view: EditorView) {
-		// console.log("clearrrrrring")
 		view.dispatch({ effects: removeAllDecorationsEffect.of() });
 	}
 }

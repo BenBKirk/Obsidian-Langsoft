@@ -3,45 +3,78 @@ import LangsoftPlugin from "main";
 import * as path from 'path';
 
 
-export interface Context {
+// export interface Context {
+// 	timestamp: string;
+// 	file: string;
+// 	sentence: string;
+// }
+//
+// export interface Definition {
+// 	definition: string;
+// 	deleted: boolean;
+// 	firstcontext: Context;
+// }
+//
+// export interface Level {
+// 	level: string;
+// 	timestamp: string;
+// }
+//
+// // a list of entries makes up a dictionary
+// export interface Entry {
+// 	term: string;
+// 	deleted: boolean;
+// 	highlights: Level[];
+// 	definitions: Definition[];
+// }
+//
+// export interface Dictionary {
+// 	entry: Entry[];
+// }
+// // a bookself can hold more than one dictionary (useful for holding coworkers dictionaries)
+// export interface Bookshelf {
+// 	dictionary: Dictionary[];
+// }
+
+
+// Interface for the context of a definition
+interface Context {
 	timestamp: string;
 	file: string;
-	sentence: string;
+	surroundingtext: string;
 }
 
-export interface Definition {
+// Interface for a definition
+interface Definition {
 	definition: string;
-	deleted: boolean;
 	firstcontext: Context;
 }
 
-export interface Level {
+// Interface for highlight history
+interface HighlightHistory {
 	level: string;
 	timestamp: string;
 }
 
-// a list of entries makes up a dictionary
-export interface Entry {
-	term: string;
+// Main interface for the word data
+interface WordEntry {
+	highlight: string;
 	deleted: boolean;
-	highlights: Level[];
 	definitions: Definition[];
+	deleteddefinitions: Definition[];
+	highlighthistory: HighlightHistory[];
+	firstwordofphrase: string[];
 }
 
-export interface Dictionary {
-	entry: Entry[];
-}
-// a bookself can hold more than one dictionary (useful for holding coworkers dictionaries)
-export interface Bookshelf {
-	dictionary: Dictionary[];
-}
-
+// Type for the dictionary mapping words to their data
+// type WordDictionary = Map<string, WordData>;
+type WordMap = Record<string, WordEntry>;
 
 
 export class DictionaryManager {
 	plugin: LangsoftPlugin;
-	userDict: Entry[];
-	coworkersDict: Bookshelf;
+	userDict: WordMap;
+	// coworkersDict: Bookshelf;
 	dictFolder: string;
 	availableDictionaries: string[];
 	wordnet: string;
@@ -92,34 +125,41 @@ export class DictionaryManager {
 			// load into memory
 			// this.userDict = JSON.parse(dict);
 			if (dict) {
+				// Parse JSON with proper typing
+				// const jsonObject = JSON.parse(dict) as Record<string, WordData>;
 				this.userDict = JSON.parse(dict);
+
+				// Convert to a Map<string, WordData>
+				// this.userDict = new Map(jsonObject.entries());
+				// this.userDict = new Map<string, WordData>(jsonObject.entries());
+				// const hashMap = new Map<string, any>(Object.entries(jsonObject));
 			}
 
-		} else {
-			//need to create a dict
-			try {
-				console.log("creating new empty dictionary: ", primaryDictFullPath)
-				await this.plugin.app.vault.adapter.write(primaryDictFullPath, "[]")
-				this.userDict = [];
-			} catch (e) {
-				console.log(e)
-			}
 		}
+		//else {
+		//need to create a dict
+		// try {
+		// 	console.log("creating new empty dictionary: ", primaryDictFullPath)
+		// 	await this.plugin.app.vault.adapter.write(primaryDictFullPath, "[]")
+		// 	this.userDict = WordMap[];
+		// } catch (e) {
+		// 	console.log(e)
+		// }
 	}
 
 	async searchUserDict(searchTerm: string) {
-		if (!searchTerm) {
-			return false;
-		}
-		if (this.userDict.length < 1) {
-			return false;
-		}
-
-		for (const entry of this.userDict) {
-			if (entry.term.toLowerCase() === searchTerm.toLowerCase()) {
-				return entry;
-			}
-		}
+		// if (!searchTerm) {
+		// 	return false;
+		// }
+		// if (this.userDict.length < 1) {
+		// 	return false;
+		// }
+		//
+		// for (const entry of this.userDict) {
+		// 	if (entry.term.toLowerCase() === searchTerm.toLowerCase()) {
+		// 		return entry;
+		// 	}
+		// }
 	}
 
 	findMostRecentHighlightLevel(entry: Entry) {

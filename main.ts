@@ -113,10 +113,23 @@ export default class LangsoftPlugin extends Plugin {
 		this.styleEl.textContent = this.settingsToStyle()
 	}
 
+	hexToRGB(hex, alpha) {
+		const r = parseInt(hex.slice(1, 3), 16),
+			g = parseInt(hex.slice(3, 5), 16),
+			b = parseInt(hex.slice(5, 7), 16);
+
+		if (alpha) {
+			return "rgba(" + r + ", " + g + ", " + b + ", " + alpha + ")";
+		} else {
+			return "rgb(" + r + ", " + g + ", " + b + ")";
+		}
+	}
+
 	settingsToStyle() {
 		let style = "";
 
 		const highlightTypes = ["unknown", "semiknown", "known"]
+		const highlightTypesUnderline = ["unknownunderline", "semiknownunderline", "knownunderline"]
 		const enabled = [this.settings.unknownEnabled, this.settings.semiknownEnabled, this.settings.knownEnabled]
 		const colors = [this.settings.unknownColor, this.settings.semiknownColor, this.settings.knownColor]
 		for (let i = 0; i < highlightTypes.length; i++) {
@@ -124,6 +137,13 @@ export default class LangsoftPlugin extends Plugin {
 				style = style.concat(`.${highlightTypes[i]} { color: ${colors[i]};} \n`);
 			}
 		}
+		for (let i = 0; i < highlightTypesUnderline.length; i++) {
+			if (enabled[i]) {
+				style = style.concat(`.${highlightTypesUnderline[i]} {text-decoration: underline; text-decoration-color: ${this.hexToRGB(colors[i], 0.2)}; text-decoration-thickness: 3px;} \n`);
+			}
+		}
+		console.log(style)
+		console.log(colors[0])
 		return style;
 	}
 
@@ -138,32 +158,35 @@ export default class LangsoftPlugin extends Plugin {
 
 	wordHover = hoverTooltip((view, pos, side) => {
 		const { from, to, text } = view.state.doc.lineAt(pos);
-		let start = pos, end = pos;
+		let start = pos,
+			end = pos;
+
 		// Expand selection to include the full word
 		while (start > from && /\w/.test(text[start - from - 1])) start--;
 		while (end < to && /\w/.test(text[end - from])) end++;
+
 		if ((start == pos && side < 0) || (end == pos && side > 0)) return null;
+
 		const word = text.slice(start - from, end - from);
-		// Fetch the dictionary definition asynchronously
-		return this.dictManager.searchUserDict(word).then((entry) => {
-			if (!entry || entry.deleted) return null; // No tooltip if nothing is found
-			const dom = document.createElement("div");
-			dom.classList.add("tooltip");
-			// dom.textContent = entry.definitions.map(d => d.definition).join(" / ");
-			dom.textContent = entry.definitions
-				.filter(def => !def.deleted) // Exclude deleted definitions
-				.map(def => def.definition)
-				.join(" / ");
-			return {
-				pos: start,
-				end,
-				above: false,
-				strictSide: true,
-				create(view) {
-					return { dom };
-				},
-			};
-		});
+
+		const def = this.dictManager.userDict[word];
+		if (!def) {
+			return null;
+		}
+		const defs = def.definitions.map(def => def.definition)
+		console.log(defs)
+		return {
+			pos: start,
+			end,
+			above: true, // ✅ Force tooltip to appear ABOVE the word
+			strictSide: true, // Prevents tooltip from flipping sides unexpectedly
+			create(view) {
+				const dom = document.createElement("div");
+				dom.classList.add("tooltip");
+				dom.textContent = defs.join(" / ");
+				return { dom };
+			},
+		};
 	});
 
 	async activateView() {

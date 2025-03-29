@@ -90,7 +90,7 @@ export class Highlighter {
 						//look up phrase in dict
 						const phraseResult = this.plugin.dictManager.userDict[phrase];
 						console.log(phraseResult.highlight)
-						view.dispatch({ effects: highlightEffect.of({ class: "knownunderline", from: word.from, to: end }) });
+						view.dispatch({ effects: highlightEffect.of({ class: `${phraseResult.highlight}underline`, from: word.from, to: end }) });
 
 					}
 

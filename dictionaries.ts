@@ -2,41 +2,6 @@ import { Highlighter } from "highlighter";
 import LangsoftPlugin from "main";
 import * as path from 'path';
 
-
-// export interface Context {
-// 	timestamp: string;
-// 	file: string;
-// 	sentence: string;
-// }
-//
-// export interface Definition {
-// 	definition: string;
-// 	deleted: boolean;
-// 	firstcontext: Context;
-// }
-//
-// export interface Level {
-// 	level: string;
-// 	timestamp: string;
-// }
-//
-// // a list of entries makes up a dictionary
-// export interface Entry {
-// 	term: string;
-// 	deleted: boolean;
-// 	highlights: Level[];
-// 	definitions: Definition[];
-// }
-//
-// export interface Dictionary {
-// 	entry: Entry[];
-// }
-// // a bookself can hold more than one dictionary (useful for holding coworkers dictionaries)
-// export interface Bookshelf {
-// 	dictionary: Dictionary[];
-// }
-
-
 // Interface for the context of a definition
 interface Context {
 	timestamp: string;
@@ -147,20 +112,20 @@ export class DictionaryManager {
 		// }
 	}
 
-	async searchUserDict(searchTerm: string) {
-		// if (!searchTerm) {
-		// 	return false;
-		// }
-		// if (this.userDict.length < 1) {
-		// 	return false;
-		// }
-		//
-		// for (const entry of this.userDict) {
-		// 	if (entry.term.toLowerCase() === searchTerm.toLowerCase()) {
-		// 		return entry;
-		// 	}
-		// }
-	}
+	// async searchUserDict(searchTerm: string) {
+	// if (!searchTerm) {
+	// 	return false;
+	// }
+	// if (this.userDict.length < 1) {
+	// 	return false;
+	// }
+	//
+	// for (const entry of this.userDict) {
+	// 	if (entry.term.toLowerCase() === searchTerm.toLowerCase()) {
+	// 		return entry;
+	// 	}
+	// }
+	// }
 
 	findMostRecentHighlightLevel(entry: Entry) {
 		let latestLevel = "unknown";
@@ -187,29 +152,61 @@ export class DictionaryManager {
 
 	writeHighlightChangeToJson(term: string, level: string) {
 		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
-		for (const entry of this.userDict) {
-			if (entry.term.trim().toLowerCase() === term.trim().toLowerCase()) {
-				entry.highlights.push({ level: level, timestamp });
-			}
+		const entry = this.userDict[term.trim().toLowerCase()];
+		if (entry) {
+			entry.highlighthistory.push({ level: level, timestamp: timestamp })
+			entry.highlight = level;
+			this.writeUserDictToJson();
 		}
-		this.writeUserDictToJson();
 
 	}
 
 	writeNewDefinitionToJson(term: string, level: string, definition: Definition) {
 		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
-		for (const entry of this.userDict) {
-			// update if already in userDict
-			if (entry.term.trim().toLowerCase() === term.trim().toLowerCase()) {
-				entry.highlights.push({ level: level, timestamp: timestamp });
-				entry.definitions.push(definition);
-				entry.deleted = false;
+		const entry = this.userDict[term.trim().toLowerCase()]
+		if (entry) {
+			entry.highlighthistory.push({ level: level, timestamp: timestamp });
+			entry.definitions.push(definition);
+			this.writeUserDictToJson();
+		} else { // if there is not entry for that word / phrase yet create a new one
+			// check if it is a phrase
+			const regex = /\b\w+\b/g;
+			const parts = term.match(regex);
+			console.log(term)
+			console.log(parts)
+			if (parts?.length > 1) { // it's a phrase
+				console.log("it's a phrase");
+				const firstwordofphrase = parts[0];
+				const existingWord = this.userDict[firstwordofphrase];
+				if (existingWord) {
+					existingWord.highlighthistory.push({ level: level, timestamp: timestamp });
+					existingWord.definitions.push(definition);
+					this.writeUserDictToJson();
+				} else {
+					this.userDict[parts.join(" ").trim().toLowerCase()] = {
+						highlight: level,
+						deleted: false,
+						definitions: [definition],
+						deleteddefinitions: [],
+						highlighthistory: [{ level: level, timestamp: timestamp }],
+						firstwordofphrase: []
+					}
+					this.writeUserDictToJson();
+				}
+
+			} else {
+				this.userDict[parts[0].trim().toLowerCase()] = {
+					highlight: level,
+					deleted: false,
+					definitions: [definition],
+					deleteddefinitions: [],
+					highlighthistory: [{ level: level, timestamp: timestamp }],
+					firstwordofphrase: []
+				}
 				this.writeUserDictToJson();
-				return;
+
 			}
 		}
-		this.userDict.push({ term: term, deleted: false, highlights: [{ level: level, timestamp: timestamp }], definitions: [definition] })
-		this.writeUserDictToJson();
 	}
 
 	markDefinitionDeleted(term: string, definition: string) {

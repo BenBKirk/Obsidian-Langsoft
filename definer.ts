@@ -114,13 +114,12 @@ export class DefinerView extends ItemView {
 		// Example: Adding a button to add new items dynamically
 		const addButton = newMeaningEl.createEl("button", { text: "Add Definition" });
 		addButton.addEventListener("click", () => {
-			const val = this.newDefinition.getValue();
+			const val = this.newDefinition.getValue().trim();
 			if (val !== "") {
-				const context = this.getFirstContext();
-				// this.addListItem(val, { file: "whatever.md", context: "surrounding text", date: "2020-02-20" });
+				const context = this.getCurrentContext();
 				this.addListItem(val, context);
 				this.newDefinition.setValue("");
-				this.plugin.dictManager.writeNewDefinitionToJson(this.selectetedText.getValue(), this.getCurrentHighlightState(), { definition: val, deleted: false, firstcontext: context });
+				this.plugin.dictManager.writeNewDefinitionToJson(this.selectetedText.getValue(), this.getCurrentHighlightState(), { definition: val, firstcontext: context });
 			}
 		});
 
@@ -129,7 +128,7 @@ export class DefinerView extends ItemView {
 
 
 
-	getFirstContext(): Context {
+	getCurrentContext(): Context {
 		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
 		const sent = this.selectionContext;
 		return { timestamp: timestamp, file: "test.md", sentence: this.selectionContext };
@@ -231,25 +230,16 @@ export class DefinerView extends ItemView {
 		if (selection === "") {
 			this.changeKnownLevelButtonColor("none");
 		} else {
-			this.plugin.dictManager.searchUserDict(selection).then((entry) => {
-				if (entry) {
-					if (entry.deleted) {
-						// this.selectetedText.setValue("")
-						this.changeKnownLevelButtonColor("unknown");
-						return;
-					}
-					const highlightLevel = this.plugin.dictManager.findMostRecentHighlightLevel(entry);
-					this.changeKnownLevelButtonColor(highlightLevel);
-					for (const def of entry.definitions) {
-						if (def.deleted) {
-							continue;
-						}
-						this.addListItem(def.definition, def.firstcontext)
-					}
-				} else {
-					this.changeKnownLevelButtonColor("unknown");
+			const result = this.plugin.dictManager.userDict[selection];
+			if (result && !result.deleted) {
+				this.changeKnownLevelButtonColor(result.highlight);
+				for (const def of result.definitions) {
+					this.addListItem(def.definition, def.firstcontext)
 				}
-			});
+
+			} else {
+				this.changeKnownLevelButtonColor("unknown");
+			}
 		}
 	}
 

@@ -67,7 +67,7 @@ export class Highlighter {
 
 		console.log("searching")
 		for (const [index, word] of words.entries()) {
-			const result = this.plugin.dictManager.userDict[word.text];
+			const result = this.plugin.dictManager.userDict[word.text.trim().toLowerCase()];
 			if (result) {
 				if (!result.deleted) {
 

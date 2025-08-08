@@ -72,6 +72,7 @@ export default class LangsoftPlugin extends Plugin {
 				const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (activeView) {
 					const editorView = activeView.editor.cm as EditorView;
+					this.highlighter.removeAllHightlights(editorView);
 					this.highlighter.highlightAllWords(editorView);
 				}
 			})
@@ -88,6 +89,7 @@ export default class LangsoftPlugin extends Plugin {
 				debounceTimerLeafChange = window.setTimeout(() => {
 					if (leaf?.view instanceof MarkdownView) {
 						const editorView = leaf.view.editor.cm;
+						this.highlighter.removeAllHightlights(editorView);
 						this.highlighter.highlightAllWords(editorView);
 					}
 				}, 200);
@@ -113,7 +115,7 @@ export default class LangsoftPlugin extends Plugin {
 		this.styleEl.textContent = this.settingsToStyle()
 	}
 
-	hexToRGB(hex, alpha) {
+	hexToRGB(hex: string, alpha: number) {
 		const r = parseInt(hex.slice(1, 3), 16),
 			g = parseInt(hex.slice(3, 5), 16),
 			b = parseInt(hex.slice(5, 7), 16);
@@ -139,7 +141,10 @@ export default class LangsoftPlugin extends Plugin {
 		}
 		for (let i = 0; i < highlightTypesUnderline.length; i++) {
 			if (enabled[i]) {
-				style = style.concat(`.${highlightTypesUnderline[i]} {text-decoration: underline; text-decoration-color: ${this.hexToRGB(colors[i], 0.2)}; text-decoration-thickness: 3px;} \n`);
+				// style = style.concat(`.${highlightTypesUnderline[i]} {text-decoration: underline; text-decoration-color: ${this.hexToRGB(colors[i], 0.2)}; text-decoration-thickness: 3px;} \n`);
+				style = style.concat(`.${highlightTypesUnderline[i]} { background-color: ${this.hexToRGB(colors[i], 0.2)}; } \n`);
+				// style = style.concat(`.${highlightTypesUnderline[i]} {text-decoration: underline; text-decoration-color: ${this.hexToRGB(colors[i], 0.5)}; text-decoration-thickness: 5px;} \n`);
+				// style = style.concat(`.${highlightTypesUnderline[i]} {display: inline-blocks; padding: 5px; border-bottom: 2px solid ${this.hexToRGB(colors[i], 0.2)}; border-left: 2px solid ${this.hexToRGB(colors[i], 0.2)}; border-right: 2px solid ${this.hexToRGB(colors[i], 0.2)};} \n`);
 			}
 		}
 		console.log(style)

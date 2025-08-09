@@ -1,14 +1,12 @@
 import { Editor, MarkdownView, Plugin, WorkspaceLeaf } from "obsidian";
 import { EditorView, hoverTooltip, ViewUpdate } from "@codemirror/view";
-import { Highlighter } from "highlighter";
+import { createHighlightPlugin } from "highlighter";
 import { DEFAULT_SETTINGS, LangsoftPluginSettings, LangsoftSettingsTab } from "settings";
 import { DictionaryManager } from "dictionaries";
 import { VIEW_TYPE_DEFINER, DefinerView } from "definer";
-import { reverse } from "dns";
 
 
 export default class LangsoftPlugin extends Plugin {
-	highlighter: Highlighter;
 	settings: LangsoftPluginSettings;
 	settingsTab: LangsoftSettingsTab
 	dictManager: DictionaryManager
@@ -17,29 +15,14 @@ export default class LangsoftPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings()
-		this.settingsTab = new LangsoftSettingsTab(this.app, this)
-		this.addSettingTab(this.settingsTab)
-		this.highlighter = new Highlighter(this);
-		this.registerEditorExtension(this.highlighter.highlightField);
+		this.settingsTab = new LangsoftSettingsTab(this.app, this);
+		this.addSettingTab(this.settingsTab);
+		this.registerEditorExtension(createHighlightPlugin(this));
+
 		this.dictManager = new DictionaryManager(this)
 		this.styleEl = document.head.createEl("style");
 		this.updateStyle()
 		this.registerEditorExtension(this.wordHover);
-		// this.registerEditorExtension(selectionUpdateListener);
-
-		// Add command to trigger highlighting
-		this.addCommand({
-			id: "highlight-selection",
-			name: "Highlight Selection",
-			editorCallback: (editor: Editor) => {
-				const view = editor.cm as EditorView; // Get CodeMirror view from Obsidian
-				// if (view) highlightSelection(view);
-				if (view) {
-					this.highlighter.removeAllHightlights(view);
-					this.highlighter.highlightAllWords(view);
-				}
-			},
-		});
 
 
 		this.registerView(
@@ -65,38 +48,6 @@ export default class LangsoftPlugin extends Plugin {
 			}
 		}
 		);
-
-		this.registerEvent(
-			this.app.workspace.onLayoutReady(() => {
-				// const leaf = this.app.workspace.activeEditor
-				const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (activeView) {
-					const editorView = activeView.editor.cm as EditorView;
-					this.highlighter.removeAllHightlights(editorView);
-					this.highlighter.highlightAllWords(editorView);
-				}
-			})
-		);
-
-
-		let debounceTimerLeafChange: number | null = null;
-		this.registerEvent(
-			this.app.workspace.on("active-leaf-change", (leaf) => {
-				if (debounceTimerLeafChange) {
-					clearTimeout(debounceTimerLeafChange);
-				}
-
-				debounceTimerLeafChange = window.setTimeout(() => {
-					if (leaf?.view instanceof MarkdownView) {
-						const editorView = leaf.view.editor.cm;
-						this.highlighter.removeAllHightlights(editorView);
-						this.highlighter.highlightAllWords(editorView);
-					}
-				}, 200);
-			})
-		);
-
-
 	}
 
 	// handleSelection(selection: string) {
@@ -147,8 +98,6 @@ export default class LangsoftPlugin extends Plugin {
 				// style = style.concat(`.${highlightTypesUnderline[i]} {display: inline-blocks; padding: 5px; border-bottom: 2px solid ${this.hexToRGB(colors[i], 0.2)}; border-left: 2px solid ${this.hexToRGB(colors[i], 0.2)}; border-right: 2px solid ${this.hexToRGB(colors[i], 0.2)};} \n`);
 			}
 		}
-		console.log(style)
-		console.log(colors[0])
 		return style;
 	}
 
@@ -179,7 +128,6 @@ export default class LangsoftPlugin extends Plugin {
 			return null;
 		}
 		const defs = def.definitions.map(def => def.definition)
-		console.log(defs)
 		return {
 			pos: start,
 			end,

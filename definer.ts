@@ -192,7 +192,6 @@ export class DefinerView extends ItemView {
 		if (this.knownButton.buttonEl.style.backgroundColor !== "var(--interactive-normal)") {
 			currentHighlight = "known";
 		}
-		console.log("currenthigh...", currentHighlight)
 		return currentHighlight;
 	}
 

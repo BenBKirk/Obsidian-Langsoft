@@ -13,7 +13,6 @@ import LangsoftPlugin from "main";
 
 
 
-
 export function createHighlightPlugin(plugin: LangsoftPlugin) {
 	return ViewPlugin.fromClass(
 		class implements PluginValue {

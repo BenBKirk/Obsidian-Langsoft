@@ -1,5 +1,5 @@
 import { Editor, MarkdownView, Plugin, WorkspaceLeaf } from "obsidian";
-import { EditorView, hoverTooltip, ViewUpdate } from "@codemirror/view";
+import { EditorView, hoverTooltip, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { createHighlightPlugin } from "highlighter";
 import { DEFAULT_SETTINGS, LangsoftPluginSettings, LangsoftSettingsTab } from "settings";
 import { DictionaryManager } from "dictionaries";
@@ -7,6 +7,7 @@ import { VIEW_TYPE_DEFINER, DefinerView } from "definer";
 
 
 export default class LangsoftPlugin extends Plugin {
+	myViewPlugin: ViewPlugin;
 	settings: LangsoftPluginSettings;
 	settingsTab: LangsoftSettingsTab
 	dictManager: DictionaryManager
@@ -17,7 +18,8 @@ export default class LangsoftPlugin extends Plugin {
 		await this.loadSettings()
 		this.settingsTab = new LangsoftSettingsTab(this.app, this);
 		this.addSettingTab(this.settingsTab);
-		this.registerEditorExtension(createHighlightPlugin(this));
+		this.myViewPlugin = createHighlightPlugin(this);
+		this.registerEditorExtension(this.myViewPlugin);
 
 		this.dictManager = new DictionaryManager(this)
 		this.styleEl = document.head.createEl("style");

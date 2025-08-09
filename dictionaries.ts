@@ -1,6 +1,7 @@
-import { Highlighter } from "highlighter";
 import LangsoftPlugin from "main";
 import * as path from 'path';
+import { MarkdownView } from "obsidian";
+import { EditorView } from "@codemirror/view";
 
 // Interface for the context of a definition
 interface Context {
@@ -46,7 +47,7 @@ export class DictionaryManager {
 
 	constructor(plugin: LangsoftPlugin) {
 		this.plugin = plugin;
-		this.loadWordnetDict()
+		// this.loadWordnetDict()
 		this.init();
 	}
 
@@ -174,7 +175,7 @@ export class DictionaryManager {
 			const parts = term.match(regex);
 			console.log(term)
 			console.log(parts)
-			if (parts?.length > 1) { // it's a phrase
+			if (parts && parts?.length > 1) { // it's a phrase
 				console.log("it's a phrase");
 				const firstwordofphrase = parts[0];
 				const existingWord = this.userDict[firstwordofphrase];
@@ -194,7 +195,7 @@ export class DictionaryManager {
 					this.writeUserDictToJson();
 				}
 
-			} else {
+			} else if (parts) {
 				this.userDict[parts[0].trim().toLowerCase()] = {
 					highlight: level,
 					deleted: false,
@@ -207,6 +208,7 @@ export class DictionaryManager {
 
 			}
 		}
+
 	}
 
 	markDefinitionDeleted(term: string, definition: string) {

@@ -9,7 +9,24 @@ import {
 	ViewUpdate,
 } from '@codemirror/view';
 import LangsoftPlugin from "main";
+import { StateField, StateEffect } from "@codemirror/state";
 
+// Define an effect to signal updates
+export const TriggerEffect = StateEffect.define<null>();
+
+
+// Define a field that changes when TriggerEffect is dispatched
+export const TriggerField = StateField.define<number>({
+	create() {
+		return 0;
+	},
+	update(value, tr) {
+		for (const e of tr.effects) {
+			if (e.is(TriggerEffect)) return value + 1; // increment
+		}
+		return value;
+	}
+});
 
 
 
@@ -25,7 +42,8 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 			}
 
 			update(update: ViewUpdate) {
-				if (update.docChanged || update.viewportChanged) {
+				if (update.docChanged || update.viewportChanged || update.state.field(TriggerField)) {
+					// if (update.docChanged || update.viewportChanged) {
 					this.decorations = this.buildDecorations(update.view);
 				}
 			}

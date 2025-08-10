@@ -2,6 +2,7 @@ import LangsoftPlugin from "main";
 import * as path from 'path';
 import { MarkdownView } from "obsidian";
 import { EditorView } from "@codemirror/view";
+import { TriggerEffect } from "highlighter";
 
 // Interface for the context of a definition
 interface Context {
@@ -173,10 +174,10 @@ export class DictionaryManager {
 			// check if it is a phrase
 			const regex = /\b\w+\b/g;
 			const parts = term.match(regex);
-			console.log(term)
-			console.log(parts)
+			// console.log(term)
+			// console.log(parts)
 			if (parts && parts?.length > 1) { // it's a phrase
-				console.log("it's a phrase");
+				// console.log("it's a phrase");
 				const firstwordofphrase = parts[0];
 				const existingWord = this.userDict[firstwordofphrase];
 				if (existingWord) {
@@ -208,6 +209,7 @@ export class DictionaryManager {
 
 			}
 		}
+		this.plugin.refreshHighlights();
 
 	}
 

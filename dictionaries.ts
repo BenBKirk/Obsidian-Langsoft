@@ -172,10 +172,11 @@ export class DictionaryManager {
 			this.writeUserDictToJson();
 		} else { // if there is not entry for that word / phrase yet create a new one
 			// check if it is a phrase
-			const regex = /\b\w+\b/g;
+			// const regex = /\b\w+\b/g;
+			const regex = /[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu;
 			const parts = term.match(regex);
-			// console.log(term)
-			// console.log(parts)
+			console.log(term)
+			console.log(parts)
 			if (parts && parts?.length > 1) { // it's a phrase
 				// console.log("it's a phrase");
 				const firstwordofphrase = parts[0];

@@ -64,7 +64,8 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 			}
 
 			private extractWords(text: string, offset: number) {
-				const regex = /\b\w+\b/g;
+				// const regex = /\b\w+\b/g;
+				const regex = /[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu;
 				const words: { text: string; from: number; to: number }[] = [];
 				let match: RegExpExecArray | null;
 
@@ -110,7 +111,8 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 				baseHighlight: string
 			) {
 				if (!phrase) return;
-				const regex = /\b\w+\b/g;
+				// const regex = /\b\w+\b/g;
+				const regex = /[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu;
 				const parts = phrase.match(regex);
 				if (!parts) return;
 

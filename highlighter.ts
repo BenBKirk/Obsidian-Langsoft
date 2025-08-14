@@ -50,36 +50,34 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 
 			buildDecorations(view: EditorView): DecorationSet {
 				const builder = new RangeSetBuilder<Decoration>();
-
 				for (const { from, to } of view.visibleRanges) {
 					const text = view.state.doc.sliceString(from, to);
-					const words = this.extractWords(text, from);
-
+					// const words = this.extractWords(text, from);
+					const words = this.plugin.parseIntoWords(text, from);
 					for (const [index, word] of words.entries()) {
 						this.highlightWord(builder, word, words, index);
 					}
 				}
-
 				return builder.finish();
 			}
 
-			private extractWords(text: string, offset: number) {
-				// const regex = /\b\w+\b/g;
-				const regex = /[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu;
-				const words: { text: string; from: number; to: number }[] = [];
-				let match: RegExpExecArray | null;
-
-				while ((match = regex.exec(text)) !== null) {
-					if (match.index != null) {
-						words.push({
-							text: match[0],
-							from: match.index + offset,
-							to: match.index + offset + match[0].length,
-						});
-					}
-				}
-				return words;
-			}
+			// extractWords(text: string, offset: number) {
+			// 	// const regex = /\b\w+\b/g;
+			// 	const regex = /[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu;
+			// 	const words: { text: string; from: number; to: number }[] = [];
+			// 	let match: RegExpExecArray | null;
+			//
+			// 	while ((match = regex.exec(text)) !== null) {
+			// 		if (match.index != null) {
+			// 			words.push({
+			// 				text: match[0],
+			// 				from: match.index + offset,
+			// 				to: match.index + offset + match[0].length,
+			// 			});
+			// 		}
+			// 	}
+			// 	return words;
+			// }
 
 			private highlightWord(
 				builder: RangeSetBuilder<Decoration>,
@@ -112,26 +110,31 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 			) {
 				if (!phrase) return;
 				// const regex = /\b\w+\b/g;
-				const regex = /[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu;
-				const parts = phrase.match(regex);
+				const parts = this.plugin.parseIntoWords(phrase.trim().toLowerCase(), 0)
+				// const regex = /[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu;
+				// const parts = phrase.match(regex);
 				if (!parts) return;
 
 				const lookAhead: string[] = [];
+				const reconstructedPhrase: string[] = [];
 				let end = 0;
 
+
 				for (let i = 0; i < parts.length; i++) {
+					reconstructedPhrase.push(parts[i].text.toLowerCase())
 					const nextWord = words[index + i];
 					if (!nextWord) {
 						lookAhead.length = 0;
 						break;
 					}
-					lookAhead.push(nextWord.text);
+					lookAhead.push(nextWord.text.toLowerCase());
 					if (i === parts.length - 1) {
 						end = nextWord.to;
 					}
 				}
 
-				if (lookAhead.length && lookAhead.join(" ") === parts.join(" ")) {
+
+				if (lookAhead.length && lookAhead.join(" ") === reconstructedPhrase.join(" ")) {
 					const dict = this.plugin?.dictManager?.userDict;
 					const phraseResult = dict?.[phrase];
 					if (phraseResult) {

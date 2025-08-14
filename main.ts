@@ -5,13 +5,12 @@ import { DEFAULT_SETTINGS, LangsoftPluginSettings, LangsoftSettingsTab } from "s
 import { DictionaryManager } from "dictionaries";
 import { VIEW_TYPE_DEFINER, DefinerView } from "definer";
 
-import { StateEffect } from "@codemirror/state";
 
 export default class LangsoftPlugin extends Plugin {
 	myViewPlugin: ViewPlugin;
 	settings: LangsoftPluginSettings;
-	settingsTab: LangsoftSettingsTab
-	dictManager: DictionaryManager
+	settingsTab: LangsoftSettingsTab;
+	dictManager: DictionaryManager;
 	styleEl: Element;
 
 
@@ -54,13 +53,6 @@ export default class LangsoftPlugin extends Plugin {
 		);
 	}
 
-	// handleSelection(selection: string) {
-	// 	this.activateView();
-	// 	const leaf = this.getDefinerViewLeaf();
-	// 	// leaf.searchTerm.setValue(selection);
-	// 	// leaf.listContainer.empty();
-	// }
-	//
 	refreshHighlights() {
 		for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
 			const mdView = leaf.view instanceof MarkdownView ? leaf.view : null;
@@ -136,7 +128,7 @@ export default class LangsoftPlugin extends Plugin {
 
 		if ((start == pos && side < 0) || (end == pos && side > 0)) return null;
 
-		const word = text.slice(start - from, end - from);
+		const word = text.slice(start - from, end - from).toLowerCase();
 
 		const def = this.dictManager.userDict[word];
 		if (!def) {
@@ -160,19 +152,6 @@ export default class LangsoftPlugin extends Plugin {
 	async activateView() {
 		const { workspace } = this.app;
 
-		// let leaf: WorkspaceLeaf | null = null;
-		// const leaves = workspace.getLeavesOfType(VIEW_TYPE_DEFINER);
-		//
-		// if (leaves.length > 0) {
-		// 	// A leaf with our view already exists, use that
-		// 	leaf = leaves[0];
-		// } else {
-		// 	// Our view could not be found in the workspace, create a new leaf
-		// 	// in the right sidebar for it
-		// 	leaf = workspace.getRightLeaf(false);
-		// 	await leaf.setViewState({ type: VIEW_TYPE_DEFINER, active: true });
-		// }
-		// // "Reveal" the leaf in case it is in a collapsed sidebar
 		const leaf = this.getDefinerViewLeaf()
 		workspace.revealLeaf(leaf.leaf);
 	}
@@ -201,6 +180,26 @@ export default class LangsoftPlugin extends Plugin {
 		return `${wordsBefore} <u>${selection} </u>${wordsAfter}`
 	}
 
+	parseIntoWords(text: string, offset: number) {
+		// const regex = /\b\w+\b/g;
+		const regex = /[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu;
+		const words: { text: string; from: number; to: number }[] = [];
+		let match: RegExpExecArray | null;
+
+		while ((match = regex.exec(text)) !== null) {
+			if (match.index != null) {
+				words.push({
+					text: match[0],
+					from: match.index + offset,
+					to: match.index + offset + match[0].length,
+				});
+			}
+		}
+		return words;
+	}
+
+
+
 
 	onunload() {
 		this.styleEl.remove();
@@ -209,74 +208,3 @@ export default class LangsoftPlugin extends Plugin {
 }
 
 
-// export const wordHover = hoverTooltip((view, pos, side) => {
-// 	const { from, to, text } = view.state.doc.lineAt(pos);
-// 	let start = pos,
-// 		end = pos;
-//
-// 	// Expand selection to include the full word
-// 	while (start > from && /\w/.test(text[start - from - 1])) start--;
-// 	while (end < to && /\w/.test(text[end - from])) end++;
-//
-// 	if ((start == pos && side < 0) || (end == pos && side > 0)) return null;
-//
-// 	const word = text.slice(start - from, end - from);
-//
-//
-// 	return {
-// 		pos: start,
-// 		end,
-// 		above: false, // Position below by default
-// 		strictSide: true, // Prevents tooltip flipping side unexpectedly
-// 		create(view) {
-// 			const dom = document.createElement("div");
-// 			dom.classList.add("tooltip");
-// 			dom.textContent = word;
-// 			return { dom };
-// 		},
-// 	};
-// });
-
-
-// let debounceTimerSelectionChange: number | null = null;
-// const selectionUpdateListener = EditorView.updateListener.of((update: ViewUpdate) => {
-// 	if (!update.selectionSet) return;
-// 	if (debounceTimerSelectionChange) clearTimeout(debounceTimerSelectionChange);
-// 	debounceTimerSelectionChange = setTimeout(() => {
-// 		const from = update.state.selection.ranges[0].from;
-// 		const to = update.state.selection.ranges[0].to;
-// 		if (from === to) {
-// 			console.log("just clicked")
-// 		} else {
-// 			console.log("selected something")
-// 		}
-// 		// console.log(from, to);
-// 		// if (update.state.selection.ranges.length)
-// 	}, 200);
-// });
-
-
-	// if (isCursorInsideDecoration(state, pos)) {
-	// 	console.log("Cursor is inside a marked word.");
-	// } else {
-	// 	console.log("Cursor is in plain text.");
-	// }
-
-////
-//// Function to check if cursor is inside a decoration
-//// function isUserTyping(state: EditorState,)
-//function isCursorInsideDecoration(state: EditorState, pos: number): boolean {
-//	const decorations = state.field(highlightField, false);
-//	if (!decorations) return false;
-//
-//	let found = false;
-//	decorations.between(pos, pos, () => {
-//		found = true;
-//		return false; // Stop searching once we find a decoration
-//	});
-//
-//	return found;
-//}
-//
-//
-//

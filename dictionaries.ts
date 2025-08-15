@@ -159,60 +159,80 @@ export class DictionaryManager {
 			entry.highlighthistory.push({ level: level, timestamp: timestamp })
 			entry.highlight = level;
 			this.writeUserDictToJson();
+			this.plugin.refreshHighlights();
 		}
 
 	}
 
-	writeNewDefinitionToJson(term: string, level: string, definition: Definition) {
+
+	isExistingWordOrPhrase(term: string) {
+		const result = this.userDict[term.trim().toLowerCase()]
+		if (result) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	addNewDefinition(term: string, level: string, definition: Definition) {
 		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
-		const entry = this.userDict[term.trim().toLowerCase()]
-		if (entry) {
-			entry.highlighthistory.push({ level: level, timestamp: timestamp });
-			entry.definitions.push(definition);
-			this.writeUserDictToJson();
-		} else { // if there is not entry for that word / phrase yet create a new one
-			// check if it is a phrase
-			// const regex = /\b\w+\b/g;
-			const regex = /[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu;
-			const parts = term.match(regex);
-			console.log(term)
-			console.log(parts)
-			if (parts && parts?.length > 1) { // it's a phrase
-				// console.log("it's a phrase");
-				const firstwordofphrase = parts[0];
-				const existingWord = this.userDict[firstwordofphrase];
-				if (existingWord) {
-					existingWord.highlighthistory.push({ level: level, timestamp: timestamp });
-					existingWord.definitions.push(definition);
-					this.writeUserDictToJson();
-				} else {
-					this.userDict[parts.join(" ").trim().toLowerCase()] = {
-						highlight: level,
-						deleted: false,
-						definitions: [definition],
-						deleteddefinitions: [],
-						highlighthistory: [{ level: level, timestamp: timestamp }],
-						firstwordofphrase: []
+		const sameTermFound = this.userDict[term];
+		if (sameTermFound) { // just update the existing word / phrase
+			// check if there is already a matching definition
+			const definitions = sameTermFound.definitions
+			for (const def of definitions) {
+				if (def.definition == definition.definition) {
+					console.log("you tried to save: ", definition, " but there was already the def: ", def)
+					return; // don't do anything (in the future, I could display a toast message saying that the definition is already there)
+				}
+			}
+
+			// add the new definition
+			sameTermFound.definitions.push(definition);
+			// make sure the definerViewLeaf gets updated
+			const leaf = this.plugin.getDefinerViewLeaf()
+			leaf.addListItem(definition.definition, definition.firstcontext);
+
+			// if the highlight was none (for example it was the undefined first word of a phrase) when we need to add 
+			sameTermFound.highlight = level;
+			sameTermFound.highlighthistory.push({ level: level, timestamp: timestamp });
+
+			return;
+		}
+		// add new entry
+		this.userDict[term] = {
+			highlight: level,
+			deleted: false,
+			definitions: [definition],
+			deleteddefinitions: [],
+			highlighthistory: [{ level: level, timestamp: timestamp }],
+			firstwordofphrase: []
+		}
+		// if we are dealing with a phrase then we need to handle the first word reference (which is used to find and highlight phrases)
+		const parts = this.plugin.parseIntoWords(term, 0)
+		if (parts.length > 1) { // it's a phrase
+			const firstWordOfPhrase = parts[0];
+			if (this.userDict[firstWordOfPhrase.text]) { // if true, then there is already an entry for the first word
+				for (const phrase of this.userDict[firstWordOfPhrase.text].firstwordofphrase) {
+					if (phrase == term) { // the phrase is already referenced
+						return;
 					}
-					this.writeUserDictToJson();
 				}
-
-			} else if (parts) {
-				this.userDict[parts[0].trim().toLowerCase()] = {
-					highlight: level,
+				// add the reference to the existing first word:
+				this.userDict[firstWordOfPhrase.text].firstwordofphrase.push(term);
+			} else { // we need to add a blank first word entry
+				this.userDict[firstWordOfPhrase.text] = {
+					highlight: "None",
 					deleted: false,
-					definitions: [definition],
+					definitions: [],
 					deleteddefinitions: [],
-					highlighthistory: [{ level: level, timestamp: timestamp }],
-					firstwordofphrase: []
+					highlighthistory: [],
+					firstwordofphrase: [term]
 				}
-				this.writeUserDictToJson();
-
 			}
 		}
-		this.plugin.refreshHighlights();
-
 	}
+
 
 	markDefinitionDeleted(term: string, definition: string) {
 		let isOtherDefFlag = false;

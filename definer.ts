@@ -117,9 +117,10 @@ export class DefinerView extends ItemView {
 			const val = this.newDefinition.getValue().trim();
 			if (val !== "") {
 				const context = this.getCurrentContext();
-				this.addListItem(val, context);
 				this.newDefinition.setValue("");
-				this.plugin.dictManager.writeNewDefinitionToJson(this.selectetedText.getValue(), this.getCurrentHighlightState(), { definition: val, firstcontext: context });
+				this.plugin.dictManager.addNewDefinition(this.selectetedText.getValue().trim().toLowerCase(), this.getCurrentHighlightState(), { definition: val, firstcontext: context });
+				this.plugin.dictManager.writeUserDictToJson();
+				this.plugin.refreshHighlights();
 			}
 		});
 
@@ -130,7 +131,6 @@ export class DefinerView extends ItemView {
 
 	getCurrentContext(): Context {
 		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
-		const sent = this.selectionContext;
 		return { timestamp: timestamp, file: "test.md", sentence: this.selectionContext };
 	}
 
@@ -229,8 +229,8 @@ export class DefinerView extends ItemView {
 		if (selection === "") {
 			this.changeKnownLevelButtonColor("none");
 		} else {
-			const result = this.plugin.dictManager.userDict[selection];
-			if (result && !result.deleted) {
+			const result = this.plugin.dictManager.userDict[selection.toLowerCase()];
+			if (result && !result.deleted && result.highlight != "None") {
 				this.changeKnownLevelButtonColor(result.highlight);
 				for (const def of result.definitions) {
 					this.addListItem(def.definition, def.firstcontext)

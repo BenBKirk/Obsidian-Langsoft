@@ -131,7 +131,7 @@ export default class LangsoftPlugin extends Plugin {
 		const word = text.slice(start - from, end - from).toLowerCase();
 
 		const def = this.dictManager.userDict[word];
-		if (!def) {
+		if (!def || def.highlight == "None") {
 			return null;
 		}
 		const defs = def.definitions.map(def => def.definition)

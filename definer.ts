@@ -1,6 +1,6 @@
 import LangsoftPlugin from "main";
 import { ItemView, WorkspaceLeaf, Setting, TextAreaComponent, TextComponent, CheckboxComponent, SliderComponent, ToggleComponent, ColorComponent, ButtonComponent, Menu, MenuItem, SearchComponent } from "obsidian";
-import { Context, Entry } from "dictionaries";
+import { Definition, highlightHistoryEntry, WordEntry } from "dictionaries";
 
 
 export const VIEW_TYPE_DEFINER = "definer-view";
@@ -117,10 +117,10 @@ export class DefinerView extends ItemView {
 			const val = this.newDefinition.getValue().trim();
 			if (val !== "") {
 				const context = this.getCurrentContext();
-				this.newDefinition.setValue("");
-				this.plugin.dictManager.addNewDefinition(this.selectetedText.getValue().trim().toLowerCase(), this.getCurrentHighlightState(), { definition: val, firstcontext: context });
+				this.plugin.dictManager.addNewDefinition(this.selectetedText.getValue().trim().toLowerCase(), this.getCurrentHighlightState(), this.newDefinition.getValue().trim().toLowerCase(), context);
 				this.plugin.dictManager.writeUserDictToJson();
 				this.plugin.refreshHighlights();
+				this.newDefinition.setValue("");
 			}
 		});
 
@@ -129,12 +129,16 @@ export class DefinerView extends ItemView {
 
 
 
-	getCurrentContext(): Context {
+	getCurrentContext(): Definition {
 		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
-		return { timestamp: timestamp, file: "test.md", sentence: this.selectionContext };
+		return {
+			deleted: false,
+			timestamp: timestamp,
+			file: "test.md", sentence: this.selectionContext
+		};
 	}
 
-	addListItem(text: string, context: Context) {
+	addListItem(text: string, context: Definition) {
 		const details = this.listContainer.createEl("details");
 		const summary = this.listContainer.createEl("summary");
 		summary.textContent = text;
@@ -145,7 +149,8 @@ export class DefinerView extends ItemView {
 		removeButton.addEventListener("click", () => {
 			details.remove();
 			const definitionToDelete = details.find("summary").getText();
-			this.plugin.dictManager.markDefinitionDeleted(this.selectetedText.getValue(), definitionToDelete);
+			this.plugin.dictManager.markDefinitionDeleted(this.selectetedText.getValue().toLowerCase(), definitionToDelete);
+			// this.handleSelection(text, context);
 		});
 	}
 
@@ -227,13 +232,15 @@ export class DefinerView extends ItemView {
 		this.selectionContext = context;
 		this.listContainer.empty();
 		if (selection === "") {
-			this.changeKnownLevelButtonColor("none");
+			this.changeKnownLevelButtonColor("None");
 		} else {
 			const result = this.plugin.dictManager.userDict[selection.toLowerCase()];
-			if (result && !result.deleted && result.highlight != "None") {
+			if (result && result.highlight != "None") {
 				this.changeKnownLevelButtonColor(result.highlight);
-				for (const def of result.definitions) {
-					this.addListItem(def.definition, def.firstcontext)
+				for (const [key, val] of Object.entries(result.definitions)) {
+					if (!val.deleted) {
+						this.addListItem(key, val)
+					}
 				}
 
 			} else {

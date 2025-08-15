@@ -134,7 +134,12 @@ export default class LangsoftPlugin extends Plugin {
 		if (!def || def.highlight == "None") {
 			return null;
 		}
-		const defs = def.definitions.map(def => def.definition)
+		const defs: string[] = [];
+		for (const [key, val] of Object.entries(def.definitions)) {
+			if (!val.deleted) {
+				defs.push(key);
+			}
+		}
 		return {
 			pos: start,
 			end,

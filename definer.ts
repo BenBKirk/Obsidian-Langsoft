@@ -245,10 +245,16 @@ export class DefinerView extends ItemView {
 
 			} else {
 				this.changeKnownLevelButtonColor("unknown");
+				// test code:
+				for (const [name, dict] of Object.entries(this.plugin.dictManager.otherDicts)) {
+					const result = dict[selection.toLowerCase()];
+					console.log(name)
+					console.log(result)
+				}
 			}
 		}
-	}
 
+	}
 
 
 

@@ -88,10 +88,10 @@ export default class LangsoftPlugin extends Plugin {
 	settingsToStyle() {
 		let style = "";
 
-		const highlightTypes = ["unknown", "semiknown", "known"]
-		const highlightTypesUnderline = ["unknownunderline", "semiknownunderline", "knownunderline"]
-		const enabled = [this.settings.unknownEnabled, this.settings.semiknownEnabled, this.settings.knownEnabled]
-		const colors = [this.settings.unknownColor, this.settings.semiknownColor, this.settings.knownColor]
+		const highlightTypes = ["unknown", "semiknown", "known", "coworker"]
+		const highlightTypesUnderline = ["unknownunderline", "semiknownunderline", "knownunderline", "coworkerunderline"]
+		const enabled = [this.settings.unknownEnabled, this.settings.semiknownEnabled, this.settings.knownEnabled, this.settings.coworkerEnabled]
+		const colors = [this.settings.unknownColor, this.settings.semiknownColor, this.settings.knownColor, this.settings.coworkerColor]
 		for (let i = 0; i < highlightTypes.length; i++) {
 			if (enabled[i]) {
 				style = style.concat(`.${highlightTypes[i]} { color: ${colors[i]};} \n`);
@@ -130,28 +130,33 @@ export default class LangsoftPlugin extends Plugin {
 
 		const word = text.slice(start - from, end - from).toLowerCase();
 
-		const def = this.dictManager.userDict[word];
-		if (!def || def.highlight == "None") {
-			return null;
-		}
-		const defs: string[] = [];
-		for (const [key, val] of Object.entries(def.definitions)) {
-			if (!val.deleted) {
-				defs.push(key);
+		try {
+			const def = this.dictManager.userDict[word];
+			if (!def || def.highlight == "None") {
+				return null;
 			}
+			const defs: string[] = [];
+			for (const [key, val] of Object.entries(def.definitions)) {
+				if (!val.deleted) {
+					defs.push(key);
+				}
+			}
+			return {
+				pos: start,
+				end,
+				above: true, // ✅ Force tooltip to appear ABOVE the word
+				strictSide: true, // Prevents tooltip from flipping sides unexpectedly
+				create(view) {
+					const dom = document.createElement("div");
+					dom.classList.add("tooltip");
+					dom.textContent = defs.join(" / ");
+					return { dom };
+				},
+			};
+
+		} catch {
+			console.log("no def for hover")
 		}
-		return {
-			pos: start,
-			end,
-			above: true, // ✅ Force tooltip to appear ABOVE the word
-			strictSide: true, // Prevents tooltip from flipping sides unexpectedly
-			create(view) {
-				const dom = document.createElement("div");
-				dom.classList.add("tooltip");
-				dom.textContent = defs.join(" / ");
-				return { dom };
-			},
-		};
 	});
 
 	async activateView() {

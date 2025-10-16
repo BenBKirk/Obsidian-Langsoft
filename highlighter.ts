@@ -88,17 +88,31 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 				const dict = this.plugin?.dictManager?.userDict;
 				const result = dict?.[word.text.trim().toLowerCase()];
 
-				if (!result || result.deleted) return;
+				// if (!result) return;
 
-				// Highlight the single word
-				builder.add(word.from, word.to, Decoration.mark({ class: result.highlight }));
-
-				// Highlight any matching phrases
-				if (Array.isArray(result.firstwordofphrase)) {
-					for (const phrase of result.firstwordofphrase) {
-						this.highlightPhrase(builder, phrase, words, index, result.highlight);
+				if (!result) { //if there is nothing in the primary dictionary, check other users dictionarys
+					// for (let i = 0; i < this.plugin?.dictManager?.otherDicts.; i++)
+					for (const [name, dict] of Object.entries(this.plugin.dictManager.otherDicts)) {
+						const otherresult = dict?.[word.text.trim().toLowerCase()];
+						if (otherresult) {
+							builder.add(word.from, word.to, Decoration.mark({ class: "coworker" }))
+						}
 					}
+
+				} else {
+
+					// Highlight the single word
+					builder.add(word.from, word.to, Decoration.mark({ class: result.highlight }));
+
+					// Highlight any matching phrases
+					if (Array.isArray(result.firstwordofphrase)) {
+						for (const phrase of result.firstwordofphrase) {
+							this.highlightPhrase(builder, phrase, words, index, result.highlight);
+						}
+					}
+
 				}
+
 			}
 
 			private highlightPhrase(

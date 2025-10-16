@@ -1,8 +1,9 @@
 import LangsoftPlugin from "main";
 import * as path from 'path';
-import { MarkdownView } from "obsidian";
+import { MarkdownView, Notice } from "obsidian";
 import { EditorView } from "@codemirror/view";
 import { TriggerEffect } from "highlighter";
+import { ExampleModal } from "settings";
 
 
 interface Definition {
@@ -24,14 +25,17 @@ interface WordEntry {
 	firstwordofphrase: string[];
 }
 
+interface BookShelf {
+	[key: string]: DictionaryData;
+}
+
 type DictionaryData = Record<string, WordEntry>;
 
 
 export class DictionaryManager {
 	plugin: LangsoftPlugin;
-	// userDict: WordMap;
 	userDict: DictionaryData;
-	// coworkersDict: Bookshelf;
+	otherDicts: BookShelf;
 	dictFolder: string;
 	availableDictionaries: string[];
 	wordnet: string;
@@ -45,9 +49,14 @@ export class DictionaryManager {
 	async init() {
 		//check dictionary folder exists
 		//
+		this.otherDicts = {};
 		await this.getDictionaryFolder();
 		await this.getAvailableDictionaries();
 		await this.loadPrimaryDictionary();
+		await this.loadSecondaryDictionaries();
+		for (const dict in this.otherDicts) {
+			console.log(dict)
+		}
 	}
 
 	async getDictionaryFolder() {
@@ -72,8 +81,9 @@ export class DictionaryManager {
 	}
 
 	async loadPrimaryDictionary() {
-		//check if primary dictionary exists (<user>.json)
-		const primaryDict = this.plugin.settings.user + ".json";
+		//check if primary dictionary exists (<user>.json) it also need to be a json object not a blank file (at least {})
+
+		const primaryDict = this.plugin.settings.currentUser + ".json";
 		const primaryDictFullPath: string = path.join(this.dictFolder, primaryDict).toString();
 		if (this.availableDictionaries.includes(primaryDictFullPath)) {
 			const dict = await this.plugin.app.vault.adapter.read(primaryDictFullPath);
@@ -82,6 +92,29 @@ export class DictionaryManager {
 			}
 
 		}
+	}
+
+	async loadSecondaryDictionaries() {
+		const primaryDict = this.plugin.settings.currentUser + ".json";
+		const primaryDictFullPath: string = path.join(this.dictFolder, primaryDict).toString();
+		for (const path of this.availableDictionaries.filter(val => val !== primaryDictFullPath)) {
+			// console.log(path);
+			try {
+				const dict = await this.plugin.app.vault.adapter.read(path);
+				// console.log(dict)
+				const parsedDict = JSON.parse(dict);
+				console.log(parsedDict);
+
+				// this.otherDicts.push(parsedDict);
+				this.otherDicts[path.slice(23, -5)] = parsedDict;
+
+			} catch (e) {
+				console.log(e)
+
+			}
+
+		}
+
 	}
 
 
@@ -206,7 +239,7 @@ export class DictionaryManager {
 	}
 
 	writeUserDictToJson() {
-		const primaryDict = this.plugin.settings.user + ".json";
+		const primaryDict = this.plugin.settings.currentUser + ".json";
 		const primaryDictFullPath: string = path.join(this.dictFolder, primaryDict).toString();
 
 		if (this.availableDictionaries.includes(primaryDictFullPath)) {

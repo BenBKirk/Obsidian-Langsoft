@@ -90,28 +90,40 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 
 				// if (!result) return;
 
-				if (!result) { //if there is nothing in the primary dictionary, check other users dictionarys
-					// for (let i = 0; i < this.plugin?.dictManager?.otherDicts.; i++)
+				// if (!result) { //if there is nothing in the primary dictionary, check other users dictionarys
+				// for (let i = 0; i < this.plugin?.dictManager?.otherDicts.; i++)
+				if (this.plugin.dictManager.otherDicts) {
 					for (const [name, dict] of Object.entries(this.plugin.dictManager.otherDicts)) {
 						const otherresult = dict?.[word.text.trim().toLowerCase()];
 						if (otherresult) {
-							builder.add(word.from, word.to, Decoration.mark({ class: "coworker" }))
+							if (!result && otherresult.highlight != "None") {
+								builder.add(word.from, word.to, Decoration.mark({ class: "coworker" }))
+
+							}
+							if (Array.isArray(otherresult.firstwordofphrase)) {
+								for (const phrase of otherresult.firstwordofphrase) {
+									this.highlightPhrase(builder, phrase, words, index, true, dict)
+								}
+							}
+
 						}
 					}
-
-				} else {
-
-					// Highlight the single word
-					builder.add(word.from, word.to, Decoration.mark({ class: result.highlight }));
-
-					// Highlight any matching phrases
-					if (Array.isArray(result.firstwordofphrase)) {
-						for (const phrase of result.firstwordofphrase) {
-							this.highlightPhrase(builder, phrase, words, index, result.highlight);
-						}
-					}
-
 				}
+
+				// } else {
+
+				if (!result) return;
+				// Highlight the single word
+				builder.add(word.from, word.to, Decoration.mark({ class: result.highlight }));
+
+				// Highlight any matching phrases
+				if (Array.isArray(result.firstwordofphrase)) {
+					for (const phrase of result.firstwordofphrase) {
+						this.highlightPhrase(builder, phrase, words, index, false, dict);
+					}
+				}
+
+				// }
 
 			}
 
@@ -120,7 +132,8 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 				phrase: string,
 				words: { text: string; from: number; to: number }[],
 				index: number,
-				baseHighlight: string
+				iscoworker: boolean,
+				dict: DictionaryData
 			) {
 				if (!phrase) return;
 				// const regex = /\b\w+\b/g;
@@ -149,14 +162,24 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 
 
 				if (lookAhead.length && lookAhead.join(" ") === reconstructedPhrase.join(" ")) {
-					const dict = this.plugin?.dictManager?.userDict;
+					// const dict = this.plugin?.dictManager?.userDict;
 					const phraseResult = dict?.[phrase];
 					if (phraseResult) {
-						builder.add(
-							words[index].from,
-							end,
-							Decoration.mark({ class: `${phraseResult.highlight}underline` })
-						);
+						if (iscoworker) {
+							builder.add(
+								words[index].from,
+								end,
+								Decoration.mark({ class: "coworkerunderline" })
+							);
+
+						} else {
+							builder.add(
+								words[index].from,
+								end,
+								Decoration.mark({ class: `${phraseResult.highlight}underline` })
+							);
+
+						}
 					}
 				}
 

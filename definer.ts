@@ -1,5 +1,5 @@
 import LangsoftPlugin from "main";
-import { ItemView, WorkspaceLeaf, Setting, TextAreaComponent, TextComponent, CheckboxComponent, SliderComponent, ToggleComponent, ColorComponent, ButtonComponent, Menu, MenuItem, SearchComponent } from "obsidian";
+import { ItemView, WorkspaceLeaf, Setting, TextAreaComponent, TextComponent, CheckboxComponent, SliderComponent, ToggleComponent, ColorComponent, ButtonComponent, Menu, MenuItem, SearchComponent, Notice } from "obsidian";
 import { Definition, highlightHistoryEntry, WordEntry } from "dictionaries";
 
 
@@ -14,6 +14,9 @@ export class DefinerView extends ItemView {
 	semiknownButton: ButtonComponent;
 	knownButton: ButtonComponent;
 	selectionContext: string;
+	testButton: ButtonComponent;
+	coworkerDiv: HTMLDivElement;
+	coworkerListContainer: HTMLUListElement;
 
 	constructor(leaf: WorkspaceLeaf, plugin: LangsoftPlugin) {
 		super(leaf);
@@ -97,7 +100,7 @@ export class DefinerView extends ItemView {
 			this.changeKnownLevelButtonColor("known");
 		})
 
-		container.createEl("h1", { text: "" });
+		container.createEl("h1", { text: "" }); // create some space
 
 		const userDictEl = container.createEl("div", { text: "My Definitions: " });
 
@@ -120,21 +123,28 @@ export class DefinerView extends ItemView {
 				this.plugin.dictManager.addNewDefinition(this.selectetedText.getValue().trim().toLowerCase(), this.getCurrentHighlightState(), this.newDefinition.getValue().trim().toLowerCase(), context);
 				this.plugin.dictManager.writeUserDictToJson();
 				this.plugin.refreshHighlights();
+				this.addListItem(this.newDefinition.getValue().trim().toLowerCase(), context)
 				this.newDefinition.setValue("");
 			}
 		});
 
 
+		this.coworkerDiv = container.createEl("div", { text: "" });
+		this.coworkerDiv.hide();
+		this.coworkerDiv.createEl("hr") //divider
+		this.coworkerDiv.createEl("div", { text: "Co-Workers Definitions: " });
+		this.coworkerListContainer = this.coworkerDiv.createEl("ul", { cls: "my-dynamic-list" });
 	}
 
 
 
 	getCurrentContext(): Definition {
 		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
+		const activeFile = this.app.workspace.getActiveFile();
 		return {
 			deleted: false,
 			timestamp: timestamp,
-			file: "test.md", sentence: this.selectionContext
+			file: activeFile?.name, sentence: this.selectionContext
 		};
 	}
 
@@ -152,6 +162,43 @@ export class DefinerView extends ItemView {
 			this.plugin.dictManager.markDefinitionDeleted(this.selectetedText.getValue().toLowerCase(), definitionToDelete);
 			// this.handleSelection(text, context);
 		});
+	}
+
+	// addCoworkerTitleItem(dict: string) {
+	// const name = this.coworkerListContainer.createEl('h2', { text: dict });
+	// }
+
+	addCoworkerListItem(defText: string, context: Definition) {
+		const details = this.coworkerListContainer.createEl("details");
+		const summary = this.coworkerListContainer.createEl("summary");
+		const copyDefButton = this.coworkerListContainer.createEl("button", { text: defText });
+		copyDefButton.addEventListener("click", () => {
+			// const test = new Notice(copyDefButton.parentElement?.firstChild?.textContent?.trim());
+			// check if definiton is unique or if the same one already exists
+			let seen = false;
+			for (const item of this.listContainer.children) {
+				if (item.children.item(0).textContent === defText) {
+					seen = true
+				}
+			}
+			if (!seen) {
+				const context = this.getCurrentContext();
+				// this.plugin.dictManager.addNewDefinition(defText.trim().toLowerCase(), this.getCurrentHighlightState(), this.newDefinition.getValue().trim().toLowerCase(), context);
+				this.plugin.dictManager.addNewDefinition(this.selectetedText.getValue().trim().toLowerCase(), this.getCurrentHighlightState(), defText, context);
+				this.plugin.dictManager.writeUserDictToJson();
+				this.plugin.refreshHighlights();
+				// this.newDefinition.setValue("");
+				// this.addListItem(defText, context);
+				this.addListItem(defText, context)
+
+
+			}
+
+		})
+		details.appendChild(summary);
+		summary.appendChild(copyDefButton);
+		const table = this.createTable(context.sentence, context.file, context.timestamp);
+		details.appendChild(table);
 	}
 
 	createTable(context: string, file: string, date: string): HTMLTableElement {
@@ -231,30 +278,42 @@ export class DefinerView extends ItemView {
 		this.selectetedText.setValue(selection);
 		this.selectionContext = context;
 		this.listContainer.empty();
+		this.coworkerDiv.hide()
+		this.coworkerListContainer.empty();
 		if (selection === "") {
 			this.changeKnownLevelButtonColor("None");
 		} else {
 			const result = this.plugin.dictManager.userDict[selection.toLowerCase()];
+			for (const [name, dict] of Object.entries(this.plugin.dictManager.otherDicts)) {
+				const coworkerResult = dict[selection.toLowerCase()];
+				if (coworkerResult && coworkerResult.highlight != "None") {
+					this.coworkerListContainer.createEl('div', { text: name });
+					for (const [key, val] of Object.entries(coworkerResult.definitions)) {
+						if (!val.deleted) {
+							this.addCoworkerListItem(key, val);
+
+						}
+					}
+					this.coworkerDiv.show();
+
+				}
+			}
 			if (result && result.highlight != "None") {
 				this.changeKnownLevelButtonColor(result.highlight);
 				for (const [key, val] of Object.entries(result.definitions)) {
 					if (!val.deleted) {
-						this.addListItem(key, val)
+						this.addListItem(key, val);
 					}
 				}
 
 			} else {
 				this.changeKnownLevelButtonColor("unknown");
 				// test code:
-				for (const [name, dict] of Object.entries(this.plugin.dictManager.otherDicts)) {
-					const result = dict[selection.toLowerCase()];
-					console.log(name)
-					console.log(result)
-				}
 			}
 		}
-
 	}
+
+
 
 
 

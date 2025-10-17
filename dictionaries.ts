@@ -54,9 +54,9 @@ export class DictionaryManager {
 		await this.getAvailableDictionaries();
 		await this.loadPrimaryDictionary();
 		await this.loadSecondaryDictionaries();
-		for (const dict in this.otherDicts) {
-			console.log(dict)
-		}
+		// for (const dict in this.otherDicts) {
+		// 	console.log(dict)
+		// }
 	}
 
 	async getDictionaryFolder() {
@@ -103,7 +103,7 @@ export class DictionaryManager {
 				const dict = await this.plugin.app.vault.adapter.read(path);
 				// console.log(dict)
 				const parsedDict = JSON.parse(dict);
-				console.log(parsedDict);
+				// console.log(parsedDict);
 
 				// this.otherDicts.push(parsedDict);
 				this.otherDicts[path.slice(23, -5)] = parsedDict;
@@ -154,28 +154,25 @@ export class DictionaryManager {
 	}
 
 
-	addNewDefinition(term: string, level: string, defKey: string, context: Definition) {
+	addNewDefinition(term: string, level: string, defText: string, context: Definition) {
 		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
 		const sameTermFound = this.userDict[term];
 		if (sameTermFound) { // just update the existing word / phrase
 			// check if there is already a matching definition
-			const sameDefFound = this.userDict[term].definitions[defKey];
+			const sameDefFound = this.userDict[term].definitions[defText];
 			if (sameDefFound) {
 				if (!sameDefFound.deleted) {
 					return; // don't do anything (in the future, I could display a toast message saying that the definition is already there)
 				}
 			}
-
 			// add the new definition
-			sameTermFound.definitions[defKey] = context;
+			sameTermFound.definitions[defText] = context;
 			// make sure the definerViewLeaf gets updated
-			const leaf = this.plugin.getDefinerViewLeaf()
-			leaf.addListItem(defKey, context);
-
+			// const leaf = this.plugin.getDefinerViewLeaf()
+			// leaf.addListItem(defText, context);
 			// if the highlight was none (for example it was the undefined first word of a phrase) when we need to add 
 			sameTermFound.highlight = level;
 			sameTermFound.highlighthistory.push({ level: level, timestamp: timestamp });
-
 			return;
 		}
 		// add new entry
@@ -186,7 +183,7 @@ export class DictionaryManager {
 			firstwordofphrase: []
 		}
 		// add definition to new entry
-		this.userDict[term].definitions[defKey] = context;
+		this.userDict[term].definitions[defText] = context;
 		// if we are dealing with a phrase then we need to handle the first word reference (which is used to find and highlight phrases)
 		const parts = this.plugin.parseIntoWords(term, 0)
 		if (parts.length > 1) { // it's a phrase
@@ -212,14 +209,8 @@ export class DictionaryManager {
 
 
 	markDefinitionDeleted(term: string, definition: string) {
-		console.log(term)
-		console.log(definition)
-
 		try {
 			this.userDict[term].definitions[definition].deleted = true;
-			console.log("deleted!")
-			// TODO 
-			// should check if other definition exist. if not, then change the highlight to None.
 			let otherDefinitionExists = false;
 			for (const [key, val] of Object.entries(this.userDict[term].definitions)) {
 				if (!val.deleted) {
@@ -229,10 +220,8 @@ export class DictionaryManager {
 			if (!otherDefinitionExists) {
 				this.userDict[term].highlight = "None";
 			}
-
 			this.writeUserDictToJson();
 			this.plugin.refreshHighlights()
-
 		} catch {
 			return;
 		}

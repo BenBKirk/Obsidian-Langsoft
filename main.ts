@@ -155,16 +155,31 @@ export default class LangsoftPlugin extends Plugin {
 			};
 
 		} catch {
-			console.log("no def for hover")
+			// console.log("no def for hover")
 		}
 	});
+
 
 	async activateView() {
 		const { workspace } = this.app;
 
-		const leaf = this.getDefinerViewLeaf()
-		workspace.revealLeaf(leaf.leaf);
+		let leaf: WorkspaceLeaf | null = null;
+		const leaves = workspace.getLeavesOfType(VIEW_TYPE_DEFINER);
+
+		if (leaves.length > 0) {
+			// A leaf with our view already exists, use that
+			leaf = leaves[0];
+		} else {
+			// Our view could not be found in the workspace, create a new leaf
+			// in the right sidebar for it
+			leaf = workspace.getRightLeaf(false);
+			await leaf.setViewState({ type: VIEW_TYPE_DEFINER, active: true });
+		}
+
+		// "Reveal" the leaf in case it is in a collapsed sidebar
+		workspace.revealLeaf(leaf);
 	}
+
 
 	getContextForSelection(editor: Editor) {
 		const lenContextWords = 7;

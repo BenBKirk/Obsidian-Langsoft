@@ -156,7 +156,7 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 			}));
 
 
-		let tac: TextComponent;
+		// let tac: TextComponent;
 		// new Setting(containerEl)
 		// 	.setName("Dictionaries Folder")
 		// 	.setDesc('This is the name of the folder used to store dictionaries in JSON format. If the folder does not exist yet it will be automatically created. If the name starts with a "." that means it is a hidden folder. ')
@@ -180,52 +180,44 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 		// 	});
 
 
-		containerEl.createEl("b", { text: "Create or Select Users" })
-		const list: string[] = []
-		this.plugin.dictManager.availableDictionaries.forEach((value) => {
-			list.push(value.slice(23, -5))
-		});
+		// containerEl.createEl("b", { text: "Create or Select Users" })
+		// const list: string[] = []
+		// this.plugin.dictManager.availableDictionaries.forEach((value) => {
+		// 	list.push(value.slice(23, -5))
+		// });
 
 
 		// let tacUser: TextComponent;
-		const users = new Setting(containerEl)
-			.setName("Current User")
-			.setDesc("Change user using the dropdown menu")
-		// .addText((c: TextComponent) => {
-		// 	tac = c;
-		// 	c.setValue(this.plugin.settings.user);
-		// 	c.onChange(async (value: string) => {
-		// 		const newValue = value.trim().length === 0 ? DEFAULT_SETTINGS.user : value.trim();
-		// 		this.plugin.settings.user = newValue;
-		// 		// await this.plugin.saveSettings();
+		// const users = new Setting(containerEl)
+		// 	.setName("Current User")
+		// 	.setDesc("Change user using the dropdown menu")
+
+		// users.addDropdown((dropdown) => {
+		// 	list.forEach((item) => {
+		// 		// dropdown.addOption(item, item.toLowerCase().replace(/\s+/g, '_'));
+		// 		dropdown.addOption(item, item);
+		//
 		// 	});
+		// 	dropdown.onChange(async (value: string) => {
+		// 		new Notice(`Logged in as "${value}"`);
+		// 		// const newValue = value.trim().length === 0 ? DEFAULT_SETTINGS.currentUser : value.trim();
+		// 		this.plugin.settings.currentUser = value;
+		// 		await this.plugin.saveSettings();
+		// 		tac.setValue(this.plugin.settings.currentUser);
+		// 	})
 		// });
-		users.addDropdown((dropdown) => {
-			list.forEach((item) => {
-				// dropdown.addOption(item, item.toLowerCase().replace(/\s+/g, '_'));
-				dropdown.addOption(item, item);
-
-			});
-			dropdown.onChange(async (value: string) => {
-				new Notice(`Logged in as "${value}"`);
-				// const newValue = value.trim().length === 0 ? DEFAULT_SETTINGS.currentUser : value.trim();
-				this.plugin.settings.currentUser = value;
-				await this.plugin.saveSettings();
-				tac.setValue(this.plugin.settings.currentUser);
-			})
-		});
-
-		users.addButton((button: ButtonComponent) => {
-			button.setButtonText("Create New User")
-			button.onClick(async (value: string) => {
-				new ExampleModal(this.app, (newuserName) => {
-					new Notice(`Created new user: ${newuserName}!`);
-
-				}).open();
-
-			})
-
-		});
+		//
+		// users.addButton((button: ButtonComponent) => {
+		// 	button.setButtonText("Create New User")
+		// 	button.onClick(async (value: string) => {
+		// 		new ExampleModal(this.app, (newuserName) => {
+		// 			new Notice(`Created new user: ${newuserName}!`);
+		//
+		// 		}).open();
+		//
+		// 	})
+		//
+		// });
 
 	}
 

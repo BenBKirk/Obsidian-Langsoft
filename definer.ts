@@ -303,6 +303,11 @@ export class DefinerView extends ItemView {
 		// }
 	}
 
+	getFocus() {
+		this.newDefinition.inputEl.focus();
+	}
+
+
 	handleSelection(selection: string, context: string) {
 		this.selectetedText.setValue(selection);
 		this.selectionContext = context;
@@ -340,7 +345,6 @@ export class DefinerView extends ItemView {
 				// test code:
 			}
 		}
-		this.newDefinition.inputEl.focus();
 	}
 
 

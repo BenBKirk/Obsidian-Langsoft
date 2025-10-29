@@ -70,6 +70,9 @@ export default class LangsoftPlugin extends Plugin {
 						selectedText = word;
 					} else {
 						console.log("nothing to do")
+						this.activateView();
+						const leaf = this.getDefinerViewLeaf();
+						leaf.handleSelection("", "");
 						return;
 					}
 				}
@@ -87,6 +90,12 @@ export default class LangsoftPlugin extends Plugin {
 				this.activateView();
 				const leaf = this.getDefinerViewLeaf();
 				leaf.handleSelection(selectedText.trim(), context);
+				leaf.getFocus();
+			} else {
+				this.activateView();
+				const leaf = this.getDefinerViewLeaf();
+				leaf.handleSelection("", "");
+
 			}
 
 

@@ -1,6 +1,6 @@
-import { Editor, MarkdownView, Plugin, WorkspaceLeaf } from "obsidian";
+import { Editor, MarkdownView, Plugin, WorkspaceLeaf, Notice } from "obsidian";
 import { EditorView, hoverTooltip, ViewPlugin, ViewUpdate } from "@codemirror/view";
-import { createHighlightPlugin, TriggerEffect, TriggerField } from "highlighter";
+import { createSelectionHighlightPlugin, createHighlightPlugin, TriggerEffect, TriggerField } from "highlighter";
 import { DEFAULT_SETTINGS, LangsoftPluginSettings, LangsoftSettingsTab } from "settings";
 import { DictionaryManager } from "dictionaries";
 import { VIEW_TYPE_DEFINER, DefinerView } from "definer";
@@ -8,18 +8,26 @@ import { VIEW_TYPE_DEFINER, DefinerView } from "definer";
 
 export default class LangsoftPlugin extends Plugin {
 	myViewPlugin: ViewPlugin;
+	mySelectionViewPlugin: ViewPlugin;
 	settings: LangsoftPluginSettings;
 	settingsTab: LangsoftSettingsTab;
 	dictManager: DictionaryManager;
 	styleEl: Element;
+	SelectedText: Array<number>;
+	lastFile: TFile;
+	oldPosition: number;
 
 
 	async onload() {
+		this.SelectedText = [];
+		this.oldPosition = 0;
 		await this.loadSettings()
 		this.settingsTab = new LangsoftSettingsTab(this.app, this);
 		this.addSettingTab(this.settingsTab);
 		this.myViewPlugin = createHighlightPlugin(this);
+		this.mySelectionViewPlugin = createSelectionHighlightPlugin(this);
 		this.registerEditorExtension(this.myViewPlugin);
+		this.registerEditorExtension(this.mySelectionViewPlugin);
 		this.registerEditorExtension(TriggerField);
 
 		this.dictManager = new DictionaryManager(this)
@@ -33,27 +41,144 @@ export default class LangsoftPlugin extends Plugin {
 			(leaf) => new DefinerView(leaf, this)
 		);
 
-		this.registerDomEvent(document.body, "mouseup", () => {
-			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-			if (view) {
-				const selectedText = view.editor.getSelection();
-				let context = " ";
-				if (selectedText !== "") {
-					context = this.getContextForSelection(view.editor)
-				} else {
-					context = " ";
-				}
 
-				// const cursor = view.editor
+		// this.registerDomEvent(document.body, "", (event) => {
+		// 	if (event.ctrlKey) {
+		// 		const editor = this.app.workspace.activeEditor?.editor;
+		// 		console.log("before ctrl click ", editor?.posToOffset(editor.getCursor()));
+		// 	}
+		// });
+
+
+
+		this.registerDomEvent(document.body, "mouseup", (event) => {
+			this.SelectedText = [];
+
+			if (event.ctrlKey) {
+				const editor = this.app.workspace.activeEditor?.editor;
+				// console.log("After: ", editor?.posToOffset(editor.getCursor()));
+				if (!editor) return;
+				let selectedText = "";
+				let context = "";
+				selectedText = editor.getSelection().trim();
+				console.log(selectedText)
+				if (selectedText !== "") {
+					console.log("is selection")
+				} else {
+					const word = this.selectWordAtCursor(editor);
+					if (word) {
+						selectedText = word;
+					} else {
+						console.log("nothing to do")
+						return;
+					}
+				}
+				context = this.getContextForSelection(editor)
+
+				const fromCursor = editor.getCursor("from")
+				const toCursor = editor.getCursor("to")
+				// const cursor = editor.getCursor();
+				const start = editor.posToOffset(fromCursor)
+				const end = editor.posToOffset(toCursor)
+				this.SelectedText = [start, end];
+				this.refreshHighlights()
+
+
 				this.activateView();
 				const leaf = this.getDefinerViewLeaf();
 				leaf.handleSelection(selectedText.trim(), context);
 			}
+
+
+
 		}
 		);
+
+		this.registerEvent(
+			this.app.workspace.on("active-leaf-change", (leaf) => {
+				const file = this.app.workspace.getActiveFile()
+				if (!file) return;
+
+				if (!this.lastFile || file.path !== this.lastFile.path) {
+					this.lastFile = file;
+					this.SelectedText = [];
+				}
+
+			})
+		);
+
+
+		// this.registerDomEvent(document, "dblclick", () => {
+		//
+		// 	const editor = this.app.workspace.activeEditor?.editor;
+		// 	if (!editor) return;
+		//
+		// 	// const result = this.getWordAtCursor(editor);
+		// 	// if (result) {
+		// 	// 	new Notice(`Double-clicked word: ${result.word}`);
+		// 	// 	editor.setSelection(result.from, result.to);
+		// 	// }
+		// 	const word = this.selectWordAtCursor(editor);
+		// 	if (word) {
+		// 		const context = this.getContextForSelection(editor)
+		// 		// new Notice(`Selected word: ${word} context: ${context}`);
+		// 		this.activateView();
+		// 		const leaf = this.getDefinerViewLeaf();
+		// 		leaf.handleSelection(word.trim(), context);
+		// 	}
+		// });
+
 	}
 
+
+	selectWordAtCursor(editor: Editor) {
+		const cursor = editor.getCursor();
+		const lineText = editor.getLine(cursor.line);
+		const pos = cursor.ch;
+
+		const regex = /[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu;
+
+		let match;
+		while ((match = regex.exec(lineText)) !== null) {
+			const start = match.index;
+			const end = start + match[0].length;
+
+			if (pos >= start && pos <= end) {
+				// Select that word
+				editor.setSelection(
+					{ line: cursor.line, ch: start },
+					{ line: cursor.line, ch: end }
+				);
+
+				return match[0];
+			}
+		}
+
+		return null;
+	}
+
+	// getWordAtCursor(editor: Editor): { word: string; from: number; to: number } | null {
+	// 	const cursor = editor.getCursor();
+	// 	const lineText = editor.getLine(cursor.line);
+	// 	const pos = cursor.ch;
+	//
+	// 	const regex = /[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu;
+	//
+	// 	let match;
+	// 	while ((match = regex.exec(lineText)) !== null) {
+	// 		const start = match.index;
+	// 		const end = start + match[0].length;
+	//
+	// 		if (pos >= start && pos <= end) {
+	// 			return { word: match[0], from: start, to: end };
+	// 		}
+	// 	}
+	//
+	// 	return null;
+	// }
+
 	refreshHighlights() {
+		console.log("this function was called")
 		for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
 			const mdView = leaf.view instanceof MarkdownView ? leaf.view : null;
 			if (mdView) {
@@ -94,14 +219,15 @@ export default class LangsoftPlugin extends Plugin {
 		const colors = [this.settings.unknownColor, this.settings.semiknownColor, this.settings.knownColor, this.settings.coworkerColor]
 		for (let i = 0; i < highlightTypes.length; i++) {
 			if (enabled[i]) {
-				style = style.concat(`.${highlightTypes[i]} { color: ${colors[i]};} \n`);
+				// style = style.concat(`.${highlightTypes[i]} { color: ${colors[i]};} \n`);
+				style = style.concat(`.${highlightTypes[i]} { background-color: ${this.hexToRGB(colors[i], 0.2)}; } \n`);
 			}
 		}
 		for (let i = 0; i < highlightTypesUnderline.length; i++) {
 			if (enabled[i]) {
 				// style = style.concat(`.${highlightTypesUnderline[i]} {text-decoration: underline; text-decoration-color: ${this.hexToRGB(colors[i], 0.2)}; text-decoration-thickness: 3px;} \n`);
-				style = style.concat(`.${highlightTypesUnderline[i]} { background-color: ${this.hexToRGB(colors[i], 0.2)}; } \n`);
-				// style = style.concat(`.${highlightTypesUnderline[i]} {text-decoration: underline; text-decoration-color: ${this.hexToRGB(colors[i], 0.5)}; text-decoration-thickness: 5px;} \n`);
+				// style = style.concat(`.${highlightTypesUnderline[i]} { background-color: ${this.hexToRGB(colors[i], 0.2)}; } \n`);
+				style = style.concat(`.${highlightTypesUnderline[i]} {text-decoration: underline; text-decoration-color: ${this.hexToRGB(colors[i], 0.5)}; text-decoration-thickness: 5px;} \n`);
 				// style = style.concat(`.${highlightTypesUnderline[i]} {display: inline-blocks; padding: 5px; border-bottom: 2px solid ${this.hexToRGB(colors[i], 0.2)}; border-left: 2px solid ${this.hexToRGB(colors[i], 0.2)}; border-right: 2px solid ${this.hexToRGB(colors[i], 0.2)};} \n`);
 			}
 		}

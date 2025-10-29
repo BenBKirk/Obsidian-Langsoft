@@ -1,5 +1,5 @@
 import LangsoftPlugin from "main";
-import { ItemView, WorkspaceLeaf, Setting, TextAreaComponent, TextComponent, CheckboxComponent, SliderComponent, ToggleComponent, ColorComponent, ButtonComponent, Menu, MenuItem, SearchComponent, Notice } from "obsidian";
+import { ItemView, WorkspaceLeaf, Setting, TextAreaComponent, TextComponent, CheckboxComponent, SliderComponent, ToggleComponent, ColorComponent, ButtonComponent, Menu, MenuItem, SearchComponent, Notice, MarkdownView } from "obsidian";
 import { Definition, highlightHistoryEntry, WordEntry } from "dictionaries";
 
 
@@ -14,7 +14,6 @@ export class DefinerView extends ItemView {
 	semiknownButton: ButtonComponent;
 	knownButton: ButtonComponent;
 	selectionContext: string;
-	testButton: ButtonComponent;
 	coworkerDiv: HTMLDivElement;
 	coworkerListContainer: HTMLUListElement;
 
@@ -127,6 +126,35 @@ export class DefinerView extends ItemView {
 				this.newDefinition.setValue("");
 			}
 		});
+		this.containerEl.addEventListener("keyup", (event) => {
+			// if (event.key === "Enter" && event.ctrlKey) {
+			if (event.key === "Enter") {
+				event.preventDefault();
+				addButton.click();
+
+				// Try to get the active Markdown view
+				let mdView = this.app.workspace.getActiveViewOfType(MarkdownView);
+
+				if (!mdView) {
+					// No Markdown editor is active → find any leaf with MarkdownView
+					const leaves = this.app.workspace.getLeavesOfType("markdown");
+					if (leaves.length > 0) {
+						const leaf = leaves[0];
+						this.app.workspace.setActiveLeaf(leaf); // make it active
+						mdView = leaf.view as MarkdownView;
+					}
+				}
+
+				if (mdView) {
+					mdView.editor.focus(); // focus the editor
+				}
+
+
+
+
+
+			}
+		});
 
 
 		this.coworkerDiv = container.createEl("div", { text: "" });
@@ -186,6 +214,7 @@ export class DefinerView extends ItemView {
 				// this.plugin.dictManager.addNewDefinition(defText.trim().toLowerCase(), this.getCurrentHighlightState(), this.newDefinition.getValue().trim().toLowerCase(), context);
 				this.plugin.dictManager.addNewDefinition(this.selectetedText.getValue().trim().toLowerCase(), this.getCurrentHighlightState(), defText, context);
 				this.plugin.dictManager.writeUserDictToJson();
+				console.log("from here")
 				this.plugin.refreshHighlights();
 				// this.newDefinition.setValue("");
 				// this.addListItem(defText, context);
@@ -311,6 +340,7 @@ export class DefinerView extends ItemView {
 				// test code:
 			}
 		}
+		this.newDefinition.inputEl.focus();
 	}
 
 

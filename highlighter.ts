@@ -52,7 +52,6 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 				const builder = new RangeSetBuilder<Decoration>();
 				for (const { from, to } of view.visibleRanges) {
 					const text = view.state.doc.sliceString(from, to);
-					// const words = this.extractWords(text, from);
 					const words = this.plugin.parseIntoWords(text, from);
 					for (const [index, word] of words.entries()) {
 						this.highlightWord(builder, word, words, index);
@@ -60,24 +59,6 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 				}
 				return builder.finish();
 			}
-
-			// extractWords(text: string, offset: number) {
-			// 	// const regex = /\b\w+\b/g;
-			// 	const regex = /[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu;
-			// 	const words: { text: string; from: number; to: number }[] = [];
-			// 	let match: RegExpExecArray | null;
-			//
-			// 	while ((match = regex.exec(text)) !== null) {
-			// 		if (match.index != null) {
-			// 			words.push({
-			// 				text: match[0],
-			// 				from: match.index + offset,
-			// 				to: match.index + offset + match[0].length,
-			// 			});
-			// 		}
-			// 	}
-			// 	return words;
-			// }
 
 			private highlightWord(
 				builder: RangeSetBuilder<Decoration>,
@@ -192,3 +173,58 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 }
 
 
+export function createSelectionHighlightPlugin(plugin: LangsoftPlugin) {
+	return ViewPlugin.fromClass(
+		class implements PluginValue {
+			decorations: DecorationSet;
+			plugin: LangsoftPlugin;
+
+			constructor(view: EditorView) {
+				this.plugin = plugin; // reference to main plugin
+				this.decorations = this.buildDecorations(view);
+			}
+
+			update(update: ViewUpdate) {
+				if (update.docChanged || update.viewportChanged || update.state.field(TriggerField)) {
+					// if (update.docChanged || update.viewportChanged) {
+					this.decorations = this.buildDecorations(update.view);
+					// console.log(update.state.selection.ranges[0])
+				}
+			}
+
+			buildDecorations(view: EditorView): DecorationSet {
+				const builder = new RangeSetBuilder<Decoration>();
+				// for (const { from, to } of view.visibleRanges) {
+				// 	const text = view.state.doc.sliceString(from, to);
+				// 	const words = this.plugin.parseIntoWords(text, from);
+				// 	for (const [index, word] of words.entries()) {
+				// 		this.highlightWord(builder, word, words, index);
+				// 	}
+				// }
+				if (this.plugin.SelectedText.length > 0) {
+					if (view.state.doc.length > this.plugin.SelectedText[1]) { // would be out of bounds
+
+						const highlight = Decoration.mark({
+							attributes: { style: "outline: 5px solid rgba(255,0,0,0.3);" },
+						});
+						builder.add(this.plugin.SelectedText[0], this.plugin.SelectedText[1], highlight);
+
+					} else {
+						this.decorations = Decoration.none;
+					}
+				}
+
+
+				return builder.finish();
+			}
+
+			destroy() {
+				this.decorations = Decoration.none;
+			}
+
+		},
+		{
+			decorations: v => v.decorations,
+		}
+	);
+}

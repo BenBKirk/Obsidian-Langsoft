@@ -308,6 +308,7 @@ export class DefinerView extends ItemView {
 	}
 
 
+
 	handleSelection(selection: string, context: string) {
 		this.selectetedText.setValue(selection);
 		this.selectionContext = context;

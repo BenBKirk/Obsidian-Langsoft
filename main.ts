@@ -92,9 +92,9 @@ export default class LangsoftPlugin extends Plugin {
 				leaf.handleSelection(selectedText.trim(), context);
 				leaf.getFocus();
 			} else {
-				this.activateView();
-				const leaf = this.getDefinerViewLeaf();
-				leaf.handleSelection("", "");
+				// this.activateView();
+				// const leaf = this.getDefinerViewLeaf();
+				// leaf.handleSelection("", "");
 
 			}
 
@@ -111,6 +111,8 @@ export default class LangsoftPlugin extends Plugin {
 				if (!this.lastFile || file.path !== this.lastFile.path) {
 					this.lastFile = file;
 					this.SelectedText = [];
+					const leaf = this.getDefinerViewLeaf();
+					leaf.handleSelection("", "");
 				}
 
 			})

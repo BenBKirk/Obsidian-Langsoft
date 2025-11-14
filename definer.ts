@@ -7,7 +7,7 @@ export const VIEW_TYPE_DEFINER = "definer-view";
 
 export class DefinerView extends ItemView {
 	plugin: LangsoftPlugin;
-	selectetedText: TextAreaComponent;
+	selectedTextComponent: TextAreaComponent;
 	newDefinition: TextAreaComponent;
 	listContainer: HTMLUListElement;
 	unknownButton: ButtonComponent;
@@ -45,10 +45,10 @@ export class DefinerView extends ItemView {
 		container.createEl("h1", { text: "Langsoft 📖" });
 		// const searchEl = container.createEl("h5", { text: "Word / Phrase: " });
 		// const searchEl = container.createEl("h5", { text: "" });
-		this.selectetedText = new TextAreaComponent(container);
+		this.selectedTextComponent = new TextAreaComponent(container);
 		// this.searchTerm = new SearchComponent(searchEl);
-		this.selectetedText.setPlaceholder("Select some text in main window");
-		this.selectetedText.setDisabled(true);
+		this.selectedTextComponent.setPlaceholder("Select some text in main window");
+		this.selectedTextComponent.setDisabled(true);
 
 		container.createEl("h1", { text: " " });
 
@@ -60,7 +60,7 @@ export class DefinerView extends ItemView {
 			if (this.getCurrentHighlightState() !== "unknown") {
 				if (this.listContainer.getElementsByTagName("summary").length > 0) {
 					// this.writeNewKnownLevelToDict("unknown")
-					this.plugin.dictManager.writeHighlightChangeToJson(this.selectetedText.getValue(), "unknown")
+					this.plugin.dictManager.writeHighlightChangeToJson(this.selectedTextComponent.getValue(), "unknown")
 				}
 			}
 			this.changeKnownLevelButtonColor("unknown");
@@ -75,7 +75,7 @@ export class DefinerView extends ItemView {
 			if (this.getCurrentHighlightState() !== "semiknown") {
 				if (this.listContainer.getElementsByTagName("summary").length > 0) {
 					// this.writeNewKnownLevelToDict("semiknown")
-					this.plugin.dictManager.writeHighlightChangeToJson(this.selectetedText.getValue(), "semiknown")
+					this.plugin.dictManager.writeHighlightChangeToJson(this.selectedTextComponent.getValue(), "semiknown")
 				}
 			}
 			this.changeKnownLevelButtonColor("semiknown");
@@ -93,7 +93,7 @@ export class DefinerView extends ItemView {
 			if (this.getCurrentHighlightState() !== "known") {
 				if (this.listContainer.getElementsByTagName("summary").length > 0) {
 					// this.writeNewKnownLevelToDict("known")
-					this.plugin.dictManager.writeHighlightChangeToJson(this.selectetedText.getValue(), "known")
+					this.plugin.dictManager.writeHighlightChangeToJson(this.selectedTextComponent.getValue(), "known")
 				}
 			}
 			this.changeKnownLevelButtonColor("known");
@@ -116,22 +116,16 @@ export class DefinerView extends ItemView {
 		// Example: Adding a button to add new items dynamically
 		const addButton = newMeaningEl.createEl("button", { text: "Add Definition" });
 		addButton.addEventListener("click", () => {
-			const val = this.newDefinition.getValue().trim();
-			if (val !== "") {
+			const newDefVal = this.newDefinition.getValue().trim();
+			const selVal = this.selectedTextComponent.getValue().trim();
+			// const val = this.newDefinition.getValue().trim();
+			if (newDefVal !== "" && selVal !== "") {
 				const context = this.getCurrentContext();
-				this.plugin.dictManager.addNewDefinition(this.selectetedText.getValue().trim().toLowerCase(), this.getCurrentHighlightState(), this.newDefinition.getValue().trim().toLowerCase(), context);
+				this.plugin.dictManager.addNewDefinition(this.selectedTextComponent.getValue().trim().toLowerCase(), this.getCurrentHighlightState(), this.newDefinition.getValue().trim().toLowerCase(), context);
 				this.plugin.dictManager.writeUserDictToJson();
 				this.plugin.refreshHighlights();
 				this.addListItem(this.newDefinition.getValue().trim().toLowerCase(), context)
 				this.newDefinition.setValue("");
-			}
-		});
-		this.containerEl.addEventListener("keyup", (event) => {
-			// if (event.key === "Enter" && event.ctrlKey) {
-			if (event.key === "Enter") {
-				event.preventDefault();
-				addButton.click();
-
 				// Try to get the active Markdown view
 				let mdView = this.app.workspace.getActiveViewOfType(MarkdownView);
 
@@ -139,7 +133,7 @@ export class DefinerView extends ItemView {
 					// No Markdown editor is active → find any leaf with MarkdownView
 					const leaves = this.app.workspace.getLeavesOfType("markdown");
 					if (leaves.length > 0) {
-						const leaf = leaves[0];
+						const leaf = leaves[this.plugin.lastTabIndex];
 						this.app.workspace.setActiveLeaf(leaf); // make it active
 						mdView = leaf.view as MarkdownView;
 					}
@@ -148,11 +142,13 @@ export class DefinerView extends ItemView {
 				if (mdView) {
 					mdView.editor.focus(); // focus the editor
 				}
-
-
-
-
-
+			}
+		});
+		this.containerEl.addEventListener("keyup", (event) => {
+			// if (event.key === "Enter" && event.ctrlKey) {
+			if (event.key === "Enter") {
+				event.preventDefault();
+				addButton.click();
 			}
 		});
 
@@ -187,7 +183,7 @@ export class DefinerView extends ItemView {
 		removeButton.addEventListener("click", () => {
 			details.remove();
 			const definitionToDelete = details.find("summary").getText();
-			this.plugin.dictManager.markDefinitionDeleted(this.selectetedText.getValue().toLowerCase(), definitionToDelete);
+			this.plugin.dictManager.markDefinitionDeleted(this.selectedTextComponent.getValue().toLowerCase(), definitionToDelete);
 			// this.handleSelection(text, context);
 		});
 	}
@@ -212,7 +208,7 @@ export class DefinerView extends ItemView {
 			if (!seen) {
 				const context = this.getCurrentContext();
 				// this.plugin.dictManager.addNewDefinition(defText.trim().toLowerCase(), this.getCurrentHighlightState(), this.newDefinition.getValue().trim().toLowerCase(), context);
-				this.plugin.dictManager.addNewDefinition(this.selectetedText.getValue().trim().toLowerCase(), this.getCurrentHighlightState(), defText, context);
+				this.plugin.dictManager.addNewDefinition(this.selectedTextComponent.getValue().trim().toLowerCase(), this.getCurrentHighlightState(), defText, context);
 				this.plugin.dictManager.writeUserDictToJson();
 				console.log("from here")
 				this.plugin.refreshHighlights();
@@ -310,7 +306,7 @@ export class DefinerView extends ItemView {
 
 
 	handleSelection(selection: string, context: string) {
-		this.selectetedText.setValue(selection);
+		this.selectedTextComponent.setValue(selection);
 		this.selectionContext = context;
 		this.listContainer.empty();
 		this.coworkerDiv.hide()

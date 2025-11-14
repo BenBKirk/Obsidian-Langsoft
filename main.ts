@@ -15,12 +15,12 @@ export default class LangsoftPlugin extends Plugin {
 	styleEl: Element;
 	SelectedText: Array<number>;
 	lastFile: TFile;
-	oldPosition: number;
+	lastTabIndex: number;
 
 
 	async onload() {
 		this.SelectedText = [];
-		this.oldPosition = 0;
+		this.lastTabIndex = 0;
 		await this.loadSettings()
 		this.settingsTab = new LangsoftSettingsTab(this.app, this);
 		this.addSettingTab(this.settingsTab);
@@ -53,18 +53,21 @@ export default class LangsoftPlugin extends Plugin {
 
 		this.registerDomEvent(document.body, "mouseup", (event) => {
 			this.SelectedText = [];
+			const editor = this.app.workspace.activeEditor?.editor;
+			if (!editor) return;
+
+			const tab = this.app.workspace.getMostRecentLeaf();  // active tab
+			const parent = tab.parent;                            // the pane that holds the tabs
+			const tabIndex = parent.children.indexOf(tab);           // 0-based index
+			this.lastTabIndex = tabIndex
 
 			if (event.ctrlKey) {
-				const editor = this.app.workspace.activeEditor?.editor;
 				// console.log("After: ", editor?.posToOffset(editor.getCursor()));
-				if (!editor) return;
-				let selectedText = "";
-				let context = "";
-				selectedText = editor.getSelection().trim();
+				// let selectedText = "";
+				// let context = "";
+				let selectedText = editor.getSelection().trim();
 				console.log(selectedText)
-				if (selectedText !== "") {
-					console.log("is selection")
-				} else {
+				if (selectedText == "") {
 					const word = this.selectWordAtCursor(editor);
 					if (word) {
 						selectedText = word;
@@ -76,7 +79,6 @@ export default class LangsoftPlugin extends Plugin {
 						return;
 					}
 				}
-				context = this.getContextForSelection(editor)
 
 				const fromCursor = editor.getCursor("from")
 				const toCursor = editor.getCursor("to")
@@ -85,17 +87,15 @@ export default class LangsoftPlugin extends Plugin {
 				const end = editor.posToOffset(toCursor)
 				this.SelectedText = [start, end];
 				this.refreshHighlights()
-
-
 				this.activateView();
 				const leaf = this.getDefinerViewLeaf();
-				leaf.handleSelection(selectedText.trim(), context);
+				leaf.handleSelection(selectedText.trim(), this.getContextForSelection(editor));
 				leaf.getFocus();
 			} else {
-				// this.activateView();
-				// const leaf = this.getDefinerViewLeaf();
-				// leaf.handleSelection("", "");
-
+				this.refreshHighlights()
+				this.activateView();
+				const leaf = this.getDefinerViewLeaf();
+				leaf.handleSelection(editor.getSelection().trim(), this.getContextForSelection(editor));
 			}
 
 
@@ -189,7 +189,7 @@ export default class LangsoftPlugin extends Plugin {
 	// }
 
 	refreshHighlights() {
-		console.log("this function was called")
+		// console.log("this function was called")
 		for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
 			const mdView = leaf.view instanceof MarkdownView ? leaf.view : null;
 			if (mdView) {
@@ -224,26 +224,85 @@ export default class LangsoftPlugin extends Plugin {
 	settingsToStyle() {
 		let style = "";
 
-		const highlightTypes = ["unknown", "semiknown", "known", "coworker"]
-		const highlightTypesUnderline = ["unknownunderline", "semiknownunderline", "knownunderline", "coworkerunderline"]
-		const enabled = [this.settings.unknownEnabled, this.settings.semiknownEnabled, this.settings.knownEnabled, this.settings.coworkerEnabled]
-		const colors = [this.settings.unknownColor, this.settings.semiknownColor, this.settings.knownColor, this.settings.coworkerColor]
+		const highlightTypes = ["unknown", "semiknown", "known", "coworker"];
+		const highlightTypesUnderline = ["unknownunderline", "semiknownunderline", "knownunderline", "coworkerunderline"];
+		const enabled = [
+			this.settings.unknownEnabled,
+			this.settings.semiknownEnabled,
+			this.settings.knownEnabled,
+			this.settings.coworkerEnabled
+		];
+		const colors = [
+			this.settings.unknownColor,
+			this.settings.semiknownColor,
+			this.settings.knownColor,
+			this.settings.coworkerColor
+		];
+
 		for (let i = 0; i < highlightTypes.length; i++) {
 			if (enabled[i]) {
-				// style = style.concat(`.${highlightTypes[i]} { color: ${colors[i]};} \n`);
-				style = style.concat(`.${highlightTypes[i]} { background-color: ${this.hexToRGB(colors[i], 0.2)}; } \n`);
+				style += `.${highlightTypes[i]} { 
+                background-color: ${this.hexToRGB(colors[i], 0.2)}; 
+            }\n`;
 			}
 		}
+
 		for (let i = 0; i < highlightTypesUnderline.length; i++) {
 			if (enabled[i]) {
-				// style = style.concat(`.${highlightTypesUnderline[i]} {text-decoration: underline; text-decoration-color: ${this.hexToRGB(colors[i], 0.2)}; text-decoration-thickness: 3px;} \n`);
-				// style = style.concat(`.${highlightTypesUnderline[i]} { background-color: ${this.hexToRGB(colors[i], 0.2)}; } \n`);
-				style = style.concat(`.${highlightTypesUnderline[i]} {text-decoration: underline; text-decoration-color: ${this.hexToRGB(colors[i], 0.5)}; text-decoration-thickness: 5px;} \n`);
-				// style = style.concat(`.${highlightTypesUnderline[i]} {display: inline-blocks; padding: 5px; border-bottom: 2px solid ${this.hexToRGB(colors[i], 0.2)}; border-left: 2px solid ${this.hexToRGB(colors[i], 0.2)}; border-right: 2px solid ${this.hexToRGB(colors[i], 0.2)};} \n`);
+				style += `.${highlightTypesUnderline[i]} { 
+                text-decoration: underline; 
+                text-decoration-color: ${this.hexToRGB(colors[i], 0.5)}; 
+                text-decoration-thickness: 5px; 
+            }\n`;
 			}
 		}
+
+		style += `
+
+		.tooltip.tooltip-adjusted {
+			margin-top: -16px;          /* move up; adjust value as needed (-6px .. -16px) */
+			transform-origin: center bottom;
+			padding: 6px 8px;
+			border-radius: 6px;
+			background: var(--background-primary);
+			color: var(--text-normal);
+			box-shadow: var(--shadow-s);
+		}
+
+		.tooltip.tooltip-adjusted {
+			transition: transform 0.12s ease, opacity 0.12s ease;
+			opacity: 1;
+		}
+		`;
+
+		// transform: translateY(-2px);
 		return style;
 	}
+
+
+	// settingsToStyle() {
+	// 	let style = "";
+	//
+	// 	const highlightTypes = ["unknown", "semiknown", "known", "coworker"]
+	// 	const highlightTypesUnderline = ["unknownunderline", "semiknownunderline", "knownunderline", "coworkerunderline"]
+	// 	const enabled = [this.settings.unknownEnabled, this.settings.semiknownEnabled, this.settings.knownEnabled, this.settings.coworkerEnabled]
+	// 	const colors = [this.settings.unknownColor, this.settings.semiknownColor, this.settings.knownColor, this.settings.coworkerColor]
+	// 	for (let i = 0; i < highlightTypes.length; i++) {
+	// 		if (enabled[i]) {
+	// 			// style = style.concat(`.${highlightTypes[i]} { color: ${colors[i]};} \n`);
+	// 			style = style.concat(`.${highlightTypes[i]} { background-color: ${this.hexToRGB(colors[i], 0.2)}; } \n`);
+	// 		}
+	// 	}
+	// 	for (let i = 0; i < highlightTypesUnderline.length; i++) {
+	// 		if (enabled[i]) {
+	// 			// style = style.concat(`.${highlightTypesUnderline[i]} {text-decoration: underline; text-decoration-color: ${this.hexToRGB(colors[i], 0.2)}; text-decoration-thickness: 3px;} \n`);
+	// 			// style = style.concat(`.${highlightTypesUnderline[i]} { background-color: ${this.hexToRGB(colors[i], 0.2)}; } \n`);
+	// 			style = style.concat(`.${highlightTypesUnderline[i]} {text-decoration: underline; text-decoration-color: ${this.hexToRGB(colors[i], 0.5)}; text-decoration-thickness: 5px;} \n`);
+	// 			// style = style.concat(`.${highlightTypesUnderline[i]} {display: inline-blocks; padding: 5px; border-bottom: 2px solid ${this.hexToRGB(colors[i], 0.2)}; border-left: 2px solid ${this.hexToRGB(colors[i], 0.2)}; border-right: 2px solid ${this.hexToRGB(colors[i], 0.2)};} \n`);
+	// 		}
+	// 	}
+	// 	return style;
+	// }
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
@@ -255,45 +314,44 @@ export default class LangsoftPlugin extends Plugin {
 	}
 
 	wordHover = hoverTooltip((view, pos, side) => {
-		const { from, to, text } = view.state.doc.lineAt(pos);
-		let start = pos,
-			end = pos;
+		const regex = /[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu;
+		const line = view.state.doc.lineAt(pos);
+		const text = line.text;
 
-		// Expand selection to include the full word
-		while (start > from && /\w/.test(text[start - from - 1])) start--;
-		while (end < to && /\w/.test(text[end - from])) end++;
+		// Scan the line with your regex
+		let match;
+		while ((match = regex.exec(text)) !== null) {
+			const start = line.from + match.index;
+			const end = start + match[0].length;
 
-		if ((start == pos && side < 0) || (end == pos && side > 0)) return null;
+			// Check if cursor is inside the match
+			if (pos >= start && pos <= end) {
+				const word = match[0].toLowerCase();
 
-		const word = text.slice(start - from, end - from).toLowerCase();
+				const def = this.dictManager.userDict[word];
+				if (!def || def.highlight === "None") return null;
 
-		try {
-			const def = this.dictManager.userDict[word];
-			if (!def || def.highlight == "None") {
-				return null;
+				const defs = Object.entries(def.definitions)
+					.filter(([k, v]) => !v.deleted)
+					.map(([k]) => k);
+
+				return {
+					pos: start,
+					end,
+					above: true,
+					strictSide: true,
+					create() {
+						const dom = document.createElement("div");
+						dom.classList.add("tooltip", "tooltip-adjusted");
+						// dom.classList.add("tooltip");
+						dom.textContent = defs.join(" / ");
+						return { dom };
+					},
+				};
 			}
-			const defs: string[] = [];
-			for (const [key, val] of Object.entries(def.definitions)) {
-				if (!val.deleted) {
-					defs.push(key);
-				}
-			}
-			return {
-				pos: start,
-				end,
-				above: true, // ✅ Force tooltip to appear ABOVE the word
-				strictSide: true, // Prevents tooltip from flipping sides unexpectedly
-				create(view) {
-					const dom = document.createElement("div");
-					dom.classList.add("tooltip");
-					dom.textContent = defs.join(" / ");
-					return { dom };
-				},
-			};
-
-		} catch {
-			// console.log("no def for hover")
 		}
+
+		return null;
 	});
 
 

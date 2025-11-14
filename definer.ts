@@ -210,7 +210,6 @@ export class DefinerView extends ItemView {
 				// this.plugin.dictManager.addNewDefinition(defText.trim().toLowerCase(), this.getCurrentHighlightState(), this.newDefinition.getValue().trim().toLowerCase(), context);
 				this.plugin.dictManager.addNewDefinition(this.selectedTextComponent.getValue().trim().toLowerCase(), this.getCurrentHighlightState(), defText, context);
 				this.plugin.dictManager.writeUserDictToJson();
-				console.log("from here")
 				this.plugin.refreshHighlights();
 				// this.newDefinition.setValue("");
 				// this.addListItem(defText, context);

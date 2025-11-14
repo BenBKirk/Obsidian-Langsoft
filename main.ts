@@ -42,37 +42,31 @@ export default class LangsoftPlugin extends Plugin {
 		);
 
 
-		// this.registerDomEvent(document.body, "", (event) => {
-		// 	if (event.ctrlKey) {
-		// 		const editor = this.app.workspace.activeEditor?.editor;
-		// 		console.log("before ctrl click ", editor?.posToOffset(editor.getCursor()));
-		// 	}
-		// });
-
-
 
 		this.registerDomEvent(document.body, "mouseup", (event) => {
 			this.SelectedText = [];
 			const editor = this.app.workspace.activeEditor?.editor;
 			if (!editor) return;
 
-			const tab = this.app.workspace.getMostRecentLeaf();  // active tab
-			const parent = tab.parent;                            // the pane that holds the tabs
-			const tabIndex = parent.children.indexOf(tab);           // 0-based index
-			this.lastTabIndex = tabIndex
+			try {
+				const tab = this.app.workspace.getMostRecentLeaf();  // active tab
+				const parent = tab.parent;                            // the pane that holds the tabs
+				const tabIndex = parent.children.indexOf(tab);           // 0-based index
+				this.lastTabIndex = tabIndex
+			} catch (e) {
+				this.lastTabIndex = 0
+			}
 
 			if (event.ctrlKey) {
 				// console.log("After: ", editor?.posToOffset(editor.getCursor()));
 				// let selectedText = "";
 				// let context = "";
 				let selectedText = editor.getSelection().trim();
-				console.log(selectedText)
 				if (selectedText == "") {
 					const word = this.selectWordAtCursor(editor);
 					if (word) {
 						selectedText = word;
 					} else {
-						console.log("nothing to do")
 						this.activateView();
 						const leaf = this.getDefinerViewLeaf();
 						leaf.handleSelection("", "");
@@ -114,6 +108,9 @@ export default class LangsoftPlugin extends Plugin {
 					const leaf = this.getDefinerViewLeaf();
 					leaf.handleSelection("", "");
 				}
+
+
+				this.dictManager.reloadOtherDictsIfChanged();
 
 			})
 		);
@@ -189,7 +186,6 @@ export default class LangsoftPlugin extends Plugin {
 	// }
 
 	refreshHighlights() {
-		// console.log("this function was called")
 		for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
 			const mdView = leaf.view instanceof MarkdownView ? leaf.view : null;
 			if (mdView) {

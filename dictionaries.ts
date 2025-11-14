@@ -1,9 +1,10 @@
 import LangsoftPlugin from "main";
 import * as path from 'path';
-import { MarkdownView, Notice } from "obsidian";
+import { MarkdownView, Notice, Tfile } from "obsidian";
 import { EditorView } from "@codemirror/view";
 import { TriggerEffect } from "highlighter";
 import { ExampleModal } from "settings";
+import { start } from "repl";
 
 
 interface Definition {
@@ -39,6 +40,7 @@ export class DictionaryManager {
 	dictFolder: string;
 	availableDictionaries: string[];
 	wordnet: string;
+	lastLoadedModifiedDate: number[];
 
 	constructor(plugin: LangsoftPlugin) {
 		this.plugin = plugin;
@@ -50,6 +52,7 @@ export class DictionaryManager {
 		//check dictionary folder exists
 		//
 		this.otherDicts = {};
+		this.lastLoadedModifiedDate = [];
 		await this.getDictionaryFolder();
 		await this.getAvailableDictionaries();
 		await this.loadPrimaryDictionary();
@@ -57,6 +60,36 @@ export class DictionaryManager {
 		// for (const dict in this.otherDicts) {
 		// 	console.log(dict)
 		// }
+	}
+
+	async reloadOtherDictsIfChanged() {
+		const primaryDict = this.plugin.settings.currentUser + ".json";
+		const primaryDictFullPath: string = path.join(this.dictFolder, primaryDict).toString();
+		let count = 0
+		for (const path of this.availableDictionaries.filter(val => val !== primaryDictFullPath)) {
+			// console.log(path);
+			try {
+				// record the modified time of other dictionaries (so that we know if they need reloading)
+				const stat = await this.plugin.app.vault.adapter.stat(path);
+
+				// only load if the time modified date has changed since last opened
+				if (stat?.mtime !== this.lastLoadedModifiedDate[count]) {
+					const dict = await this.plugin.app.vault.adapter.read(path);
+					const parsedDict = JSON.parse(dict);
+					console.log("reloading ", path.slice(23, -5))
+					this.otherDicts[path.slice(23, -5)] = parsedDict;
+					//update the last seen modified date
+					this.lastLoadedModifiedDate[count] = stat.mtime;
+
+				}
+				count += 1
+			} catch (e) {
+				console.log(e)
+
+			}
+
+		}
+
 	}
 
 	async getDictionaryFolder() {
@@ -97,9 +130,15 @@ export class DictionaryManager {
 	async loadSecondaryDictionaries() {
 		const primaryDict = this.plugin.settings.currentUser + ".json";
 		const primaryDictFullPath: string = path.join(this.dictFolder, primaryDict).toString();
+		let count = 0
 		for (const path of this.availableDictionaries.filter(val => val !== primaryDictFullPath)) {
 			// console.log(path);
 			try {
+				// record the modified time of other dictionaries (so that we know if they need reloading)
+				const stat = await this.plugin.app.vault.adapter.stat(path);
+				this.lastLoadedModifiedDate[count] = stat?.mtime;
+				count += 1
+
 				const dict = await this.plugin.app.vault.adapter.read(path);
 				// console.log(dict)
 				const parsedDict = JSON.parse(dict);
@@ -114,6 +153,7 @@ export class DictionaryManager {
 			}
 
 		}
+		// console.log(this.lastModifiedDate)
 
 	}
 

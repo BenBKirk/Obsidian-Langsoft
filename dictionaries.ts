@@ -132,7 +132,7 @@ export class DictionaryManager {
 
 	async loadSecondaryDictionaries() {
 		const primaryDict = this.plugin.settings.currentUser + ".json";
-		const primaryDictFullPath: string = path.join(this.dictFolder, primaryDict).toString();
+		const primaryDictFullPath = normalizePath(`${this.dictFolder}/${primaryDict}`);
 		let count = 0
 		for (const path of this.availableDictionaries.filter(val => val !== primaryDictFullPath)) {
 			// console.log(path);

@@ -1,6 +1,6 @@
 import LangsoftPlugin from "main";
-import * as path from 'path';
-import { MarkdownView, Notice, Tfile } from "obsidian";
+// import * as path from 'path';
+import { MarkdownView, Notice, Tfile, normalizePath } from "obsidian";
 import { EditorView } from "@codemirror/view";
 import { TriggerEffect } from "highlighter";
 import { ExampleModal } from "settings";
@@ -64,7 +64,10 @@ export class DictionaryManager {
 
 	async reloadOtherDictsIfChanged() {
 		const primaryDict = this.plugin.settings.currentUser + ".json";
-		const primaryDictFullPath: string = path.join(this.dictFolder, primaryDict).toString();
+		// const primaryDictFullPath: string = path.join(this.dictFolder, primaryDict).toString();
+		const primaryDictFullPath = normalizePath(`${this.dictFolder}/${primaryDict}`);
+		console.log(primaryDictFullPath)
+
 		let count = 0
 		for (const path of this.availableDictionaries.filter(val => val !== primaryDictFullPath)) {
 			// console.log(path);
@@ -117,7 +120,7 @@ export class DictionaryManager {
 		//check if primary dictionary exists (<user>.json) it also need to be a json object not a blank file (at least {})
 
 		const primaryDict = this.plugin.settings.currentUser + ".json";
-		const primaryDictFullPath: string = path.join(this.dictFolder, primaryDict).toString();
+		const primaryDictFullPath = normalizePath(`${this.dictFolder}/${primaryDict}`);
 		if (this.availableDictionaries.includes(primaryDictFullPath)) {
 			const dict = await this.plugin.app.vault.adapter.read(primaryDictFullPath);
 			if (dict) {
@@ -269,7 +272,7 @@ export class DictionaryManager {
 
 	writeUserDictToJson() {
 		const primaryDict = this.plugin.settings.currentUser + ".json";
-		const primaryDictFullPath: string = path.join(this.dictFolder, primaryDict).toString();
+		const primaryDictFullPath = normalizePath(`${this.dictFolder}/${primaryDict}`);
 
 		if (this.availableDictionaries.includes(primaryDictFullPath)) {
 			this.plugin.app.vault.adapter.write(primaryDictFullPath, JSON.stringify(this.userDict));

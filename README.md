@@ -17,14 +17,13 @@ A language-learning plugin for [Obsidian](https://obsidian.md). Read and write i
 
 Dictionaries are JSON files in the folder `.langsoft_dictionaries` at the root of your vault, one per person: `<name>.json`. The folder is created automatically. Your own dictionary is the one matching your user name. Everyone else's are read-only.
 
-Choosing a user can't be done from the settings yet. Until it can:
+The first time Langsoft runs on a device, it asks **who you are**. Choose your name if your dictionary is already there, for example synced from another device, or create a new user. To change user later, use the user setting in Langsoft's settings, the command **Langsoft: Switch user**, or click your name in the status bar.
 
-1. Enable the plugin, then open and close its settings tab once. This creates `.obsidian/plugins/langsoft-plugin/data.json`.
-2. In that file, set `"currentUser"` to your name, e.g. `"currentUser": "maria"`.
-3. Create `.langsoft_dictionaries/maria.json` containing `{}`.
-4. Reload Obsidian.
+Who you are is remembered on each device separately, not in the plugin's settings file, so syncing a whole vault between people doesn't make everyone the same user.
 
-To keep dictionaries in a different folder, change `dictionaryFolder` in the same file.
+On a new device, wait until your dictionaries have synced, then choose your name. Creating the same user again makes a second, empty dictionary that conflicts with the real one when it arrives.
+
+To keep dictionaries in a different folder, change `dictionaryFolder` in `.obsidian/plugins/langsoft-plugin/data.json`.
 
 ### Sharing with coworkers
 
@@ -62,9 +61,11 @@ For quick testing, clone the repository into `<vault>/.obsidian/plugins/langsoft
 | `settings.ts` | The settings tab |
 | `merge.ts` | Merging two versions of a dictionary |
 | `dictionary-files.ts` | Dictionary file names and Syncthing conflict copies |
+| `user-modal.ts` | The "Who are you?" window |
+| `users.ts` | Listing users and checking new user names |
 | `words.ts` | Splitting text into words |
 
-`words.ts`, `merge.ts` and `dictionary-files.ts` don't depend on Obsidian. The tests in `tests/` cover them, and run `DictionaryManager` against an in-memory vault (`tests/fake-vault.ts`) with a stand-in for the `obsidian` module (`tests/obsidian-stub.ts`).
+`words.ts`, `users.ts`, `merge.ts` and `dictionary-files.ts` don't depend on Obsidian. The tests in `tests/` cover them, and run `DictionaryManager` against an in-memory vault (`tests/fake-vault.ts`) with a stand-in for the `obsidian` module (`tests/obsidian-stub.ts`).
 
 ## License
 

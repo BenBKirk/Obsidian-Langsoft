@@ -160,10 +160,10 @@ export class ProgressView extends ItemView {
 
 		const chart = svg("svg", { viewBox: `0 0 ${width} ${height}`, class: "langsoft-growth", role: "img" });
 		const latest = series[series.length - 1].totals;
-		chart.setAttribute(
-			"aria-label",
-			`Words by level over time. Now: ${LEVEL_ORDER.map((l) => `${LEVEL_NAMES[l]} ${latest[l]}`).join(", ")}`
-		);
+		// described with <title>, not aria-label: Obsidian shows a tooltip for anything with an
+		// aria-label, and its tooltip code fails on SVG elements ("isShown is not a function")
+		svg("title", {}, chart).textContent =
+			`Words by level over time. Now: ${LEVEL_ORDER.map((l) => `${LEVEL_NAMES[l]} ${latest[l]}`).join(", ")}`;
 
 		// grid lines and their values
 		for (const value of [0, max / 2, max].filter(Number.isInteger)) {
@@ -220,8 +220,8 @@ export class ProgressView extends ItemView {
 			const shade = day.count === 0 ? 0 : Math.min(4, Math.ceil((day.count / Math.max(1, calendar.max)) * 4));
 			const cell = grid.createDiv({ cls: `langsoft-activity-day langsoft-activity-${shade}` });
 			const label = `${day.date.toDateString()}: ${plural(day.count, "change")}`;
+			// Obsidian shows aria-label as a tooltip, so no title as well
 			cell.setAttribute("aria-label", label);
-			cell.setAttribute("title", label);
 		}
 		const dates = inner.createDiv({ cls: "langsoft-activity-dates" });
 		dates.createSpan({ text: formatDate(calendar.days[0].date, "year") });

@@ -369,3 +369,65 @@ describe("deleting definitions", () => {
 		expect(readDevice(adapter).hund.highlighthistory.at(-1).level).toBe("None");
 	});
 });
+
+describe("editing and undoing", () => {
+	it("renames a definition, keeping where it was added", async () => {
+		putDevice(adapter, { hund: word("known", "dgo") });
+		const { manager } = await makeManager(adapter);
+
+		manager.renameDefinition("hund", "dgo", " Dog ");
+		await manager.flush();
+
+		const definitions = readDevice(adapter).hund.definitions;
+		expect(definitions.dgo.deleted).toBe(true);
+		expect(definitions.dog).toMatchObject({ deleted: false, sentence: "ein <u>Hund </u>bellt", file: "note.md" });
+		expect(definitions.dog.timestamp > "2026-01-01 10:00:00").toBe(true);
+		expect(manager.userDict.hund.highlight).toBe("known");
+	});
+
+	it("renaming to an existing definition just removes the old one", async () => {
+		putDevice(adapter, { hund: { ...word("known", "dog"), definitions: { dog: context(), hound: context() } } });
+		const { manager } = await makeManager(adapter);
+		manager.renameDefinition("hund", "hound", "dog");
+		expect(manager.userDict.hund.definitions.hound.deleted).toBe(true);
+		expect(manager.userDict.hund.definitions.dog).toEqual(context());
+	});
+
+	it("ignores an empty or unchanged new text", async () => {
+		putDevice(adapter, { hund: word("known", "dog") });
+		const { manager } = await makeManager(adapter);
+		manager.renameDefinition("hund", "dog", "  ");
+		manager.renameDefinition("hund", "dog", "DOG");
+		expect(Object.keys(manager.userDict.hund.definitions)).toEqual(["dog"]);
+	});
+
+	it("undoes deleting the last definition, bringing back the level", async () => {
+		putDevice(adapter, { hund: word("semiknown", "dog") });
+		const { manager } = await makeManager(adapter);
+		manager.markDefinitionDeleted("hund", "dog");
+		expect(manager.userDict.hund.highlight).toBe("None");
+
+		manager.restoreDefinition("hund", "dog", "semiknown");
+		await manager.flush();
+		expect(manager.userDict.hund.highlight).toBe("semiknown");
+		expect(manager.userDict.hund.definitions.dog.deleted).toBe(false);
+		expect(manager.userDict.hund.highlighthistory.map((h) => h.level)).toEqual(["semiknown", "None", "semiknown"]);
+	});
+
+	it("an undo wins against another device's copy of the deletion", async () => {
+		putDevice(adapter, { hund: word("known", "dog") });
+		const { manager } = await makeManager(adapter);
+		manager.markDefinitionDeleted("hund", "dog");
+		await manager.flush();
+		const deleted = structuredClone(readDevice(adapter));
+
+		manager.restoreDefinition("hund", "dog", "known");
+		await manager.flush();
+		// the phone still has the deletion
+		putDevice(adapter, deleted, "maria", PHONE);
+		await manager.reloadOtherDictsIfChanged();
+		await manager.flush();
+		expect(manager.userDict.hund.definitions.dog.deleted).toBe(false);
+		expect(manager.userDict.hund.highlight).toBe("known");
+	});
+});

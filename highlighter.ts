@@ -74,31 +74,24 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 				index: number
 			) {
 				const dict = this.plugin?.dictManager?.userDict;
-				const result = dict?.[termKey(word.text)];
+				const key = termKey(word.text);
+				const result = dict?.[key];
 
-				// if (!result) return;
-
-				// if (!result) { //if there is nothing in the primary dictionary, check other users dictionarys
-				// for (let i = 0; i < this.plugin?.dictManager?.otherDicts.; i++)
-				if (this.plugin.dictManager.otherDicts) {
-					for (const [name, dict] of Object.entries(this.plugin.dictManager.otherDicts)) {
-						const otherresult = dict?.[termKey(word.text)];
-						if (otherresult) {
-							if (!result && otherresult.highlight != "None") {
-								builder.add(word.from, word.to, Decoration.mark({ class: "coworker" }))
-
-							}
-							if (Array.isArray(otherresult.firstwordofphrase)) {
-								for (const phrase of otherresult.firstwordofphrase) {
-									this.highlightPhrase(builder, phrase, words, index, true, dict)
-								}
-							}
-
+				// coworkers' words: blue only if the word isn't in your dictionary at all
+				let markedCoworker = false;
+				for (const otherDict of Object.values(this.plugin.dictManager.otherDicts ?? {})) {
+					const otherresult = otherDict?.[key];
+					if (!otherresult) continue;
+					if (!result && !markedCoworker && otherresult.highlight != "None") {
+						builder.add(word.from, word.to, Decoration.mark({ class: "coworker" }));
+						markedCoworker = true;
+					}
+					if (Array.isArray(otherresult.firstwordofphrase)) {
+						for (const phrase of otherresult.firstwordofphrase) {
+							this.highlightPhrase(builder, phrase, words, index, true, otherDict);
 						}
 					}
 				}
-
-				// } else {
 
 				if (!result) return;
 				// Highlight the single word
@@ -110,8 +103,6 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 						this.highlightPhrase(builder, phrase, words, index, false, dict);
 					}
 				}
-
-				// }
 
 			}
 
@@ -154,6 +145,8 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 					const phraseResult = dict?.[phrase];
 					if (phraseResult) {
 						if (iscoworker) {
+							// as for single words: only phrases you don't have, and that the coworker has a level for
+							if (phraseResult.highlight === "None" || this.plugin.dictManager.userDict?.[phrase]) return;
 							builder.add(
 								words[index].from,
 								end,

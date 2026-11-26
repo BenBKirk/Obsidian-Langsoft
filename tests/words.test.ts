@@ -51,17 +51,26 @@ describe("parseIntoWords", () => {
 		expect(texts("one two")).toEqual(texts("one two"));
 	});
 
-	// Known limitations, to be fixed. These are expected to fail until then.
-	it.fails("keeps combining marks (Devanagari vowel signs) inside a word", () => {
+	it("keeps combining marks (Devanagari vowel signs) inside a word", () => {
 		expect(texts("हिन्दी भाषा")).toEqual(["हिन्दी", "भाषा"]);
+		expect(texts("தமிழ் ভাষা")).toEqual(["தமிழ்", "ভাষা"]);
 	});
 
-	it.fails("keeps a decomposed accent inside a word", () => {
-		expect(texts("café")).toEqual(["café"]);
+	it("keeps a decomposed accent inside a word", () => {
+		expect(texts("cafe\u0301 ok")).toEqual(["cafe\u0301", "ok"]);
 	});
 
-	it.fails("treats a typographic apostrophe like a straight one", () => {
-		expect(texts("don’t")).toEqual(["don’t"]);
+	it("keeps zero-width non-joiners inside Persian words", () => {
+		expect(texts("می\u200Cخواهم")).toEqual(["می\u200Cخواهم"]);
+	});
+
+	it("treats a typographic apostrophe like a straight one", () => {
+		expect(texts("don\u2019t")).toEqual(["don\u2019t"]);
+		expect(texts("\u2018quoted\u2019")).toEqual(["quoted"]);
+	});
+
+	it("does not start a word with a combining mark", () => {
+		expect(texts("\u0301abc")).toEqual(["abc"]);
 	});
 });
 

@@ -1,10 +1,14 @@
 // Text helpers with no Obsidian dependency, so they can be unit tested.
 
 /**
- * A word is a run of letters/digits in any script, optionally joined by
- * apostrophes or hyphens: "don't", "well-known", "Straße", "日本語".
+ * A word starts with a letter or digit in any script and continues with
+ * letters, digits and combining marks (vowel signs, accents typed as a
+ * separate character), plus the zero-width (non-)joiners used inside
+ * Persian and Indic words. Parts can be joined by an apostrophe (straight
+ * or typographic) or a hyphen: "don't", "don’t", "well-known", "Straße",
+ * "हिन्दी", "日本語".
  */
-const WORD_PATTERN = /[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu;
+const WORD_PATTERN = /[\p{L}\p{N}][\p{L}\p{N}\p{M}\u200C\u200D]*(?:['\u2019\-][\p{L}\p{N}][\p{L}\p{N}\p{M}\u200C\u200D]*)*/gu;
 
 export interface WordToken {
 	text: string;

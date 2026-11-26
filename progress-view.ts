@@ -52,6 +52,9 @@ export class ProgressView extends ItemView {
 			return;
 		}
 
+		// first: it covers the whole last year, whatever period is chosen below
+		this.renderActivity(el);
+
 		const switcher = el.createDiv({ cls: "langsoft-progress-kinds" });
 		for (const kind of Object.keys(KIND_NAMES) as PeriodKind[]) {
 			const button = switcher.createEl("button", { text: KIND_NAMES[kind] });
@@ -74,7 +77,6 @@ export class ProgressView extends ItemView {
 		this.renderSummary(el, periods[index], index === periods.length - 1);
 		this.renderChart(el, periods, index);
 		this.renderGrowth(el);
-		this.renderActivity(el);
 	}
 
 	private colour(level: Level): string {

@@ -192,6 +192,12 @@ If your plugin does not need CSS, delete this file.
 .langsoft-progress h3 {
     margin-top: var(--size-4-8);
 }
+.langsoft-progress h2 + h3 {
+    margin-top: var(--size-4-2);
+}
+.langsoft-progress-kinds {
+    margin-top: var(--size-4-8);
+}
 .langsoft-progress-legend {
     display: flex;
     flex-wrap: wrap;

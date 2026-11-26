@@ -11,6 +11,8 @@ export default class LangsoftPlugin extends Plugin {
 	myViewPlugin: ReturnType<typeof createHighlightPlugin>;
 	mySelectionViewPlugin: ReturnType<typeof createSelectionHighlightPlugin>;
 	settings: LangsoftPluginSettings;
+	/** Whose dictionary is being edited on this device. Empty if not chosen yet. */
+	currentUser = "";
 	settingsTab: LangsoftSettingsTab;
 	dictManager: DictionaryManager;
 	styleEl: Element;
@@ -23,6 +25,7 @@ export default class LangsoftPlugin extends Plugin {
 		this.SelectedText = [];
 		this.lastTabIndex = 0;
 		await this.loadSettings()
+		await this.loadCurrentUser();
 		this.settingsTab = new LangsoftSettingsTab(this.app, this);
 		this.addSettingTab(this.settingsTab);
 		this.myViewPlugin = createHighlightPlugin(this);
@@ -300,6 +303,44 @@ export default class LangsoftPlugin extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
 		await this.dictManager.init();
+	}
+
+	/**
+	 * The current user is kept in this device's local storage, not in the
+	 * plugin's data.json: if the vault is synced between people, data.json is
+	 * shared, and everyone would end up editing the same dictionary.
+	 */
+	private currentUserStorageKey(): string {
+		return `langsoft:${this.app.vault.getName()}:current-user`;
+	}
+
+	private async loadCurrentUser() {
+		let stored: string | null = null;
+		try {
+			stored = window.localStorage.getItem(this.currentUserStorageKey());
+		} catch (e) {
+			console.warn("Langsoft: could not read local storage", e);
+		}
+		if (stored) {
+			this.currentUser = stored;
+		} else if (this.settings.currentUser) {
+			// carry over the user set in data.json by older versions
+			this.storeCurrentUser(this.settings.currentUser);
+		}
+		if (this.settings.currentUser !== undefined) {
+			delete this.settings.currentUser;
+			await this.saveData(this.settings);
+		}
+	}
+
+	/** Remember the user on this device. Does not reload the dictionaries; see switchUser. */
+	storeCurrentUser(name: string) {
+		this.currentUser = name;
+		try {
+			window.localStorage.setItem(this.currentUserStorageKey(), name);
+		} catch (e) {
+			console.warn("Langsoft: could not save to local storage", e);
+		}
 	}
 
 	wordHover = hoverTooltip((view, pos, side) => {

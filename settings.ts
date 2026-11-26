@@ -11,7 +11,12 @@ export interface LangsoftPluginSettings {
 	knownColor: string,
 	coworkerEnabled: boolean,
 	coworkerColor: string,
-	currentUser: string,
+	/**
+	 * Only read to carry over the user from older versions. The current user
+	 * is now stored on each device (see LangsoftPlugin.currentUser), because
+	 * this file can be synced between people.
+	 */
+	currentUser?: string,
 	dictionaryFolder: string
 }
 
@@ -24,7 +29,6 @@ export const DEFAULT_SETTINGS: LangsoftPluginSettings = {
 	knownColor: "#00FF00",
 	coworkerEnabled: true,
 	coworkerColor: "#0080FF",
-	currentUser: "",
 	dictionaryFolder: ".langsoft_dictionaries"
 }
 

@@ -24,11 +24,17 @@ Choosing a user can't be done from the settings yet. Until it can:
 3. Create `.langsoft_dictionaries/maria.json` containing `{}`.
 4. Reload Obsidian.
 
-Leave `dictionaryFolder` at its default for now: other folder names don't work yet.
+To keep dictionaries in a different folder, change `dictionaryFolder` in the same file.
 
 ### Sharing with coworkers
 
-Share the `.langsoft_dictionaries` folder between everyone's vaults, e.g. with Syncthing. Each person only ever writes to their own file, so people never overwrite each other. **Use one device per person for now.** If the same dictionary is open on two devices, changes made on one can be overwritten by the other.
+Share the `.langsoft_dictionaries` folder between everyone's vaults, e.g. with Syncthing. Each person only ever writes to their own file, so people never overwrite each other. Coworkers' dictionaries are reloaded when you switch notes, including ones added while Obsidian is open.
+
+### Using several devices
+
+You can use the same dictionary on more than one device. Before saving, Langsoft checks whether another device changed the file since it was last read, and merges those changes in rather than overwriting them. Keep the devices in the same time zone: the most recent change to a definition or level wins, judged by its timestamp.
+
+If two devices save before either has synced, Syncthing keeps one version and saves the other as `<name>.sync-conflict-....json`. Langsoft shows a notice when this happens to your dictionary and otherwise ignores the copy. Words added on the losing side are only in the copy for now.
 
 ## Installing
 
@@ -54,7 +60,11 @@ For quick testing, clone the repository into `<vault>/.obsidian/plugins/langsoft
 | `dictionaries.ts` | Loading, changing and saving dictionaries |
 | `definer.ts` | The Definer sidebar |
 | `settings.ts` | The settings tab |
-| `words.ts` | Splitting text into words (no Obsidian dependency, unit tested in `tests/`) |
+| `merge.ts` | Merging two versions of a dictionary |
+| `dictionary-files.ts` | Dictionary file names and Syncthing conflict copies |
+| `words.ts` | Splitting text into words |
+
+`words.ts`, `merge.ts` and `dictionary-files.ts` don't depend on Obsidian. The tests in `tests/` cover them, and run `DictionaryManager` against an in-memory vault (`tests/fake-vault.ts`) with a stand-in for the `obsidian` module (`tests/obsidian-stub.ts`).
 
 ## License
 

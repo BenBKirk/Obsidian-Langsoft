@@ -265,11 +265,6 @@ export class ProgressView extends ItemView {
 		});
 
 		this.renderTeamGrowth(el, periods);
-
-		if (stats.shared.length > 0) {
-			el.createDiv({ cls: "langsoft-team-heading", text: "Defined by most of the team" });
-			el.createEl("p", { cls: "langsoft-team-shared", text: stats.shared.map((s) => s.term).join(", ") });
-		}
 	}
 
 	/** The team's combined vocabulary over time: known by someone at the bottom, the rest above. */

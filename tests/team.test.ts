@@ -38,19 +38,6 @@ describe("teamStats", () => {
 		expect(stats.teammatesOnly).toBe(2); // maus, vogel
 	});
 
-	it("lists the words at least half the team has defined, most widely defined first", () => {
-		expect(stats.shared).toEqual([
-			{ term: "hund", people: 3 },
-			{ term: "maus", people: 3 },
-			{ term: "katze", people: 2 },
-		]);
-		expect(teamStats(me, team, 1).shared).toHaveLength(1);
-	});
-
-	it("needs at least two people for a shared word", () => {
-		expect(teamStats({ a: at("known") }, {}).shared).toEqual([]);
-	});
-
 	it("copes with missing dictionaries and entries", () => {
 		expect(teamStats({}, { x: undefined as unknown as DictionaryData }).vocabulary).toBe(0);
 	});

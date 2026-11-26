@@ -28,8 +28,6 @@ export interface TeamStats {
 	knownBySomeone: number;
 	/** Words your teammates have defined and you haven't. */
 	teammatesOnly: number;
-	/** Words defined by at least half the team (and at least two people), most widely defined first. */
-	shared: { term: string; people: number }[];
 }
 
 /** Whether a dictionary has a word with a live definition and a level. */
@@ -43,7 +41,7 @@ function everyone(own: DictionaryData, coworkers: BookShelf): DictionaryData[] {
 	return [own ?? {}, ...Object.values(coworkers ?? {}).filter(Boolean)];
 }
 
-export function teamStats(own: DictionaryData, coworkers: BookShelf, sharedLimit = 20): TeamStats {
+export function teamStats(own: DictionaryData, coworkers: BookShelf): TeamStats {
 	const dictionaries = everyone(own, coworkers);
 	const terms = new Set<string>();
 	for (const dict of dictionaries) for (const term of Object.keys(dict)) terms.add(term);
@@ -51,21 +49,16 @@ export function teamStats(own: DictionaryData, coworkers: BookShelf, sharedLimit
 	let vocabulary = 0;
 	let knownBySomeone = 0;
 	let teammatesOnly = 0;
-	const shared: { term: string; people: number }[] = [];
-	const half = Math.max(2, Math.ceil(dictionaries.length / 2));
 
 	for (const term of terms) {
 		const entries = dictionaries.map((dict) => defines(dict, term));
-		const people = entries.filter(Boolean).length;
-		if (people === 0) continue;
+		if (!entries.some(Boolean)) continue;
 		vocabulary++;
 		if (entries.some((entry) => entry?.highlight === "known")) knownBySomeone++;
 		if (!entries[0]) teammatesOnly++;
-		if (people >= half) shared.push({ term, people });
 	}
 
-	shared.sort((a, b) => b.people - a.people || a.term.localeCompare(b.term));
-	return { people: dictionaries.length, vocabulary, knownBySomeone, teammatesOnly, shared: shared.slice(0, sharedLimit) };
+	return { people: dictionaries.length, vocabulary, knownBySomeone, teammatesOnly };
 }
 
 export interface TeamGrowthPoint {

@@ -301,15 +301,6 @@ If your plugin does not need CSS, delete this file.
     cursor: default;
     margin-top: var(--size-4-3);
 }
-.langsoft-team-heading {
-    margin-top: var(--size-4-4);
-    font-size: var(--font-ui-small);
-    color: var(--text-muted);
-}
-.langsoft-team-shared {
-    margin-top: var(--size-4-1);
-    line-height: 1.6;
-}
 p.langsoft-progress-hint {
     color: var(--text-muted);
     font-size: var(--font-ui-smaller);

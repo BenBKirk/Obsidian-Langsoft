@@ -288,8 +288,17 @@ export default class LangsoftPlugin extends Plugin {
 		const to = editor.offsetToPos(best.match.to);
 		editor.setSelection(from, to);
 		editor.scrollIntoView({ from, to }, true);
-		// on phones and tablets, focusing would open the keyboard
-		if (!Platform.isMobile) editor.focus();
+
+		// show the word in the Definer too, as if it had been selected by hand
+		const definer = await this.openDefiner();
+		definer?.handleSelection(editor.getSelection().trim(), this.getContextForSelection(editor));
+		if (!Platform.isMobile) {
+			// the outline a Ctrl+click gives, and focus back in the note
+			// (on phones and tablets, focusing would open the keyboard)
+			this.SelectedText = [best.match.from, best.match.to];
+			this.refreshHighlights();
+			editor.focus();
+		}
 		if (!best.match.exact) {
 			new Notice("Langsoft: the sentence has changed since this was added; this is the closest match.");
 		}

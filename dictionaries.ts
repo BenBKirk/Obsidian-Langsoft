@@ -52,9 +52,8 @@ export class DictionaryManager {
 		await this.getAvailableDictionaries();
 		await this.loadPrimaryDictionary();
 		await this.loadSecondaryDictionaries();
-		// for (const dict in this.otherDicts) {
-		// 	console.log(dict)
-		// }
+		// editors may have drawn their highlights before the dictionaries finished loading
+		this.plugin.refreshHighlights();
 	}
 
 	async reloadOtherDictsIfChanged() {
@@ -64,6 +63,7 @@ export class DictionaryManager {
 		console.log(primaryDictFullPath)
 
 		let count = 0
+		let changed = false;
 		for (const path of this.availableDictionaries.filter(val => val !== primaryDictFullPath)) {
 			// console.log(path);
 			try {
@@ -78,7 +78,7 @@ export class DictionaryManager {
 					this.otherDicts[path.slice(23, -5)] = parsedDict;
 					//update the last seen modified date
 					this.lastLoadedModifiedDate[count] = stat?.mtime;
-
+					changed = true;
 				}
 				count += 1
 			} catch (e) {
@@ -87,7 +87,9 @@ export class DictionaryManager {
 			}
 
 		}
-
+		if (changed) {
+			this.plugin.refreshHighlights();
+		}
 	}
 
 	async getDictionaryFolder() {

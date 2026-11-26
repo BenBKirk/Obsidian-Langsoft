@@ -3,12 +3,10 @@ import {
 	activityCalendar,
 	addPeriods,
 	computeProgress,
-	dayChanges,
 	dayKey,
 	growthSeries,
 	parseTimestamp,
 	periodStart,
-	periodWords,
 } from "../progress";
 import type { DictionaryData, WordEntry } from "../dictionaries";
 
@@ -226,60 +224,5 @@ describe("activityCalendar", () => {
 	it("counts streaks across month and year ends", () => {
 		const dict = { a: word([day("2025-12-31"), day("2026-01-01", "known")]) };
 		expect(activityCalendar(dict, NOW).longestStreak).toBe(2);
-	});
-});
-
-describe("the words behind the numbers", () => {
-	const dict: DictionaryData = {
-		hund: word([
-			["unknown", "2026-10-05 10:00:00"],
-			["known", "2026-11-10 10:00:00"],
-		]),
-		katze: word([
-			["unknown", "2026-11-02 10:00:00"],
-			["semiknown", "2026-11-20 10:00:00"],
-			["known", "2026-11-20 18:00:00"],
-		]),
-		maus: word([["unknown", "2026-11-24 09:00:00"]]),
-		weg: word([["known", "2026-11-24 10:00:00"]], true),
-	};
-
-	it("lists the words a period's numbers count", () => {
-		const months = computeProgress(dict, "month", NOW);
-		const nov = months[11];
-		const words = periodWords(dict, nov, NOW);
-		expect(words).toEqual({ reached: { unknown: ["maus"], semiknown: [], known: ["hund", "katze"] }, newWords: ["katze", "maus"] });
-		// the same counting as the numbers
-		expect(words.reached.known.length).toBe(nov.reached.known);
-		expect(words.newWords.length).toBe(nov.newWords);
-	});
-
-	it("matches the numbers for every period", () => {
-		for (const kind of ["week", "month", "year"] as const) {
-			for (const period of computeProgress(dict, kind, NOW)) {
-				const words = periodWords(dict, period, NOW);
-				expect(words.newWords.length).toBe(period.newWords);
-				for (const level of ["unknown", "semiknown", "known"] as const) {
-					expect(words.reached[level].length).toBe(period.reached[level]);
-				}
-			}
-		}
-	});
-
-	it("lists what changed on a day, with each word's last level that day, including deleted words", () => {
-		expect(dayChanges(dict, new Date(2026, 10, 20))).toEqual([{ term: "katze", level: "known" }]);
-		expect(dayChanges(dict, new Date(2026, 10, 24))).toEqual([
-			{ term: "maus", level: "unknown" },
-			{ term: "weg", level: "known" },
-		]);
-		expect(dayChanges(dict, new Date(2026, 10, 21))).toEqual([]);
-	});
-
-	it("counts a day's words like the calendar does", () => {
-		const calendar = activityCalendar(dict, NOW);
-		const day = calendar.days.find((d) => dayKey(d.date) === "2026-11-20")!;
-		// the calendar counts changes (two for katze), the list shows each word once
-		expect(day.count).toBe(2);
-		expect(dayChanges(dict, day.date)).toHaveLength(1);
 	});
 });

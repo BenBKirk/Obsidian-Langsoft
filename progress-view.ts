@@ -1,27 +1,12 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
 import type LangsoftPlugin from "main";
-import {
-	ActivityCalendar,
-	activityCalendar,
-	computeProgress,
-	dayChanges,
-	dayKey,
-	growthSeries,
-	Level,
-	PeriodKind,
-	periodWords,
-	PeriodStats,
-} from "progress";
+import { ActivityCalendar, activityCalendar, computeProgress, dayKey, growthSeries, Level, PeriodKind, PeriodStats } from "progress";
 
 export const VIEW_TYPE_PROGRESS = "langsoft-progress";
 
 const LEVEL_NAMES: Record<Level, string> = { known: "Known", semiknown: "Semi-known", unknown: "Unknown" };
-/** Top to bottom in the summary; bottom to top in the bars. */
+/** Top to bottom in the summary; bottom to top in the growth curve. */
 const LEVEL_ORDER: Level[] = ["known", "semiknown", "unknown"];
-/** Height in pixels of the tallest possible bar. */
-const BAR_HEIGHT = 164;
-/** How many words to list before "show all". */
-const WORDS_SHOWN = 30;
 const WEEKDAYS = ["Mon", "", "Wed", "", "Fri", "", ""];
 const KIND_NAMES: Record<PeriodKind, string> = { week: "Week", month: "Month", year: "Year" };
 const CURRENT_NAMES: Record<PeriodKind, string> = { week: "This week", month: "This month", year: "This year" };
@@ -32,10 +17,6 @@ export class ProgressView extends ItemView {
 	kind: PeriodKind = "month";
 	/** The period shown in the summary, as an index into the periods; null for the current one. */
 	selected: number | null = null;
-	/** The calendar day whose words are listed, if any. */
-	selectedDay: Date | null = null;
-	/** Word lists showing all their words rather than the first few. */
-	private expanded = new Set<string>();
 	/** How far the calendar is scrolled; null for "at today", which is where it starts. */
 	private calendarScroll: number | null = null;
 
@@ -92,7 +73,6 @@ export class ProgressView extends ItemView {
 			button.addEventListener("click", () => {
 				this.kind = kind;
 				this.selected = null;
-				this.expanded.clear();
 				this.render();
 			});
 		}
@@ -105,17 +85,18 @@ export class ProgressView extends ItemView {
 			return;
 		}
 
-		this.renderSummary(el, periods[index], index === periods.length - 1);
-		this.renderGrowth(el);
-		this.renderChart(el, periods, index);
-		// word lists last: their length changes with what is clicked, and nothing below them moves
-		this.renderDayWords(el);
-		this.renderPeriodWords(el, periods[index]);
+		this.renderSummary(el, periods, index);
+		this.renderGrowth(el, periods, index);
 	}
 
 	private colour(level: Level): string {
 		const { settings } = this.plugin;
 		return level === "known" ? settings.knownColor : level === "semiknown" ? settings.semiknownColor : settings.unknownColor;
+	}
+
+	private select(index: number) {
+		this.selected = index;
+		this.render();
 	}
 
 	/** Three numbers to answer "how am I doing?" at a glance. */
@@ -144,80 +125,21 @@ export class ProgressView extends ItemView {
 		);
 	}
 
-	/** Words as buttons that open them in the Definer; long lists show the first few. */
-	private renderWords(el: HTMLElement, key: string, words: { term: string; level: Level }[]) {
-		const list = el.createDiv({ cls: "langsoft-word-list" });
-		const all = this.expanded.has(key);
-		for (const word of all ? words : words.slice(0, WORDS_SHOWN)) {
-			const chip = list.createEl("button", { cls: "langsoft-word-chip", text: word.term });
-			chip.style.borderLeftColor = this.colour(word.level);
-			chip.setAttribute("aria-label", "Open in the Definer");
-			chip.addEventListener("click", async () => {
-				const definer = await this.plugin.openDefiner();
-				definer?.handleSelection(word.term, "");
-			});
-		}
-		if (!all && words.length > WORDS_SHOWN) {
-			const more = list.createEl("button", { cls: "langsoft-word-more", text: `${words.length - WORDS_SHOWN} more…` });
-			more.addEventListener("click", () => {
-				this.expanded.add(key);
-				this.render();
-			});
-		}
-	}
-
-	/** The words added or changed on the day selected in the calendar. */
-	private renderDayWords(el: HTMLElement) {
-		if (!this.selectedDay) return;
-		const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
-		const changes = dayChanges(this.plugin.dictManager.userDict, this.selectedDay);
-		const section = el.createDiv({ cls: "langsoft-day-words" });
-		section.createDiv({
-			cls: "langsoft-word-heading",
-			text: `Added or changed on ${this.selectedDay.toDateString()}: ${changes.length === 0 ? "nothing" : plural(changes.length, "word")}`,
-		});
-		this.renderWords(section, `day:${dayKey(this.selectedDay)}`, changes);
-	}
-
-	/** The words behind the selected period's "reached" numbers. */
-	private renderPeriodWords(el: HTMLElement, period: PeriodStats) {
-		const words = periodWords(this.plugin.dictManager.userDict, period);
-		const isNew = new Set(words.newWords);
-		const levelOf = new Map<string, Level>();
-		for (const level of LEVEL_ORDER) for (const term of words.reached[level]) levelOf.set(term, level);
-		const section = el.createDiv({ cls: "langsoft-period-words" });
-
-		// each word once: new words together, then words you already had that changed level
-		if (words.newWords.length > 0) {
-			section.createDiv({
-				cls: "langsoft-word-heading",
-				text: `New words in ${period.label} (${words.newWords.length})`,
-			});
-			this.renderWords(
-				section,
-				`${period.label}:new`,
-				words.newWords.map((term) => ({ term, level: levelOf.get(term) ?? "unknown" }))
-			);
-		}
-		for (const level of LEVEL_ORDER) {
-			const terms = words.reached[level].filter((term) => !isNew.has(term));
-			if (terms.length === 0) continue;
-			const heading = section.createDiv({ cls: "langsoft-word-heading" });
-			heading.createSpan({ cls: "langsoft-progress-swatch" }).style.backgroundColor = this.colour(level);
-			heading.appendText(`Moved to ${LEVEL_NAMES[level].toLowerCase()} in ${period.label} (${terms.length})`);
-			this.renderWords(
-				section,
-				`${period.label}:${level}`,
-				terms.map((term) => ({ term, level }))
-			);
-		}
-	}
-
-	private renderSummary(el: HTMLElement, period: PeriodStats, isCurrent: boolean) {
+	/** The selected period's numbers, with buttons to step to the previous or next period. */
+	private renderSummary(el: HTMLElement, periods: PeriodStats[], index: number) {
+		const period = periods[index];
+		const isCurrent = index === periods.length - 1;
 		const summary = el.createDiv({ cls: "langsoft-progress-summary" });
-		summary.createEl("h3", {
-			text: isCurrent ? `${CURRENT_NAMES[this.kind]} (${period.label})` : period.label,
-		});
+
+		const heading = summary.createDiv({ cls: "langsoft-progress-period" });
+		const previous = heading.createEl("button", { text: "‹", attr: { "aria-label": "Previous period" } });
+		previous.disabled = index === 0;
+		previous.addEventListener("click", () => this.select(index - 1));
+		heading.createEl("h3", { text: isCurrent ? `${CURRENT_NAMES[this.kind]} (${period.label})` : period.label });
+		const next = heading.createEl("button", { text: "›", attr: { "aria-label": "Next period" } });
+		next.disabled = isCurrent;
+		next.addEventListener("click", () => this.select(index + 1));
+
 		const table = summary.createEl("table");
 		const head = table.createEl("tr");
 		head.createEl("th");
@@ -244,45 +166,17 @@ export class ProgressView extends ItemView {
 		});
 	}
 
-	private renderChart(el: HTMLElement, periods: PeriodStats[], selected: number) {
-		const totalOf = (p: PeriodStats) => LEVEL_ORDER.reduce((sum, level) => sum + p.totals[level], 0);
-		const max = Math.max(1, ...periods.map(totalOf));
-
-		const chart = el.createDiv({ cls: "langsoft-progress-chart" });
-		for (const [i, period] of periods.entries()) {
-			const column = chart.createEl("button", { cls: "langsoft-progress-column" });
-			column.toggleClass("is-selected", i === selected);
-			const counts = LEVEL_ORDER.map((level) => `${LEVEL_NAMES[level]} ${period.totals[level]}`).join(", ");
-			column.setAttribute("aria-label", `${period.label}: ${counts}`);
-			column.addEventListener("click", () => {
-				this.selected = i;
-				this.render();
-			});
-
-			const area = column.createDiv({ cls: "langsoft-progress-area" });
-			area.createDiv({ cls: "langsoft-progress-bar-total", text: String(totalOf(period)) });
-			// sizes in pixels rather than percentages: the column is a button, and themes
-			// size buttons in ways that keep percentage heights from working
-			const bar = area.createDiv({ cls: "langsoft-progress-bar" });
-			// top to bottom: unknown, semi-known, known, so known words build up from the bottom
-			for (const level of [...LEVEL_ORDER].reverse()) {
-				if (period.totals[level] === 0) continue;
-				const segment = bar.createDiv({ cls: "langsoft-progress-segment" });
-				segment.style.height = `${Math.max(1, (period.totals[level] / max) * BAR_HEIGHT)}px`;
-				segment.style.backgroundColor = this.colour(level);
-			}
-			column.createDiv({ cls: "langsoft-progress-label", text: period.label });
-		}
-	}
-
-	/** Stacked areas of the words at each level over time, known at the bottom. */
-	private renderGrowth(el: HTMLElement) {
+	/**
+	 * Stacked areas of the words at each level over time, known at the
+	 * bottom, with the periods marked. Click or tap a period to select it.
+	 */
+	private renderGrowth(el: HTMLElement, periods: PeriodStats[], selected: number) {
 		const series = growthSeries(this.plugin.dictManager.userDict, this.kind);
 		if (series.length < 2) return;
 		el.createEl("h3", { text: "Growth" });
 
 		const width = 600;
-		const height = 220;
+		const height = 240;
 		const margin = { top: 10, right: 12, bottom: 24, left: 44 };
 		const plotWidth = width - margin.left - margin.right;
 		const plotHeight = height - margin.top - margin.bottom;
@@ -290,7 +184,7 @@ export class ProgressView extends ItemView {
 		const lastTime = series[series.length - 1].time.getTime();
 		const totalOf = (t: Record<Level, number>) => LEVEL_ORDER.reduce((sum, level) => sum + t[level], 0);
 		const max = niceMax(Math.max(1, ...series.map((p) => totalOf(p.totals))));
-		const x = (time: number) => margin.left + ((time - first) / Math.max(1, lastTime - first)) * plotWidth;
+		const x = (time: number) => margin.left + ((Math.min(time, lastTime) - first) / Math.max(1, lastTime - first)) * plotWidth;
 		const y = (value: number) => margin.top + plotHeight - (value / max) * plotHeight;
 
 		const chart = svg("svg", { viewBox: `0 0 ${width} ${height}`, class: "langsoft-growth", role: "img" });
@@ -300,11 +194,25 @@ export class ProgressView extends ItemView {
 		svg("title", {}, chart).textContent =
 			`Words by level over time. Now: ${LEVEL_ORDER.map((l) => `${LEVEL_NAMES[l]} ${latest[l]}`).join(", ")}`;
 
+		// the selected period, shaded behind the curve
+		const period = periods[selected];
+		svg(
+			"rect",
+			{
+				x: x(period.start.getTime()),
+				y: margin.top,
+				width: Math.max(2, x(period.end.getTime()) - x(period.start.getTime())),
+				height: plotHeight,
+				class: "langsoft-growth-selected",
+			},
+			chart
+		);
+
 		// grid lines and their values
-		for (const value of [0, max / 2, max].filter(Number.isInteger)) {
+		for (const value of [0, max / 4, max / 2, (3 * max) / 4, max].filter(Number.isInteger)) {
 			svg("line", { x1: margin.left, x2: width - margin.right, y1: y(value), y2: y(value), class: "langsoft-growth-grid" }, chart);
 			const text = svg("text", { x: margin.left - 6, y: y(value) + 4, "text-anchor": "end" }, chart);
-			text.textContent = String(Math.round(value));
+			text.textContent = String(value);
 		}
 
 		// known at the bottom, then semi-known, then unknown
@@ -317,12 +225,26 @@ export class ProgressView extends ItemView {
 			above.forEach((value, i) => (below[i] = value));
 		}
 
-		// dates along the bottom: first, middle, last
-		const middle = series[Math.floor(series.length / 2)];
-		for (const [point, anchor] of [[series[0], "start"], [middle, "middle"], [series[series.length - 1], "end"]] as const) {
-			const text = svg("text", { x: x(point.time.getTime()), y: height - 6, "text-anchor": anchor }, chart);
-			text.textContent = point === series[series.length - 1] ? "Now" : formatDate(point.time, this.kind);
+		// where each period starts, labelled along the bottom; fewer labels if they'd be crowded
+		const every = Math.ceil(periods.length / Math.max(1, Math.floor(plotWidth / 48)));
+		for (const [i, p] of periods.entries()) {
+			const px = x(p.start.getTime());
+			if (i > 0) svg("line", { x1: px, x2: px, y1: margin.top, y2: margin.top + plotHeight, class: "langsoft-growth-period" }, chart);
+			if (i % every !== 0 && i !== selected) continue;
+			const middle = (px + x(p.end.getTime())) / 2;
+			const text = svg("text", { x: middle, y: height - 6, "text-anchor": "middle" }, chart);
+			text.textContent = shortLabel(p, this.kind);
+			if (i === selected) text.classList.add("is-selected");
 		}
+
+		// click or tap a period to select it
+		chart.addEventListener("click", (event: MouseEvent) => {
+			const box = chart.getBoundingClientRect();
+			const viewX = ((event.clientX - box.left) / box.width) * width;
+			const time = first + ((viewX - margin.left) / plotWidth) * (lastTime - first);
+			const index = periods.findIndex((p) => time >= p.start.getTime() && time < p.end.getTime());
+			if (index !== -1) this.select(index);
+		});
 		el.appendChild(chart);
 
 		const legend = el.createDiv({ cls: "langsoft-progress-legend" });
@@ -331,15 +253,16 @@ export class ProgressView extends ItemView {
 			item.createSpan({ cls: "langsoft-progress-swatch" }).style.backgroundColor = this.colour(level);
 			item.appendText(LEVEL_NAMES[level]);
 		}
+		legend.createSpan({ cls: "langsoft-progress-hint", text: "Click a period to see its numbers above." });
 	}
 
-	/** A square per day for the last year, shaded by how much was done; click a day for its words. */
+	/** A square per day for the last year, shaded by how much was done. */
 	private renderActivity(el: HTMLElement, calendar: ActivityCalendar) {
 		el.createEl("h3", { text: "Activity" });
 		const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 		el.createEl("p", {
 			cls: "langsoft-activity-summary",
-			text: `Active on ${calendar.activeDays} of the last ${calendar.days.length} days. Click a day to see its words.`,
+			text: `Active on ${calendar.activeDays} of the last ${calendar.days.length} days.`,
 		});
 
 		const scroller = el.createDiv({ cls: "langsoft-activity-scroller" });
@@ -359,31 +282,24 @@ export class ProgressView extends ItemView {
 		let lastLabelWeek = -10;
 		for (let week = 0; week < weeks; week++) {
 			const days = calendar.days.slice(week * 7, week * 7 + 7);
-			const first = week === 0 ? days[0] : days.find((d) => d.date.getDate() === 1);
+			const firstDay = week === 0 ? days[0] : days.find((d) => d.date.getDate() === 1);
 			// at least three weeks apart, so the names don't overlap
-			if (!first || week - lastLabelWeek < 3) continue;
-			const month = grid.createDiv({ cls: "langsoft-activity-month", text: formatDate(first.date, "year").split(" ")[0] });
+			if (!firstDay || week - lastLabelWeek < 3) continue;
+			const month = grid.createDiv({ cls: "langsoft-activity-month", text: MONTH_NAMES[firstDay.date.getMonth()] });
 			month.style.gridColumn = `${week + 2} / span 3`;
 			month.style.gridRow = "1";
 			lastLabelWeek = week;
 		}
 
 		const today = dayKey(new Date());
-		const selected = this.selectedDay ? dayKey(this.selectedDay) : null;
 		for (const [i, day] of calendar.days.entries()) {
 			const shade = day.count === 0 ? 0 : Math.min(4, Math.ceil((day.count / Math.max(1, calendar.max)) * 4));
 			const cell = grid.createDiv({ cls: `langsoft-activity-day langsoft-activity-${shade}` });
 			cell.style.gridColumn = String(Math.floor(i / 7) + 2);
 			cell.style.gridRow = String((i % 7) + 2);
-			const key = dayKey(day.date);
-			cell.toggleClass("is-today", key === today);
-			cell.toggleClass("is-selected", key === selected);
+			cell.toggleClass("is-today", dayKey(day.date) === today);
 			// Obsidian shows aria-label as a tooltip, so no title as well
 			cell.setAttribute("aria-label", `${day.date.toDateString()}: ${plural(day.count, "change")}`);
-			cell.addEventListener("click", () => {
-				this.selectedDay = key === selected ? null : day.date;
-				this.render();
-			});
 		}
 
 		const legend = el.createDiv({ cls: "langsoft-progress-legend" });
@@ -413,10 +329,10 @@ function svg(tag: string, attributes: Record<string, string | number>, parent?: 
 	return element;
 }
 
-/** A round number at least `value`, for the top of a chart: 1, 2, 5, 10, 20, 50, ... */
+/** A round number at least `value`, for the top of a chart: 1, 2, 4, 5, 10, 20, 40, 50, ... (divisible into quarters where possible) */
 function niceMax(value: number): number {
 	const power = Math.pow(10, Math.floor(Math.log10(value)));
-	for (const step of [1, 2, 5, 10]) {
+	for (const step of [1, 2, 4, 5, 10]) {
 		if (step * power >= value) return step * power;
 	}
 	return 10 * power;
@@ -424,8 +340,11 @@ function niceMax(value: number): number {
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-function formatDate(date: Date, kind: PeriodKind): string {
-	return kind === "year"
-		? `${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`
-		: `${date.getDate()} ${MONTH_NAMES[date.getMonth()]}`;
+/** A period's label along the bottom of the growth curve. */
+function shortLabel(period: PeriodStats, kind: PeriodKind): string {
+	if (kind === "month") {
+		const month = period.start.getMonth();
+		return month === 0 ? String(period.start.getFullYear()) : MONTH_NAMES[month];
+	}
+	return period.label;
 }

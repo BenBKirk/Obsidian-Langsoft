@@ -141,61 +141,6 @@ If your plugin does not need CSS, delete this file.
     border-radius: 2px;
     margin-right: 0.5em;
 }
-.langsoft-progress-chart {
-    display: flex;
-    align-items: flex-end;
-    gap: var(--size-4-1);
-}
-.langsoft-progress-column {
-    flex: 1 1 0;
-    min-width: 0;
-    height: auto;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    padding: var(--size-4-1) 0 0;
-    background: none;
-    box-shadow: none;
-    border-radius: var(--radius-s);
-}
-.langsoft-progress-column.is-selected {
-    background-color: var(--background-modifier-hover);
-}
-.langsoft-progress-area {
-    height: 182px; /* BAR_HEIGHT in progress-view.ts, plus the total above it */
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-end;
-}
-.langsoft-progress-bar-total {
-    font-size: var(--font-ui-smallest);
-    color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
-    line-height: 16px;
-}
-.langsoft-progress-bar {
-    width: 70%;
-    max-width: 48px;
-    display: flex;
-    flex-direction: column;
-    border-radius: 3px 3px 0 0;
-    overflow: hidden;
-}
-.langsoft-progress-segment {
-    flex: none;
-}
-.langsoft-progress-segment {
-    min-height: 1px;
-}
-.langsoft-progress-label {
-    font-size: var(--font-ui-smallest);
-    color: var(--text-muted);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    padding: var(--size-4-1) 0;
-}
 .langsoft-progress h3 {
     margin-top: var(--size-4-8);
 }
@@ -260,17 +205,11 @@ If your plugin does not need CSS, delete this file.
     color: var(--text-muted);
     white-space: nowrap;
 }
-.langsoft-activity-grid .langsoft-activity-day {
-    cursor: pointer;
-}
 .langsoft-activity-day.is-today {
     outline: 1px solid var(--text-muted);
     outline-offset: 1px;
 }
-.langsoft-activity-day.is-selected {
-    outline: 2px solid var(--text-normal);
-    outline-offset: 1px;
-}
+
 .langsoft-activity-day {
     width: 11px;
     height: 11px;
@@ -349,32 +288,37 @@ If your plugin does not need CSS, delete this file.
     font-size: var(--font-ui-smaller);
 }
 
-/* lists of words, behind a period's or a day's numbers */
-.langsoft-period-words,
-.langsoft-day-words {
-    margin: var(--size-4-2) 0 var(--size-4-4);
-}
-.langsoft-word-heading {
-    font-size: var(--font-ui-small);
-    color: var(--text-muted);
-    margin: var(--size-4-3) 0 var(--size-4-1);
-}
-.langsoft-word-list {
+/* the selected period on the progress page: ‹ heading › */
+.langsoft-progress-period {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--size-4-1);
+    align-items: center;
+    gap: var(--size-4-2);
 }
-.langsoft-word-chip {
-    height: auto;
-    padding: 2px 8px;
-    font-size: var(--font-ui-small);
-    border-left: 4px solid transparent;
+.langsoft-progress-period h3 {
+    margin: var(--size-4-2) 0;
 }
-.langsoft-word-more {
+.langsoft-progress-period button {
     height: auto;
-    padding: 2px 8px;
-    font-size: var(--font-ui-small);
-    background: none;
-    box-shadow: none;
-    color: var(--text-accent);
+    padding: 0 var(--size-4-2);
+    font-size: 1.2em;
+}
+
+/* the growth curve's periods */
+.langsoft-growth {
+    cursor: pointer;
+}
+.langsoft-growth-selected {
+    fill: var(--background-modifier-hover);
+}
+.langsoft-growth-period {
+    stroke: var(--background-modifier-border);
+    stroke-width: 1;
+    stroke-dasharray: 2 3;
+}
+.langsoft-growth text.is-selected {
+    fill: var(--text-normal);
+    font-weight: var(--font-semibold);
+}
+.langsoft-progress-hint {
+    margin-left: auto;
 }

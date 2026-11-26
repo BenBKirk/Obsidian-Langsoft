@@ -10,6 +10,7 @@ A language-learning plugin for [Obsidian](https://obsidian.md). Read and write i
   - add definitions (type one and press Enter)
   - see each definition with the sentence, note and date it was added in
   - delete definitions
+- **Phones and tablets.** Long-press a word to select it, and it opens in the Definer: on phones in a panel at the bottom of the note, on tablets in the sidebar. The command **Langsoft: Define selection** does the same for the selection or the word at the cursor, and can be added to the mobile toolbar.
 - **Hover definitions.** Hover over a word you have defined to see its definitions.
 - **Search by meaning.** Run the command **Langsoft: Search definitions** and type part of a meaning, e.g. `dog`, to find every word defined with it, yours and your coworkers', with the sentence each was added in. Matching is by the beginnings of words, so `do` finds `dog` too. Choosing a result opens the word in the sidebar.
 - **Shared dictionaries.** Dictionaries belonging to other people appear alongside yours. Words they have defined and you haven't are highlighted blue, and you can copy one of their definitions with a click.
@@ -82,7 +83,8 @@ For quick testing, clone the repository into `<vault>/.obsidian/plugins/langsoft
 | `main.ts` | Plugin entry point: editor extensions, hover tooltips, selection handling, styles |
 | `highlighter.ts` | CodeMirror plugins that highlight words, phrases and the current selection |
 | `dictionaries.ts` | Loading, changing and saving dictionaries |
-| `definer.ts` | The Definer sidebar |
+| `definer-panel.ts` | The Definer: word, level, definitions |
+| `definer.ts`, `definer-bottom-panel.ts` | Where the Definer is shown: the sidebar, or the bottom of the editor on phones |
 | `settings.ts` | The settings tab |
 | `search.ts`, `search-modal.ts` | Searching definitions, and the search window |
 | `merge.ts` | Merging two versions of a dictionary |

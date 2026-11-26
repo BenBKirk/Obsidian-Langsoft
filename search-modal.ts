@@ -47,7 +47,7 @@ export class SearchModal extends SuggestModal<SearchResult> {
 	}
 
 	async onChooseSuggestion(result: SearchResult) {
-		const definer = await this.plugin.activateView();
+		const definer = await this.plugin.openDefiner();
 		definer?.handleSelection(result.term, "");
 	}
 }

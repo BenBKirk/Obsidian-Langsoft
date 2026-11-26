@@ -53,3 +53,47 @@ If your plugin does not need CSS, delete this file.
     font-size: var(--font-ui-smaller);
     margin-top: 0.2em;
 }
+
+/* the Definer, in the sidebar or the bottom panel */
+.langsoft-definer {
+    overflow-wrap: anywhere;
+}
+.langsoft-definer table {
+    width: 100%;
+}
+.langsoft-definer textarea {
+    width: 100%;
+}
+.langsoft-level-button {
+    margin-right: 0.4em;
+}
+/* the selected level: the level's own colour, with dark text so it stays readable on light and dark themes */
+.langsoft-level-button.is-active {
+    color: #000;
+}
+.is-mobile .langsoft-level-button {
+    min-width: 3em;
+    min-height: 2.6em;
+}
+
+/* the Definer at the bottom of the editor on phones */
+.langsoft-bottom-panel {
+    max-height: 45vh;
+    overflow-y: auto;
+    padding: 0 var(--size-4-3) var(--size-4-3);
+    border-top: 1px solid var(--background-modifier-border);
+    background: var(--background-primary);
+}
+.langsoft-bottom-panel-header {
+    position: sticky;
+    top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--size-4-2) 0;
+    background: var(--background-primary);
+}
+.langsoft-bottom-panel-title {
+    font-weight: var(--font-semibold);
+    color: var(--text-muted);
+}

@@ -88,6 +88,23 @@ describe("findContext", () => {
 		expect(findContext("ohua haka oi", buildSelectionContext("o hua haka oi", 10, "haka"))).toBeNull();
 	});
 
+	it("rules out a note without the word before comparing word by word", () => {
+		expect(findContext("Ein ganz anderer Text über Katzen.", contextFor(LINE, "Hund"))).toBeNull();
+	});
+
+	it("doesn't rule out a note that has the words in a different form", () => {
+		// a phrase split by formatting
+		const formatted = LINE.replace("im Park", "**im** Park");
+		expect(found(formatted, contextFor(LINE, "im Park"))).toEqual({ text: "im** Park", exact: true });
+		// a typographic apostrophe in the note, a straight one saved
+		const line = "I said that I don't know where he went today.";
+		expect(found(line.replace("'", "’"), contextFor(line, "don't"))).toEqual({ text: "don’t", exact: true });
+		// decomposed accents (NFD) in the note
+		expect(found(LINE.normalize("NFD"), contextFor(LINE, "großen"))).toMatchObject({ exact: true });
+		const accented = "Hier ist ein schönes Café mit gutem Kaffee und Kuchen.";
+		expect(found(accented.normalize("NFD"), contextFor(accented, "Café"))).toMatchObject({ exact: true });
+	});
+
 	it("copes with missing or odd context", () => {
 		expect(findContext(LINE, undefined)).toBeNull();
 		expect(findContext(LINE, "no markers")).toBeNull();

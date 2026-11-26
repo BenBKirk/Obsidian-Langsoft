@@ -43,6 +43,9 @@ export function findContext(note: string, context: string | undefined): ContextM
 	const selection = words(parts.selection);
 	const after = words(parts.after);
 	if (selection.length === 0) return null;
+	// quick check before splitting the whole note into words, which matters when searching every note
+	const flat = note.normalize("NFC").toLowerCase().replace(/’/g, "'");
+	if (!selection.every((word) => flat.includes(word.text))) return null;
 
 	const text = words(note);
 	const candidates: { index: number; score: number }[] = [];

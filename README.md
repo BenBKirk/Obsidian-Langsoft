@@ -67,6 +67,18 @@ For quick testing, clone the repository into `<vault>/.obsidian/plugins/langsoft
 
 `words.ts`, `users.ts`, `merge.ts` and `dictionary-files.ts` don't depend on Obsidian. The tests in `tests/` cover them, and run `DictionaryManager` against an in-memory vault (`tests/fake-vault.ts`) with a stand-in for the `obsidian` module (`tests/obsidian-stub.ts`).
 
+## Releasing
+
+1. Bump the version, e.g. `npm version minor --no-git-tag-version`. This updates `package.json`, `manifest.json` and `versions.json`. To support a different minimum Obsidian version, change `minAppVersion` in `manifest.json` first.
+2. Commit and merge the change into `main`.
+3. Tag the merge with the bare version number (no `v`), then push the tag:
+
+   ```bash
+   git tag 1.2.0 && git push origin 1.2.0
+   ```
+
+The release workflow checks that the tag matches `manifest.json`, runs the tests, builds the plugin, and creates a **draft** GitHub release with `main.js`, `manifest.json` and `styles.css` attached. Edit its notes and publish it.
+
 ## License
 
 [GPL-3.0](LICENSE)

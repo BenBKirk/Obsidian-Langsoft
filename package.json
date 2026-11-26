@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-langsoft",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"description": "Highlight words by how well you know them, keep definitions with the sentence you found them in, and share dictionaries with coworkers.",
 	"main": "main.js",
 	"scripts": {

@@ -48,6 +48,9 @@ If your plugin does not need CSS, delete this file.
     color: var(--text-muted);
     font-size: var(--font-ui-smaller);
 }
+.langsoft-search-definitions {
+    margin-top: 0.2em;
+}
 .langsoft-search-context {
     color: var(--text-muted);
     font-size: var(--font-ui-smaller);

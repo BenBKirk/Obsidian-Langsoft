@@ -1,6 +1,7 @@
-import LangsoftPlugin from "main";
+import type LangsoftPlugin from "main";
 import { moment, normalizePath, Notice } from "obsidian";
 import { conflictOwner, dictionaryName, isSyncConflict } from "dictionary-files";
+import { mergeDictionaries } from "merge";
 
 
 export interface Definition {
@@ -41,14 +42,18 @@ export class DictionaryManager {
 	/** Conflict copies already reported in a notice, so each is only mentioned once. */
 	private reportedConflicts = new Set<string>();
 
+	/** Modification time of the user's own dictionary when it was last read or written. */
+	private userDictMtime: number | undefined;
+	/** Reads and writes of the user's dictionary run one at a time, in order. */
+	private userDictQueue: Promise<void> = Promise.resolve();
+
 	constructor(plugin: LangsoftPlugin) {
 		this.plugin = plugin;
-		// this.loadWordnetDict()
-		this.init();
 	}
 
 	async init() {
 		this.userDict = {};
+		this.userDictMtime = undefined;
 		this.otherDicts = {};
 		this.coworkerMtimes = {};
 		await this.getDictionaryFolder();
@@ -69,6 +74,7 @@ export class DictionaryManager {
 	 * copies are skipped.
 	 */
 	async reloadOtherDictsIfChanged() {
+		this.reloadUserDictIfChanged();
 		await this.getAvailableDictionaries();
 		const ownPath = this.userDictPath();
 		let changed = false;
@@ -148,10 +154,54 @@ export class DictionaryManager {
 		// the user's own dictionary (<user>.json); it must contain a JSON object, at least {}
 		const path = this.userDictPath();
 		if (!(await this.plugin.app.vault.adapter.exists(path))) return;
+		const stat = await this.plugin.app.vault.adapter.stat(path);
 		const dict = await this.plugin.app.vault.adapter.read(path);
 		if (dict) {
 			this.userDict = JSON.parse(dict);
 		}
+		this.userDictMtime = stat?.mtime;
+	}
+
+	/** Pick up changes another device synced to the user's own dictionary. */
+	reloadUserDictIfChanged(): Promise<void> {
+		return this.queueUserDictTask(async () => {
+			const path = this.userDictPath();
+			if (!this.plugin.settings.currentUser || !(await this.plugin.app.vault.adapter.exists(path))) return;
+			if (await this.mergeChangesFromDisk(path)) {
+				this.plugin.refreshHighlights();
+			}
+		});
+	}
+
+	/**
+	 * If the file was changed by someone else (e.g. Syncthing bringing in
+	 * another device's edits) since it was last read or written, merge those
+	 * changes into the dictionary in memory. Returns true if it did.
+	 */
+	private async mergeChangesFromDisk(path: string): Promise<boolean> {
+		const stat = await this.plugin.app.vault.adapter.stat(path);
+		if (!stat || stat.mtime === this.userDictMtime) return false;
+
+		const text = await this.plugin.app.vault.adapter.read(path);
+		let onDisk: DictionaryData;
+		try {
+			onDisk = text ? JSON.parse(text) : {};
+		} catch (e) {
+			// e.g. a half-written file; what is in memory is the best copy we have
+			console.warn(`Langsoft: ${path} is not valid JSON, not merging it`, e);
+			return false;
+		}
+		this.userDict = mergeDictionaries(onDisk, this.userDict);
+		this.userDictMtime = stat.mtime;
+		return true;
+	}
+
+	private queueUserDictTask(task: () => Promise<void>): Promise<void> {
+		this.userDictQueue = this.userDictQueue.then(task).catch((e) => {
+			console.error("Langsoft: could not read or save your dictionary", e);
+			new Notice(`Langsoft: could not save your dictionary: ${e}`);
+		});
+		return this.userDictQueue;
 	}
 
 
@@ -250,14 +300,25 @@ export class DictionaryManager {
 		}
 	}
 
-	async writeUserDictToJson() {
-		const path = this.userDictPath();
-		// only write to a dictionary the user has set up, never create one under an empty or mistyped name
-		if (!this.plugin.settings.currentUser || !(await this.plugin.app.vault.adapter.exists(path))) {
-			new Notice("Langsoft: no dictionary is set up for you yet, so this change was not saved. See the README for how to set one up.");
-			return;
-		}
-		await this.plugin.app.vault.adapter.write(path, JSON.stringify(this.userDict));
+	/**
+	 * Save the user's dictionary. Changes another device made to the file
+	 * since it was last read are merged in first rather than overwritten.
+	 */
+	writeUserDictToJson(): Promise<void> {
+		return this.queueUserDictTask(async () => {
+			const path = this.userDictPath();
+			// only write to a dictionary the user has set up, never create one under an empty or mistyped name
+			if (!this.plugin.settings.currentUser || !(await this.plugin.app.vault.adapter.exists(path))) {
+				new Notice("Langsoft: no dictionary is set up for you yet, so this change was not saved. See the README for how to set one up.");
+				return;
+			}
+			const merged = await this.mergeChangesFromDisk(path);
+			await this.plugin.app.vault.adapter.write(path, JSON.stringify(this.userDict));
+			this.userDictMtime = (await this.plugin.app.vault.adapter.stat(path))?.mtime;
+			if (merged) {
+				this.plugin.refreshHighlights();
+			}
+		});
 	}
 
 

@@ -31,7 +31,8 @@ export default class LangsoftPlugin extends Plugin {
 		this.registerEditorExtension(this.mySelectionViewPlugin);
 		this.registerEditorExtension(TriggerField);
 
-		this.dictManager = new DictionaryManager(this)
+		this.dictManager = new DictionaryManager(this);
+		this.dictManager.init();
 		this.styleEl = document.head.createEl("style");
 		this.updateStyle()
 		this.registerEditorExtension(this.wordHover);

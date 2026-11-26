@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSelectionContext, findWordAt, parseIntoWords, splitContext } from "../words";
+import { buildSelectionContext, findWordAt, parseIntoWords, splitContext, termKey } from "../words";
 
 const texts = (text: string) => parseIntoWords(text).map((w) => w.text);
 
@@ -151,5 +151,17 @@ describe("splitContext", () => {
 		expect(splitContext("plain text")).toBeNull();
 		expect(splitContext("")).toBeNull();
 		expect(splitContext("</u> backwards <u>")).toBeNull();
+	});
+});
+
+describe("termKey", () => {
+	it("treats typographic and straight apostrophes alike", () => {
+		expect(termKey("don’t")).toBe("don't");
+		expect(termKey("ro\u02BCa")).toBe("ro'a");
+	});
+
+	it("lower-cases, composes accents and tidies spaces", () => {
+		expect(termKey("  Café\n au   LAIT ")).toBe("café au lait");
+		expect(termKey("cafe\u0301")).toBe("café");
 	});
 });

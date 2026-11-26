@@ -431,3 +431,16 @@ describe("editing and undoing", () => {
 		expect(manager.userDict.hund.highlight).toBe("known");
 	});
 });
+
+describe("apostrophes", () => {
+	it("treat a word saved with ’ and with ' as one word", async () => {
+		putDevice(adapter, { "don’t": word("known", "do not") });
+		adapter.put(`${FOLDER}/maria.json`, { "don't": word("unknown", "must not", "2026-01-02 10:00:00") });
+		putDevice(adapter, { "can’t": word("known", "cannot") }, "peter");
+		const { manager } = await makeManager(adapter);
+
+		expect(Object.keys(manager.userDict)).toEqual(["don't"]);
+		expect(Object.keys(manager.userDict["don't"].definitions).sort()).toEqual(["do not", "must not"]);
+		expect(Object.keys(manager.otherDicts.peter)).toEqual(["can't"]);
+	});
+});

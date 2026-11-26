@@ -86,3 +86,12 @@ export function splitContext(context: string): { before: string; selection: stri
 		after: context.slice(end + "</u>".length),
 	};
 }
+
+/**
+ * The form of a word or phrase used as a dictionary key: lower case, with
+ * accents composed (é typed as e + ´ is é), typographic apostrophes as
+ * straight ones ("don’t" is "don't") and single spaces.
+ */
+export function termKey(text: string): string {
+	return text.normalize("NFC").replace(/[’ʼ]/g, "'").toLowerCase().replace(/\s+/g, " ").trim();
+}

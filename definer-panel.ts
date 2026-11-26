@@ -2,7 +2,7 @@ import type LangsoftPlugin from "main";
 import { App, MarkdownView, moment, Platform } from "obsidian";
 import type { Definition, WordEntry } from "dictionaries";
 import { SearchModal } from "search-modal";
-import { splitContext } from "words";
+import { splitContext, termKey } from "words";
 
 type Level = "unknown" | "semiknown" | "known";
 export const LEVELS: Level[] = ["unknown", "semiknown", "known"];
@@ -62,7 +62,7 @@ export class DefinerPanel {
 
 	/** Show a word or phrase, and where it was selected (`context` is empty if not from a note). */
 	handleSelection(selection: string, context: string) {
-		const term = selection.trim().toLowerCase();
+		const term = termKey(selection);
 		const same = term === this.term && context === this.selectionContext;
 		// the same word again while working in the Definer (e.g. after clicking in it): keep what is being typed
 		if (same && this.container.contains(document.activeElement)) return;

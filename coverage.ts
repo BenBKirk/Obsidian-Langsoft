@@ -1,6 +1,6 @@
 // How much of a note's text you know. No Obsidian dependency, so it can be unit tested.
 import type { BookShelf, DictionaryData } from "dictionaries";
-import { parseIntoWords } from "words";
+import { parseIntoWords, termKey } from "words";
 
 /**
  * Like the highlighting: your level if the word is in your dictionary;
@@ -31,7 +31,7 @@ export function noteCoverage(text: string, dict: DictionaryData, coworkers: Book
 	const distinct = new Set<string>();
 	for (const word of parseIntoWords(prose)) {
 		if (/^[\p{N}'’-]+$/u.test(word.text)) continue;
-		distinct.add(word.text.toLowerCase());
+		distinct.add(termKey(word.text));
 	}
 
 	const dictionaries = Object.values(coworkers ?? {});

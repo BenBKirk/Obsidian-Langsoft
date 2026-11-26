@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeDictionaries } from "../merge";
+import { mergeDictionaries, normalizeKeys } from "../merge";
 import type { Definition, DictionaryData, WordEntry } from "../dictionaries";
 
 const def = (timestamp: string, deleted = false): Definition => ({
@@ -119,5 +119,29 @@ describe("mergeDictionaries", () => {
 		const merged = mergeDictionaries(a, b);
 		merged.hund.definitions.dog.deleted = true;
 		expect([a, b]).toEqual(copies);
+	});
+});
+
+describe("normalizeKeys", () => {
+	it("merges entries whose keys only differ in apostrophes, case or accents", () => {
+		const dict = {
+			"don’t": entry("known", { "do not": def("2026-01-01 10:00:00") }),
+			"don't": entry("unknown", { "must not": def("2026-01-02 10:00:00") }, [["unknown", "2026-01-02 10:00:00"]]),
+			Café: entry("known", { coffee: def("2026-01-01 10:00:00") }),
+		};
+		const normal = normalizeKeys(dict);
+		expect(Object.keys(normal).sort()).toEqual(["café", "don't"]);
+		expect(Object.keys(normal["don't"].definitions).sort()).toEqual(["do not", "must not"]);
+		expect(normal["don't"].highlight).toBe("unknown"); // the later level
+	});
+
+	it("normalises the phrases a first word points to", () => {
+		const normal = normalizeKeys({ "don’t": entry("None", {}, [["None", "2026-01-01 10:00:00"]], ["Don’t  stop", "don't stop"]) });
+		expect(normal["don't"].firstwordofphrase).toEqual(["don't stop"]);
+	});
+
+	it("returns the same object when there is nothing to change", () => {
+		const dict = { hund: entry("known", { dog: def("2026-01-01 10:00:00") }) };
+		expect(normalizeKeys(dict)).toBe(dict);
 	});
 });

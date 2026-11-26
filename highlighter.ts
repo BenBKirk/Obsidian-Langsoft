@@ -10,6 +10,7 @@ import {
 } from '@codemirror/view';
 import LangsoftPlugin from "main";
 import type { DictionaryData } from "dictionaries";
+import { termKey } from "words";
 import { StateField, StateEffect } from "@codemirror/state";
 
 // Define an effect to signal updates
@@ -73,7 +74,7 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 				index: number
 			) {
 				const dict = this.plugin?.dictManager?.userDict;
-				const result = dict?.[word.text.trim().toLowerCase()];
+				const result = dict?.[termKey(word.text)];
 
 				// if (!result) return;
 
@@ -81,7 +82,7 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 				// for (let i = 0; i < this.plugin?.dictManager?.otherDicts.; i++)
 				if (this.plugin.dictManager.otherDicts) {
 					for (const [name, dict] of Object.entries(this.plugin.dictManager.otherDicts)) {
-						const otherresult = dict?.[word.text.trim().toLowerCase()];
+						const otherresult = dict?.[termKey(word.text)];
 						if (otherresult) {
 							if (!result && otherresult.highlight != "None") {
 								builder.add(word.from, word.to, Decoration.mark({ class: "coworker" }))
@@ -124,7 +125,7 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 			) {
 				if (!phrase) return;
 				// const regex = /\b\w+\b/g;
-				const parts = this.plugin.parseIntoWords(phrase.trim().toLowerCase(), 0)
+				const parts = this.plugin.parseIntoWords(termKey(phrase), 0)
 				// const regex = /[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu;
 				// const parts = phrase.match(regex);
 				if (!parts) return;
@@ -135,13 +136,13 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 
 
 				for (let i = 0; i < parts.length; i++) {
-					reconstructedPhrase.push(parts[i].text.toLowerCase())
+					reconstructedPhrase.push(parts[i].text)
 					const nextWord = words[index + i];
 					if (!nextWord) {
 						lookAhead.length = 0;
 						break;
 					}
-					lookAhead.push(nextWord.text.toLowerCase());
+					lookAhead.push(termKey(nextWord.text));
 					if (i === parts.length - 1) {
 						end = nextWord.to;
 					}

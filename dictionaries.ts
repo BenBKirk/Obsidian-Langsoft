@@ -9,7 +9,8 @@ import {
 	parseSource,
 	serializeDeviceFile,
 } from "dictionary-files";
-import { mergeDictionaries } from "merge";
+import { mergeDictionaries, normalizeKeys } from "merge";
+import { termKey } from "words";
 
 
 export interface Definition {
@@ -181,7 +182,8 @@ export class DictionaryManager {
 				try {
 					const result = parseSource<DictionaryData>(source, await adapter.read(source.path));
 					if ("error" in result) throw new Error(result.error);
-					combined = combined ? mergeDictionaries(combined, result.dict) : result.dict;
+					const dict = normalizeKeys(result.dict);
+					combined = combined ? mergeDictionaries(combined, dict) : dict;
 					// only remembered once the file has been read successfully, so a broken file is retried
 					this.coworkerMtimes[source.path] = stats[i]?.mtime;
 				} catch (e) {
@@ -253,7 +255,7 @@ export class DictionaryManager {
 				this.markUnreadable(path, result.error);
 				return;
 			}
-			this.userDict = result.dict;
+			this.userDict = normalizeKeys(result.dict);
 			this.deviceFileMtime = stat?.mtime;
 		}
 		await this.mergeOwnSourcesIfChanged();
@@ -286,7 +288,7 @@ export class DictionaryManager {
 				continue;
 			}
 			this.reportedUnreadable.delete(source.path);
-			this.userDict = mergeDictionaries(this.userDict, result.dict);
+			this.userDict = mergeDictionaries(this.userDict, normalizeKeys(result.dict));
 			this.ownSourceMtimes[source.path] = stat.mtime;
 		}
 
@@ -343,7 +345,7 @@ export class DictionaryManager {
 		}
 		const wasUnreadable = this.unreadableReason !== null;
 		this.unreadableReason = null;
-		this.userDict = mergeDictionaries(result.dict, this.userDict);
+		this.userDict = mergeDictionaries(normalizeKeys(result.dict), this.userDict);
 		this.deviceFileMtime = stat.mtime;
 		if (wasUnreadable) {
 			new Notice(`Langsoft: your dictionary ${path} can be read again, and changes are saved again.`);
@@ -378,7 +380,7 @@ export class DictionaryManager {
 
 	writeHighlightChangeToJson(term: string, level: string) {
 		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
-		const entry = this.userDict[term.trim().toLowerCase()];
+		const entry = this.userDict[termKey(term)];
 		if (entry) {
 			entry.highlighthistory.push({ level: level, timestamp: timestamp })
 			entry.highlight = level;

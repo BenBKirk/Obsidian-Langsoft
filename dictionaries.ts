@@ -1,5 +1,6 @@
 import LangsoftPlugin from "main";
-import { moment, normalizePath } from "obsidian";
+import { moment, normalizePath, Notice } from "obsidian";
+import { conflictOwner, dictionaryName, isSyncConflict } from "dictionary-files";
 
 
 export interface Definition {
@@ -35,7 +36,10 @@ export class DictionaryManager {
 	dictFolder: string;
 	availableDictionaries: string[];
 	wordnet: string;
-	lastLoadedModifiedDate: (number | undefined)[];
+	/** Modification time of each coworker dictionary when it was last read, by path. */
+	private coworkerMtimes: Record<string, number | undefined> = {};
+	/** Conflict copies already reported in a notice, so each is only mentioned once. */
+	private reportedConflicts = new Set<string>();
 
 	constructor(plugin: LangsoftPlugin) {
 		this.plugin = plugin;
@@ -44,51 +48,78 @@ export class DictionaryManager {
 	}
 
 	async init() {
-		//check dictionary folder exists
-		//
+		this.userDict = {};
 		this.otherDicts = {};
-		this.lastLoadedModifiedDate = [];
+		this.coworkerMtimes = {};
 		await this.getDictionaryFolder();
-		await this.getAvailableDictionaries();
 		await this.loadPrimaryDictionary();
-		await this.loadSecondaryDictionaries();
+		await this.reloadOtherDictsIfChanged();
 		// editors may have drawn their highlights before the dictionaries finished loading
 		this.plugin.refreshHighlights();
 	}
 
+	/** Path of the current user's own dictionary. */
+	userDictPath(): string {
+		return normalizePath(`${this.dictFolder}/${this.plugin.settings.currentUser}.json`);
+	}
+
+	/**
+	 * Load coworkers' dictionaries that are new or changed since they were
+	 * last read, and forget ones that were removed. Syncthing conflict
+	 * copies are skipped.
+	 */
 	async reloadOtherDictsIfChanged() {
-		const primaryDict = this.plugin.settings.currentUser + ".json";
-		// const primaryDictFullPath: string = path.join(this.dictFolder, primaryDict).toString();
-		const primaryDictFullPath = normalizePath(`${this.dictFolder}/${primaryDict}`);
-		console.log(primaryDictFullPath)
-
-		let count = 0
+		await this.getAvailableDictionaries();
+		const ownPath = this.userDictPath();
 		let changed = false;
-		for (const path of this.availableDictionaries.filter(val => val !== primaryDictFullPath)) {
-			// console.log(path);
+
+		const coworkerPaths = this.availableDictionaries.filter((path) => path !== ownPath && !isSyncConflict(path));
+		this.reportSyncConflicts();
+
+		for (const path of coworkerPaths) {
 			try {
-				// record the modified time of other dictionaries (so that we know if they need reloading)
 				const stat = await this.plugin.app.vault.adapter.stat(path);
+				if (path in this.coworkerMtimes && stat?.mtime === this.coworkerMtimes[path]) continue;
 
-				// only load if the time modified date has changed since last opened
-				if (stat?.mtime !== this.lastLoadedModifiedDate[count]) {
-					const dict = await this.plugin.app.vault.adapter.read(path);
-					const parsedDict = JSON.parse(dict);
-					console.log("reloading ", path.slice(23, -5))
-					this.otherDicts[path.slice(23, -5)] = parsedDict;
-					//update the last seen modified date
-					this.lastLoadedModifiedDate[count] = stat?.mtime;
-					changed = true;
-				}
-				count += 1
+				const dict = JSON.parse(await this.plugin.app.vault.adapter.read(path));
+				this.otherDicts[dictionaryName(path)] = dict;
+				// only remembered once the file has been read successfully, so a broken file is retried
+				this.coworkerMtimes[path] = stat?.mtime;
+				changed = true;
 			} catch (e) {
-				console.log(e)
-
+				console.error(`Langsoft: could not load ${path}`, e);
 			}
-
 		}
+
+		// dictionaries whose file is gone
+		const current = new Set(coworkerPaths.map(dictionaryName));
+		for (const name of Object.keys(this.otherDicts)) {
+			if (!current.has(name)) {
+				delete this.otherDicts[name];
+				changed = true;
+			}
+		}
+		for (const path of Object.keys(this.coworkerMtimes)) {
+			if (!coworkerPaths.includes(path)) delete this.coworkerMtimes[path];
+		}
+
 		if (changed) {
 			this.plugin.refreshHighlights();
+		}
+	}
+
+	/** Tell the user, once per file, about conflict copies of their own dictionary. */
+	private reportSyncConflicts() {
+		const user = this.plugin.settings.currentUser;
+		for (const path of this.availableDictionaries.filter(isSyncConflict)) {
+			if (conflictOwner(path) !== user || this.reportedConflicts.has(path)) continue;
+			this.reportedConflicts.add(path);
+			new Notice(
+				`Langsoft: Syncthing made a conflict copy of your dictionary:\n${dictionaryName(path)}\n\n` +
+				"Words in it that are missing from your dictionary were not saved there. " +
+				"The copy is ignored; it isn't shown as a coworker.",
+				0
+			);
 		}
 	}
 
@@ -98,7 +129,7 @@ export class DictionaryManager {
 
 		if (!isDictFolder) {
 			try {
-				this.plugin.app.vault.adapter.mkdir(dictName);
+				await this.plugin.app.vault.adapter.mkdir(dictName);
 			} catch (e) {
 				console.log(e);
 			}
@@ -114,47 +145,13 @@ export class DictionaryManager {
 	}
 
 	async loadPrimaryDictionary() {
-		//check if primary dictionary exists (<user>.json) it also need to be a json object not a blank file (at least {})
-
-		const primaryDict = this.plugin.settings.currentUser + ".json";
-		const primaryDictFullPath = normalizePath(`${this.dictFolder}/${primaryDict}`);
-		if (this.availableDictionaries.includes(primaryDictFullPath)) {
-			const dict = await this.plugin.app.vault.adapter.read(primaryDictFullPath);
-			if (dict) {
-				this.userDict = JSON.parse(dict);
-			}
-
+		// the user's own dictionary (<user>.json); it must contain a JSON object, at least {}
+		const path = this.userDictPath();
+		if (!(await this.plugin.app.vault.adapter.exists(path))) return;
+		const dict = await this.plugin.app.vault.adapter.read(path);
+		if (dict) {
+			this.userDict = JSON.parse(dict);
 		}
-	}
-
-	async loadSecondaryDictionaries() {
-		const primaryDict = this.plugin.settings.currentUser + ".json";
-		const primaryDictFullPath = normalizePath(`${this.dictFolder}/${primaryDict}`);
-		let count = 0
-		for (const path of this.availableDictionaries.filter(val => val !== primaryDictFullPath)) {
-			// console.log(path);
-			try {
-				// record the modified time of other dictionaries (so that we know if they need reloading)
-				const stat = await this.plugin.app.vault.adapter.stat(path);
-				this.lastLoadedModifiedDate[count] = stat?.mtime;
-				count += 1
-
-				const dict = await this.plugin.app.vault.adapter.read(path);
-				// console.log(dict)
-				const parsedDict = JSON.parse(dict);
-				// console.log(parsedDict);
-
-				// this.otherDicts.push(parsedDict);
-				this.otherDicts[path.slice(23, -5)] = parsedDict;
-
-			} catch (e) {
-				console.log(e)
-
-			}
-
-		}
-		// console.log(this.lastModifiedDate)
-
 	}
 
 
@@ -253,13 +250,14 @@ export class DictionaryManager {
 		}
 	}
 
-	writeUserDictToJson() {
-		const primaryDict = this.plugin.settings.currentUser + ".json";
-		const primaryDictFullPath = normalizePath(`${this.dictFolder}/${primaryDict}`);
-
-		if (this.availableDictionaries.includes(primaryDictFullPath)) {
-			this.plugin.app.vault.adapter.write(primaryDictFullPath, JSON.stringify(this.userDict));
+	async writeUserDictToJson() {
+		const path = this.userDictPath();
+		// only write to a dictionary the user has set up, never create one under an empty or mistyped name
+		if (!this.plugin.settings.currentUser || !(await this.plugin.app.vault.adapter.exists(path))) {
+			new Notice("Langsoft: no dictionary is set up for you yet, so this change was not saved. See the README for how to set one up.");
+			return;
 		}
+		await this.plugin.app.vault.adapter.write(path, JSON.stringify(this.userDict));
 	}
 
 

@@ -306,9 +306,6 @@ If your plugin does not need CSS, delete this file.
     flex: none;
     height: 100%;
 }
-.langsoft-coverage-new {
-    background-color: var(--background-modifier-border);
-}
 .langsoft-coverage-text {
     display: flex;
     flex-wrap: wrap;

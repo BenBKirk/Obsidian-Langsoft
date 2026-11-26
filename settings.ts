@@ -85,7 +85,7 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Show how much of a note you know")
-			.setDesc("A bar at the bottom of each note with the share of its words you know, half know, don't know, or haven't looked up yet.")
+			.setDesc("A bar at the bottom of each note with the share of its words you know, half know or don't know, and the share only your coworkers have defined.")
 			.addToggle((toggle) =>
 				toggle.setValue(this.plugin.settings.showNoteCoverage).onChange((value) => {
 					this.plugin.settings.showNoteCoverage = value;

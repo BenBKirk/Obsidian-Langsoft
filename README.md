@@ -14,7 +14,7 @@ A language-learning plugin for [Obsidian](https://obsidian.md). Read and write i
 - **Hover definitions.** Hover over a word you have defined to see its definitions.
 - **Search by meaning.** Run the command **Langsoft: Search definitions** and type part of a meaning, e.g. `dog`, to find every word defined with it, yours and your coworkers', with the sentence each was added in. Matching is by the beginnings of words, so `do` finds `dog` too. Choosing a result opens the word in the sidebar.
 - **Progress.** Run the command **Langsoft: Show progress** to see how many of your words are known, semi-known and unknown, week by week, month by month or year by year, and how many reached each level or were added in each period. It also shows a growth curve, and a calendar of the days you worked on your words with your current and longest streak.
-- **How much of a note you know.** A bar at the bottom of each note shows how many different words it has, and what share of them you know, half know, don't know, or haven't looked up yet. It can be switched off in the settings.
+- **How much of a note you know.** A bar at the bottom of each note shows how many different words it has, and what share of them you know, half know or don't know, in your highlight colours, and what share only your coworkers have defined, in blue. It can be switched off in the settings.
 - **Shared dictionaries.** Dictionaries belonging to other people appear alongside yours. Words they have defined and you haven't are highlighted blue, and you can copy one of their definitions with a click.
 
 ## Setup

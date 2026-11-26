@@ -3,8 +3,15 @@ import type LangsoftPlugin from "main";
 import { CoverageLevel, noteCoverage } from "coverage";
 import { wasTriggered } from "highlighter";
 
-const NAMES: Record<CoverageLevel, string> = { known: "known", semiknown: "semi-known", unknown: "unknown", new: "new" };
-const ORDER: CoverageLevel[] = ["known", "semiknown", "unknown", "new"];
+const NAMES: Record<CoverageLevel, string> = {
+	known: "known",
+	semiknown: "semi-known",
+	unknown: "unknown",
+	coworker: "coworkers",
+	none: "not looked up",
+};
+/** In the bar; the rest, "none", is left grey. */
+const ORDER: CoverageLevel[] = ["known", "semiknown", "unknown", "coworker"];
 
 /** A bar at the bottom of each note: how much of it you know. */
 export function createCoveragePanel(plugin: LangsoftPlugin) {
@@ -19,7 +26,9 @@ export function createCoveragePanel(plugin: LangsoftPlugin) {
 					? plugin.settings.semiknownColor
 					: level === "unknown"
 						? plugin.settings.unknownColor
-						: "";
+						: level === "coworker"
+							? plugin.settings.coworkerColor
+							: "";
 
 		const render = () => {
 			dom.empty();
@@ -27,7 +36,7 @@ export function createCoveragePanel(plugin: LangsoftPlugin) {
 			dom.toggle(show);
 			if (!show) return;
 
-			const coverage = noteCoverage(view.state.doc.toString(), plugin.dictManager.userDict);
+			const coverage = noteCoverage(view.state.doc.toString(), plugin.dictManager.userDict, plugin.dictManager.otherDicts);
 			if (coverage.words === 0) {
 				dom.toggle(false);
 				return;
@@ -50,7 +59,7 @@ export function createCoveragePanel(plugin: LangsoftPlugin) {
 			dom.setAttribute(
 				"aria-label",
 				`${coverage.words} different words in this note: ` +
-					ORDER.map((level) => `${coverage.counts[level]} ${NAMES[level]}`).join(", ")
+					[...ORDER, "none" as const].map((level) => `${coverage.counts[level]} ${NAMES[level]}`).join(", ")
 			);
 		};
 		render();

@@ -1,6 +1,7 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
 import type LangsoftPlugin from "main";
 import { ActivityCalendar, activityCalendar, computeProgress, dayKey, growthSeries, Level, PeriodKind, PeriodStats } from "progress";
+import { MIN_TEAM_SIZE, teamGrowth, teamStats } from "team";
 
 export const VIEW_TYPE_PROGRESS = "langsoft-progress";
 
@@ -85,6 +86,7 @@ export class ProgressView extends ItemView {
 
 		this.renderSummary(el, periods, index);
 		this.renderGrowth(el, periods, index);
+		this.renderTeam(el, periods);
 	}
 
 	private colour(level: Level): string {
@@ -226,6 +228,105 @@ export class ProgressView extends ItemView {
 			item.appendText(LEVEL_NAMES[level]);
 		}
 		legend.createSpan({ cls: "langsoft-progress-hint", text: "Click a period to see its numbers above." });
+	}
+
+	/**
+	 * Figures about the whole team, never about one person, and only with at
+	 * least MIN_TEAM_SIZE people: with fewer, they would give away a
+	 * teammate's own figures.
+	 */
+	private renderTeam(el: HTMLElement, periods: PeriodStats[]) {
+		const { userDict, otherDicts } = this.plugin.dictManager;
+		el.createEl("h3", { text: "Team" });
+		const stats = teamStats(userDict, otherDicts);
+		if (stats.people < MIN_TEAM_SIZE) {
+			el.createEl("p", {
+				cls: "langsoft-progress-hint",
+				text: `Team figures appear when at least ${MIN_TEAM_SIZE} people share dictionaries, so nobody's own figures can be worked out from them.`,
+			});
+			return;
+		}
+
+		const number = (n: number) => n.toLocaleString();
+		const table = el.createEl("table", { cls: "langsoft-team-table" });
+		const row = (label: string, value: number, colour?: string) => {
+			const tr = table.createEl("tr");
+			const name = tr.createEl("td");
+			if (colour) name.createSpan({ cls: "langsoft-progress-swatch" }).style.backgroundColor = colour;
+			name.appendText(label);
+			tr.createEl("td", { cls: "langsoft-progress-number", text: number(value) });
+		};
+		row(`Words defined by the ${stats.people} of you`, stats.vocabulary, this.plugin.settings.coworkerColor);
+		row("Known by at least one person", stats.knownBySomeone, this.colour("known"));
+		row("Defined by teammates, not yet by you", stats.teammatesOnly);
+		el.createEl("p", {
+			cls: "langsoft-progress-hint",
+			text: 'Words only teammates have defined show up in your notes in the coworker colour; "Langsoft: Search definitions" finds them by meaning.',
+		});
+
+		this.renderTeamGrowth(el, periods);
+
+		if (stats.shared.length > 0) {
+			el.createDiv({ cls: "langsoft-team-heading", text: "Defined by most of the team" });
+			el.createEl("p", { cls: "langsoft-team-shared", text: stats.shared.map((s) => s.term).join(", ") });
+		}
+	}
+
+	/** The team's combined vocabulary over time: known by someone at the bottom, the rest above. */
+	private renderTeamGrowth(el: HTMLElement, periods: PeriodStats[]) {
+		const { userDict, otherDicts } = this.plugin.dictManager;
+		const series = teamGrowth(userDict, otherDicts, this.kind);
+		if (series.length < 2) return;
+
+		const width = 600;
+		const height = 200;
+		const margin = { top: 10, right: 12, bottom: 24, left: 44 };
+		const plotWidth = width - margin.left - margin.right;
+		const plotHeight = height - margin.top - margin.bottom;
+		const first = series[0].time.getTime();
+		const lastTime = series[series.length - 1].time.getTime();
+		const max = niceMax(Math.max(1, ...series.map((p) => p.vocabulary)));
+		const x = (time: number) => margin.left + ((Math.min(time, lastTime) - first) / Math.max(1, lastTime - first)) * plotWidth;
+		const y = (value: number) => margin.top + plotHeight - (value / max) * plotHeight;
+
+		const chart = svg("svg", { viewBox: `0 0 ${width} ${height}`, class: "langsoft-growth langsoft-team-growth", role: "img" });
+		const latest = series[series.length - 1];
+		// a <title>, not aria-label: see renderGrowth
+		svg("title", {}, chart).textContent =
+			`The team's words over time. Now: ${latest.vocabulary} defined, ${latest.knownBySomeone} known by at least one person`;
+
+		for (const value of [0, max / 4, max / 2, (3 * max) / 4, max].filter(Number.isInteger)) {
+			svg("line", { x1: margin.left, x2: width - margin.right, y1: y(value), y2: y(value), class: "langsoft-growth-grid" }, chart);
+			svg("text", { x: margin.left - 6, y: y(value) + 4, "text-anchor": "end" }, chart).textContent = String(value);
+		}
+
+		const area = (lower: number[], upper: number[], colour: string) => {
+			const top = series.map((p, i) => `${x(p.time.getTime())},${y(upper[i])}`);
+			const bottom = series.map((p, i) => `${x(p.time.getTime())},${y(lower[i])}`).reverse();
+			svg("polygon", { points: [...top, ...bottom].join(" "), fill: colour, class: "langsoft-growth-area" }, chart);
+		};
+		const known = series.map((p) => p.knownBySomeone);
+		area(series.map(() => 0), known, this.colour("known"));
+		area(known, series.map((p) => p.vocabulary), this.plugin.settings.coworkerColor);
+
+		const every = Math.ceil(periods.length / Math.max(1, Math.floor(plotWidth / 48)));
+		for (const [i, p] of periods.entries()) {
+			const px = x(p.start.getTime());
+			if (i > 0) svg("line", { x1: px, x2: px, y1: margin.top, y2: margin.top + plotHeight, class: "langsoft-growth-period" }, chart);
+			if (i % every !== 0) continue;
+			svg("text", { x: (px + x(p.end.getTime())) / 2, y: height - 6, "text-anchor": "middle" }, chart).textContent = shortLabel(p, this.kind);
+		}
+		el.appendChild(chart);
+
+		const legend = el.createDiv({ cls: "langsoft-progress-legend" });
+		for (const [label, colour] of [
+			["Known by at least one person", this.colour("known")],
+			["Defined, not yet known by anyone", this.plugin.settings.coworkerColor],
+		]) {
+			const item = legend.createSpan();
+			item.createSpan({ cls: "langsoft-progress-swatch" }).style.backgroundColor = colour;
+			item.appendText(label);
+		}
 	}
 
 	/** A square per day for the last year, shaded by how much was done. */

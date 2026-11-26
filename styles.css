@@ -288,3 +288,29 @@ If your plugin does not need CSS, delete this file.
 .langsoft-progress-hint {
     margin-left: auto;
 }
+
+/* team figures on the progress page */
+.langsoft-team-table {
+    border-collapse: collapse;
+    margin-bottom: var(--size-4-2);
+}
+.langsoft-team-table td {
+    padding: var(--size-4-1) var(--size-4-3) var(--size-4-1) 0;
+}
+.langsoft-team-growth {
+    cursor: default;
+    margin-top: var(--size-4-3);
+}
+.langsoft-team-heading {
+    margin-top: var(--size-4-4);
+    font-size: var(--font-ui-small);
+    color: var(--text-muted);
+}
+.langsoft-team-shared {
+    margin-top: var(--size-4-1);
+    line-height: 1.6;
+}
+p.langsoft-progress-hint {
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+}

@@ -41,12 +41,13 @@ export class FakeAdapter {
 	}
 }
 
-export const FOLDER = ".langsoft_dictionaries";
+export const FOLDER = "Langsoft";
+export const LEGACY = ".langsoft_dictionaries";
 
-export async function makeManager(adapter: FakeAdapter, currentUser = "maria") {
-	adapter.folders.add(FOLDER);
+export async function makeManager(adapter: FakeAdapter, currentUser = "maria", folder = FOLDER) {
+	adapter.folders.add(folder);
 	const plugin = {
-		settings: { dictionaryFolder: FOLDER },
+		settings: { dictionaryFolder: folder },
 		currentUser,
 		app: { vault: { adapter } },
 		refreshHighlights: vi.fn(),

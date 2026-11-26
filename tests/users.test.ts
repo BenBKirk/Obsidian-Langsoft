@@ -13,6 +13,10 @@ describe("usersFromDictionaries", () => {
 		).toEqual(["Anna Maria", "peter"]);
 	});
 
+	it("lists a user with files in two folders once", () => {
+		expect(usersFromDictionaries(["Langsoft/maria.json", ".langsoft_dictionaries/maria.json"])).toEqual(["maria"]);
+	});
+
 	it("is empty when there are no dictionaries", () => {
 		expect(usersFromDictionaries([])).toEqual([]);
 	});

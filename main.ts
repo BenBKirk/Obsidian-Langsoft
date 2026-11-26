@@ -6,6 +6,7 @@ import { DictionaryManager } from "dictionaries";
 import { VIEW_TYPE_DEFINER, DefinerView } from "definer";
 import { buildSelectionContext, findWordAt, parseIntoWords as splitIntoWords } from "words";
 import { usersFromDictionaries } from "users";
+import { DEFAULT_FOLDER, LEGACY_FOLDER } from "dictionary-files";
 import { UserModal } from "user-modal";
 
 
@@ -319,6 +320,11 @@ export default class LangsoftPlugin extends Plugin {
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		// versions before 1.2 used a hidden folder by default; their data.json still names it
+		if (this.settings.dictionaryFolder === LEGACY_FOLDER) {
+			this.settings.dictionaryFolder = DEFAULT_FOLDER;
+			await this.saveData(this.settings);
+		}
 	}
 
 	async saveSettings() {
@@ -358,7 +364,7 @@ export default class LangsoftPlugin extends Plugin {
 	async listUsers(): Promise<string[]> {
 		await this.dictManager.getDictionaryFolder();
 		await this.dictManager.getAvailableDictionaries();
-		return usersFromDictionaries(this.dictManager.availableDictionaries);
+		return usersFromDictionaries([...this.dictManager.availableDictionaries, ...this.dictManager.legacyDictionaries]);
 	}
 
 	/** Create an empty dictionary for a new user. Leaves an existing one alone. */

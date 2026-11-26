@@ -1,5 +1,10 @@
 // Rules for dictionary file names, with no Obsidian dependency so they can be unit tested.
 
+/** Where dictionaries are kept by default: a normal, visible folder, so every sync tool includes it. */
+export const DEFAULT_FOLDER = "Langsoft";
+/** The default folder before version 1.2. Hidden, which some sync tools (e.g. Obsidian Sync) skip. */
+export const LEGACY_FOLDER = ".langsoft_dictionaries";
+
 /** Syncthing names the losing side of a conflict `<name>.sync-conflict-<date>-<time>-<device>.<ext>`. */
 const SYNC_CONFLICT = /\.sync-conflict-[^.]*/;
 
@@ -36,4 +41,20 @@ export function parseDictionary<T = Record<string, unknown>>(text: string): { di
 		return { error: "it does not contain a JSON object" };
 	}
 	return { dict: value as T };
+}
+
+/**
+ * Group dictionary files by whose they are, e.g. one user's file in the
+ * current folder and in the old one. Conflict copies and files that aren't
+ * JSON are left out. Paths keep their order within each group.
+ */
+export function groupDictionaries(paths: string[]): Map<string, string[]> {
+	const groups = new Map<string, string[]>();
+	for (const path of paths) {
+		if (!path.endsWith(".json") || isSyncConflict(path)) continue;
+		const name = dictionaryName(path);
+		if (name === "") continue;
+		groups.set(name, [...(groups.get(name) ?? []), path]);
+	}
+	return groups;
 }

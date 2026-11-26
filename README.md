@@ -15,7 +15,7 @@ A language-learning plugin for [Obsidian](https://obsidian.md). Read and write i
 
 ## Setup
 
-Dictionaries are JSON files in the folder `.langsoft_dictionaries` at the root of your vault, one per person: `<name>.json`. The folder is created automatically. Your own dictionary is the one matching your user name. Everyone else's are read-only.
+Dictionaries are JSON files in the folder `Langsoft` at the root of your vault, one per person: `<name>.json`. The folder is created automatically. Obsidian doesn't show JSON files in its file explorer, so the folder looks empty there; don't delete or rename it. Your own dictionary is the one matching your user name. Everyone else's are read-only.
 
 The first time Langsoft runs on a device, it asks **who you are**. Choose your name if your dictionary is already there, for example synced from another device, or create a new user. To change user later, use the user setting in Langsoft's settings, the command **Langsoft: Switch user**, or click your name in the status bar.
 
@@ -27,7 +27,18 @@ To keep dictionaries in a different folder, change `dictionaryFolder` in `.obsid
 
 ### Sharing with coworkers
 
-Share the `.langsoft_dictionaries` folder between everyone's vaults, e.g. with Syncthing. Each person only ever writes to their own file, so people never overwrite each other. Coworkers' dictionaries are reloaded when you switch notes, including ones added while Obsidian is open.
+Share the `Langsoft` folder between everyone's vaults, e.g. with Syncthing or Obsidian Sync. Each person only ever writes to their own file, so people never overwrite each other. Coworkers' dictionaries are reloaded when you switch notes, including ones added while Obsidian is open.
+
+### Updating from version 1.1 or earlier
+
+Older versions kept dictionaries in a hidden folder, `.langsoft_dictionaries`. Some sync tools, including Obsidian Sync, skip hidden folders, so from version 1.2 they're kept in `Langsoft` instead. Nothing needs doing in Obsidian:
+
+- The first time 1.2 runs, it copies your dictionary from the old folder into `Langsoft`.
+- Coworkers' dictionaries are read from both folders, so teammates who haven't updated yet are still shown.
+- If one of your devices is still on an older version, words it adds to the old file keep being merged into the new one.
+- The old folder is never changed. Once everyone has updated, you can delete it.
+
+**If you share only the dictionary folder through Syncthing** (rather than the whole vault), add `Langsoft` as a new Syncthing folder on every device, shared with the same people. Until then, new changes won't reach your coworkers. Don't rename or move the old folder in Syncthing: Syncthing would see its files as deleted and delete them on everyone's devices.
 
 ### Using several devices
 

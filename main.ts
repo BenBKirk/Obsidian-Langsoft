@@ -1,14 +1,15 @@
-import { Editor, MarkdownView, Plugin, WorkspaceLeaf, Notice } from "obsidian";
-import { EditorView, hoverTooltip, ViewPlugin, ViewUpdate } from "@codemirror/view";
+import { Editor, MarkdownView, Plugin, TFile, WorkspaceLeaf } from "obsidian";
+import { EditorView, hoverTooltip } from "@codemirror/view";
 import { createSelectionHighlightPlugin, createHighlightPlugin, TriggerEffect, TriggerField } from "highlighter";
 import { DEFAULT_SETTINGS, LangsoftPluginSettings, LangsoftSettingsTab } from "settings";
 import { DictionaryManager } from "dictionaries";
 import { VIEW_TYPE_DEFINER, DefinerView } from "definer";
+import { buildSelectionContext, findWordAt, parseIntoWords as splitIntoWords } from "words";
 
 
 export default class LangsoftPlugin extends Plugin {
-	myViewPlugin: ViewPlugin;
-	mySelectionViewPlugin: ViewPlugin;
+	myViewPlugin: ReturnType<typeof createHighlightPlugin>;
+	mySelectionViewPlugin: ReturnType<typeof createSelectionHighlightPlugin>;
 	settings: LangsoftPluginSettings;
 	settingsTab: LangsoftSettingsTab;
 	dictManager: DictionaryManager;
@@ -50,7 +51,8 @@ export default class LangsoftPlugin extends Plugin {
 
 			try {
 				const tab = this.app.workspace.getMostRecentLeaf();  // active tab
-				const parent = tab.parent;                            // the pane that holds the tabs
+				// the pane that holds the tabs (`parent` exists at runtime but is missing from the typings)
+				const parent = (tab as unknown as { parent: { children: (WorkspaceLeaf | null)[] } }).parent;
 				const tabIndex = parent.children.indexOf(tab);           // 0-based index
 				this.lastTabIndex = tabIndex
 			} catch (e) {
@@ -142,27 +144,15 @@ export default class LangsoftPlugin extends Plugin {
 	selectWordAtCursor(editor: Editor) {
 		const cursor = editor.getCursor();
 		const lineText = editor.getLine(cursor.line);
-		const pos = cursor.ch;
+		const word = findWordAt(lineText, cursor.ch);
+		if (!word) return null;
 
-		const regex = /[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu;
-
-		let match;
-		while ((match = regex.exec(lineText)) !== null) {
-			const start = match.index;
-			const end = start + match[0].length;
-
-			if (pos >= start && pos <= end) {
-				// Select that word
-				editor.setSelection(
-					{ line: cursor.line, ch: start },
-					{ line: cursor.line, ch: end }
-				);
-
-				return match[0];
-			}
-		}
-
-		return null;
+		// Select that word
+		editor.setSelection(
+			{ line: cursor.line, ch: word.from },
+			{ line: cursor.line, ch: word.to }
+		);
+		return word.text;
 	}
 
 	// getWordAtCursor(editor: Editor): { word: string; from: number; to: number } | null {
@@ -310,44 +300,30 @@ export default class LangsoftPlugin extends Plugin {
 	}
 
 	wordHover = hoverTooltip((view, pos, side) => {
-		const regex = /[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu;
 		const line = view.state.doc.lineAt(pos);
-		const text = line.text;
+		const match = findWordAt(line.text, pos - line.from);
+		if (!match) return null;
 
-		// Scan the line with your regex
-		let match;
-		while ((match = regex.exec(text)) !== null) {
-			const start = line.from + match.index;
-			const end = start + match[0].length;
+		const word = match.text.toLowerCase();
+		const def = this.dictManager.userDict[word];
+		if (!def || def.highlight === "None") return null;
 
-			// Check if cursor is inside the match
-			if (pos >= start && pos <= end) {
-				const word = match[0].toLowerCase();
+		const defs = Object.entries(def.definitions)
+			.filter(([, v]) => !v.deleted)
+			.map(([k]) => k);
 
-				const def = this.dictManager.userDict[word];
-				if (!def || def.highlight === "None") return null;
-
-				const defs = Object.entries(def.definitions)
-					.filter(([k, v]) => !v.deleted)
-					.map(([k]) => k);
-
-				return {
-					pos: start,
-					end,
-					above: true,
-					strictSide: true,
-					create() {
-						const dom = document.createElement("div");
-						dom.classList.add("tooltip", "tooltip-adjusted");
-						// dom.classList.add("tooltip");
-						dom.textContent = defs.join(" / ");
-						return { dom };
-					},
-				};
-			}
-		}
-
-		return null;
+		return {
+			pos: line.from + match.from,
+			end: line.from + match.to,
+			above: true,
+			strictSide: true,
+			create() {
+				const dom = document.createElement("div");
+				dom.classList.add("tooltip", "tooltip-adjusted");
+				dom.textContent = defs.join(" / ");
+				return { dom };
+			},
+		};
 	});
 
 
@@ -364,6 +340,7 @@ export default class LangsoftPlugin extends Plugin {
 			// Our view could not be found in the workspace, create a new leaf
 			// in the right sidebar for it
 			leaf = workspace.getRightLeaf(false);
+			if (!leaf) return;
 			await leaf.setViewState({ type: VIEW_TYPE_DEFINER, active: true });
 		}
 
@@ -373,51 +350,15 @@ export default class LangsoftPlugin extends Plugin {
 
 
 	getContextForSelection(editor: Editor) {
-		const lenContextWords = 7;
-		const selection = editor.getSelection();
 		const cursor = editor.getCursor();
-		const line = editor.getLine(cursor.line);
-		const regex = /\s+/;
-		const textBeforeSel = line.slice(0, cursor.ch - selection.length)
-		const textAfterSel = line.slice(cursor.ch, line.length)
-		let wordListBefore = textBeforeSel.split(regex);
-		let wordListAfter = textAfterSel.split(regex);
-		if (wordListBefore.length > lenContextWords) {
-			wordListBefore = wordListBefore.reverse().slice(0, lenContextWords);
-			wordListBefore[lenContextWords - 1] = "..." + wordListBefore[lenContextWords - 1];
-			wordListBefore = wordListBefore.reverse();
-		}
-		if (wordListAfter.length > lenContextWords) {
-			wordListAfter = wordListAfter.slice(0, lenContextWords);
-			wordListAfter[lenContextWords - 1] = wordListAfter[lenContextWords - 1] + "...";
-		}
-		const wordsBefore = wordListBefore.join(" ")
-		const wordsAfter = wordListAfter.join(" ")
-		return `${wordsBefore} <u>${selection} </u>${wordsAfter}`
+		return buildSelectionContext(editor.getLine(cursor.line), cursor.ch, editor.getSelection());
 	}
 
 	parseIntoWords(text: string, offset: number) {
-		// const regex = /\b\w+\b/g;
-		const regex = /[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu;
-		const words: { text: string; from: number; to: number }[] = [];
-		let match: RegExpExecArray | null;
-
-		while ((match = regex.exec(text)) !== null) {
-			if (match.index != null) {
-				words.push({
-					text: match[0],
-					from: match.index + offset,
-					to: match.index + offset + match[0].length,
-				});
-			}
-		}
-		return words;
+		return splitIntoWords(text, offset);
 	}
 
-
-
-
-	onunload() {
+		onunload() {
 		this.styleEl.remove();
 	}
 

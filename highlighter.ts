@@ -9,6 +9,7 @@ import {
 	ViewUpdate,
 } from '@codemirror/view';
 import LangsoftPlugin from "main";
+import type { DictionaryData } from "dictionaries";
 import { StateField, StateEffect } from "@codemirror/state";
 
 // Define an effect to signal updates

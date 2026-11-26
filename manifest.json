@@ -1,11 +1,10 @@
 {
 	"id": "langsoft-plugin",
-	"name": "Langsoft Plugin",
+	"name": "Langsoft",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"description": "Highlight words by how well you know them, keep definitions with the sentence you found them in, and share dictionaries with coworkers.",
+	"author": "Ben Kirk",
+	"authorUrl": "https://github.com/BenBKirk",
 	"isDesktopOnly": false
 }

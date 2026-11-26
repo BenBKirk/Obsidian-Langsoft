@@ -1,11 +1,10 @@
-import { Editor, MarkdownView, normalizePath, Plugin, TFile, WorkspaceLeaf } from "obsidian";
+import { Editor, MarkdownView, Platform, Plugin, TFile, WorkspaceLeaf } from "obsidian";
 import { EditorView, hoverTooltip } from "@codemirror/view";
 import { createSelectionHighlightPlugin, createHighlightPlugin, TriggerEffect, TriggerField } from "highlighter";
 import { DEFAULT_SETTINGS, LangsoftPluginSettings, LangsoftSettingsTab } from "settings";
 import { DictionaryManager } from "dictionaries";
 import { VIEW_TYPE_DEFINER, DefinerView } from "definer";
 import { buildSelectionContext, findWordAt, parseIntoWords as splitIntoWords } from "words";
-import { usersFromDictionaries } from "users";
 import { DEFAULT_FOLDER, LEGACY_FOLDER } from "dictionary-files";
 import { UserModal } from "user-modal";
 
@@ -16,6 +15,11 @@ export default class LangsoftPlugin extends Plugin {
 	settings: LangsoftPluginSettings;
 	/** Whose dictionary is being edited on this device. Empty if not chosen yet. */
 	currentUser = "";
+	/**
+	 * Identifies this device's file in each user's folder, e.g.
+	 * "desktop-1a2b3c4d". Kept in local storage, per vault.
+	 */
+	deviceId = "";
 	statusBarEl: HTMLElement;
 	settingsTab: LangsoftSettingsTab;
 	dictManager: DictionaryManager;
@@ -30,6 +34,7 @@ export default class LangsoftPlugin extends Plugin {
 		this.lastTabIndex = 0;
 		await this.loadSettings()
 		await this.loadCurrentUser();
+		this.loadDeviceId();
 		this.settingsTab = new LangsoftSettingsTab(this.app, this);
 		this.addSettingTab(this.settingsTab);
 		this.myViewPlugin = createHighlightPlugin(this);
@@ -360,20 +365,16 @@ export default class LangsoftPlugin extends Plugin {
 		}
 	}
 
-	/** The users that have a dictionary in the dictionary folder. */
+	/** The users that have a dictionary. */
 	async listUsers(): Promise<string[]> {
 		await this.dictManager.getDictionaryFolder();
-		await this.dictManager.getAvailableDictionaries();
-		return usersFromDictionaries([...this.dictManager.availableDictionaries, ...this.dictManager.legacyDictionaries]);
+		await this.dictManager.scanSources();
+		return this.dictManager.listUsers();
 	}
 
 	/** Create an empty dictionary for a new user. Leaves an existing one alone. */
 	async createUser(name: string) {
-		await this.dictManager.getDictionaryFolder();
-		const path = normalizePath(`${this.dictManager.dictFolder}/${name}.json`);
-		if (!(await this.app.vault.adapter.exists(path))) {
-			await this.app.vault.adapter.write(path, "{}");
-		}
+		await this.dictManager.createUser(name);
 	}
 
 	/** Make `name` the current user on this device and load their dictionary. */
@@ -393,6 +394,27 @@ export default class LangsoftPlugin extends Plugin {
 
 	updateStatusBar() {
 		this.statusBarEl?.setText(this.currentUser ? `Langsoft: ${this.currentUser}` : "Langsoft: choose user");
+	}
+
+	private loadDeviceId() {
+		const key = `langsoft:${this.app.vault.getName()}:device-id`;
+		let id: string | null = null;
+		try {
+			id = window.localStorage.getItem(key);
+		} catch (e) {
+			console.warn("Langsoft: could not read local storage", e);
+		}
+		if (!id || !/^[a-z]+-[0-9a-f]{8}$/.test(id)) {
+			const bytes = window.crypto.getRandomValues(new Uint8Array(4));
+			const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+			id = `${Platform.isMobile ? "mobile" : "desktop"}-${hex}`;
+			try {
+				window.localStorage.setItem(key, id);
+			} catch (e) {
+				console.warn("Langsoft: could not save to local storage", e);
+			}
+		}
+		this.deviceId = id;
 	}
 
 	/** Remember the user on this device. Does not reload the dictionaries; see switchUser. */

@@ -1,6 +1,14 @@
 import type LangsoftPlugin from "main";
 import { moment, normalizePath, Notice } from "obsidian";
-import { conflictOwner, DEFAULT_FOLDER, dictionaryName, groupDictionaries, isSyncConflict, LEGACY_FOLDER, parseDictionary } from "dictionary-files";
+import {
+	classifyDictionaryPath,
+	DEFAULT_FOLDER,
+	DictionarySource,
+	LEGACY_FOLDER,
+	parseDeviceFile,
+	parseSource,
+	serializeDeviceFile,
+} from "dictionary-files";
 import { mergeDictionaries } from "merge";
 
 
@@ -32,32 +40,36 @@ export type DictionaryData = Record<string, WordEntry>;
 
 export class DictionaryManager {
 	plugin: LangsoftPlugin;
-	userDict: DictionaryData;
-	otherDicts: BookShelf;
+	/** The current user's dictionary: all of their files, merged. */
+	userDict: DictionaryData = {};
+	/** Everyone else's dictionaries, by user, each merged from all of their files. */
+	otherDicts: BookShelf = {};
 	dictFolder: string;
-	availableDictionaries: string[] = [];
 	/**
 	 * The folder dictionaries were kept in before version 1.2, while it still
-	 * exists. Dictionaries there are still read, so teammates who haven't
-	 * updated stay visible, and your own old file is copied and merged in.
-	 * It is never written to.
+	 * exists and the default folder is used. Read, never written.
 	 */
 	legacyFolder: string | null = null;
-	legacyDictionaries: string[] = [];
-	/** Modification time of your own file in the old folder when it was last merged in. */
-	private legacyOwnMtime: number | undefined;
+	/** Every dictionary file found in the last scan. */
+	sources: DictionarySource[] = [];
+	/** Folders in the dictionary folder; each is a user, even before it has a file. */
+	private userFolders: string[] = [];
 	wordnet: string;
-	/** Modification time of each coworker dictionary when it was last read, by path. */
-	private coworkerMtimes: Record<string, number | undefined> = {};
-	/** Conflict copies already reported in a notice, so each is only mentioned once. */
-	private reportedConflicts = new Set<string>();
 
-	/** Modification time of the user's own dictionary when it was last read or written. */
-	private userDictMtime: number | undefined;
+	/** Modification time of the current user's other files when they were last merged in, by path. */
+	private ownSourceMtimes: Record<string, number | undefined> = {};
+	/** Modification time of each coworker file when it was last read, by path. */
+	private coworkerMtimes: Record<string, number | undefined> = {};
+	/** Files already mentioned in a notice, so each is only mentioned once. */
+	private reportedConflicts = new Set<string>();
+	private reportedUnreadable = new Set<string>();
+
+	/** Modification time of this device's file when it was last read or written. */
+	private deviceFileMtime: number | undefined;
 	/**
-	 * Why the user's dictionary file couldn't be read, or null if it could.
-	 * While it can't be read, it is never written: that would replace it
-	 * with only what is in memory.
+	 * Why this device's file couldn't be read, or null if it could. While it
+	 * can't be read, it is never written: that would replace it with only
+	 * what is in memory.
 	 */
 	unreadableReason: string | null = null;
 	/** Reads and writes of the user's dictionary run one at a time, in order. */
@@ -71,64 +83,109 @@ export class DictionaryManager {
 		// let saves of the dictionary that was loaded before finish first
 		await this.flush();
 		this.userDict = {};
-		this.userDictMtime = undefined;
+		this.deviceFileMtime = undefined;
 		this.unreadableReason = null;
-		this.legacyOwnMtime = undefined;
+		this.ownSourceMtimes = {};
 		this.otherDicts = {};
 		this.coworkerMtimes = {};
 		await this.getDictionaryFolder();
-		await this.getAvailableDictionaries();
-		await this.copyLegacyOwnIfMissing();
-		await this.loadPrimaryDictionary();
-		await this.mergeLegacyOwnIfChanged();
+		await this.scanSources();
+		await this.queueUserDictTask(() => this.loadOwn());
 		await this.reloadOtherDictsIfChanged();
 		// editors may have drawn their highlights before the dictionaries finished loading
 		this.plugin.refreshHighlights();
 	}
 
-	/** Path of the current user's own dictionary. */
-	userDictPath(): string {
-		return normalizePath(`${this.dictFolder}/${this.plugin.currentUser}.json`);
+	userFolderPath(user = this.plugin.currentUser): string {
+		return normalizePath(`${this.dictFolder}/${user}`);
 	}
 
-	private legacyOwnPath(): string | null {
-		return this.legacyFolder ? normalizePath(`${this.legacyFolder}/${this.plugin.currentUser}.json`) : null;
+	/** This device's file for a user: the only dictionary file this device ever writes. */
+	deviceFilePath(user = this.plugin.currentUser): string {
+		return normalizePath(`${this.dictFolder}/${user}/${this.plugin.deviceId}.json`);
+	}
+
+	/** Users that have a dictionary, sorted. */
+	listUsers(): string[] {
+		const users = new Set([...this.userFolders, ...this.sources.filter((s) => !s.conflict).map((s) => s.user)]);
+		return [...users].sort((a, b) => a.localeCompare(b));
+	}
+
+	/** Find every dictionary file: in users' folders, the 1.2 layout and the pre-1.2 folder. */
+	async scanSources() {
+		const adapter = this.plugin.app.vault.adapter;
+		const folder = this.dictFolder;
+		// only for the default folder: someone who chose their own folder has moved on from the old one
+		const useLegacy = folder === DEFAULT_FOLDER && (await adapter.exists(LEGACY_FOLDER));
+		this.legacyFolder = useLegacy ? LEGACY_FOLDER : null;
+
+		const top = await adapter.list(folder);
+		const paths = [...top.files];
+		const userFolders: string[] = [];
+		for (const sub of top.folders) {
+			const name = sub.slice(sub.lastIndexOf("/") + 1);
+			// skip hidden folders, e.g. Syncthing's .stversions
+			if (!name || name.startsWith(".")) continue;
+			userFolders.push(name);
+			paths.push(...(await adapter.list(sub)).files);
+		}
+		if (useLegacy) {
+			paths.push(...(await adapter.list(LEGACY_FOLDER)).files);
+		}
+		this.userFolders = userFolders;
+		this.sources = paths
+			.map((path) => classifyDictionaryPath(path, folder, this.legacyFolder))
+			.filter((source): source is DictionarySource => source !== null);
+	}
+
+	/** Create a new user: their folder, and an empty file for this device so other devices see them. */
+	async createUser(name: string) {
+		await this.getDictionaryFolder();
+		const adapter = this.plugin.app.vault.adapter;
+		if (!(await adapter.exists(this.userFolderPath(name)))) {
+			await adapter.mkdir(this.userFolderPath(name));
+		}
+		if (!(await adapter.exists(this.deviceFilePath(name)))) {
+			await adapter.write(this.deviceFilePath(name), serializeDeviceFile({}));
+		}
+		await this.scanSources();
 	}
 
 	/**
 	 * Load coworkers' dictionaries that are new or changed since they were
-	 * last read, and forget ones that were removed. A coworker with files in
-	 * both the current and the old folder gets the two merged. Syncthing
-	 * conflict copies are skipped.
+	 * last read, and forget ones that were removed. Each coworker's files
+	 * (devices, older layouts, conflict copies) are merged.
 	 */
 	async reloadOtherDictsIfChanged() {
-		this.reloadUserDictIfChanged();
-		this.mergeLegacyOwnIfChanged();
-		await this.getAvailableDictionaries();
+		await this.scanSources();
 		this.reportSyncConflicts();
+		this.reloadUserDictIfChanged();
 		const adapter = this.plugin.app.vault.adapter;
 		let changed = false;
 
-		const groups = groupDictionaries([...this.availableDictionaries, ...this.legacyDictionaries]);
-		groups.delete(this.plugin.currentUser);
+		const groups = new Map<string, DictionarySource[]>();
+		for (const source of this.sources) {
+			if (source.user === this.plugin.currentUser) continue;
+			groups.set(source.user, [...(groups.get(source.user) ?? []), source]);
+		}
 
-		for (const [name, paths] of groups) {
-			const stats = await Promise.all(paths.map((path) => adapter.stat(path)));
+		for (const [name, sources] of groups) {
+			const stats = await Promise.all(sources.map((source) => adapter.stat(source.path)));
 			const unchanged =
 				name in this.otherDicts &&
-				paths.every((path, i) => path in this.coworkerMtimes && stats[i]?.mtime === this.coworkerMtimes[path]);
+				sources.every(({ path }, i) => path in this.coworkerMtimes && stats[i]?.mtime === this.coworkerMtimes[path]);
 			if (unchanged) continue;
 
 			let combined: DictionaryData | null = null;
-			for (const [i, path] of paths.entries()) {
+			for (const [i, source] of sources.entries()) {
 				try {
-					const result = parseDictionary<DictionaryData>(await adapter.read(path));
+					const result = parseSource<DictionaryData>(source, await adapter.read(source.path));
 					if ("error" in result) throw new Error(result.error);
 					combined = combined ? mergeDictionaries(combined, result.dict) : result.dict;
 					// only remembered once the file has been read successfully, so a broken file is retried
-					this.coworkerMtimes[path] = stats[i]?.mtime;
+					this.coworkerMtimes[source.path] = stats[i]?.mtime;
 				} catch (e) {
-					console.error(`Langsoft: could not load ${path}`, e);
+					console.error(`Langsoft: could not load ${source.path}`, e);
 				}
 			}
 			if (combined) {
@@ -144,7 +201,7 @@ export class DictionaryManager {
 				changed = true;
 			}
 		}
-		const current = new Set(([] as string[]).concat(...groups.values()));
+		const current = new Set(this.sources.map((source) => source.path));
 		for (const path of Object.keys(this.coworkerMtimes)) {
 			if (!current.has(path)) delete this.coworkerMtimes[path];
 		}
@@ -154,65 +211,15 @@ export class DictionaryManager {
 		}
 	}
 
-	/**
-	 * First run after updating from a version that used the old folder: copy
-	 * your dictionary from there into the current folder.
-	 */
-	private async copyLegacyOwnIfMissing() {
-		const legacyPath = this.legacyOwnPath();
-		if (!this.plugin.currentUser || !legacyPath) return;
-		const adapter = this.plugin.app.vault.adapter;
-		if ((await adapter.exists(this.userDictPath())) || !(await adapter.exists(legacyPath))) return;
-
-		const text = await adapter.read(legacyPath);
-		if ("error" in parseDictionary(text)) {
-			console.warn(`Langsoft: not copying ${legacyPath}, it can't be read`);
-			return;
-		}
-		await adapter.write(this.userDictPath(), text);
-		this.availableDictionaries.push(this.userDictPath());
-		new Notice(`Langsoft: copied your dictionary to the ${this.dictFolder} folder. The old copy in ${this.legacyFolder} is left as it was.`);
-	}
-
-	/**
-	 * Merge in changes to your file in the old folder, e.g. from a device
-	 * still on an older version, and save them in the current folder.
-	 */
-	mergeLegacyOwnIfChanged(): Promise<void> {
-		return this.queueUserDictTask(async () => {
-			const legacyPath = this.legacyOwnPath();
-			if (!this.plugin.currentUser || !legacyPath || this.unreadableReason !== null) return;
-			const adapter = this.plugin.app.vault.adapter;
-			const stat = await adapter.stat(legacyPath);
-			if (!stat || stat.mtime === this.legacyOwnMtime) return;
-			if (!(await adapter.exists(this.userDictPath()))) return;
-
-			const result = parseDictionary<DictionaryData>(await adapter.read(legacyPath));
-			if ("error" in result) {
-				console.warn(`Langsoft: not merging ${legacyPath}, it can't be read: ${result.error}`);
-				return;
-			}
-			const before = JSON.stringify(this.userDict);
-			this.userDict = mergeDictionaries(this.userDict, result.dict);
-			this.legacyOwnMtime = stat.mtime;
-			if (JSON.stringify(this.userDict) !== before) {
-				await this.saveNow();
-				this.plugin.refreshHighlights();
-			}
-		});
-	}
-
 	/** Tell the user, once per file, about conflict copies of their own dictionary. */
 	private reportSyncConflicts() {
 		const user = this.plugin.currentUser;
-		for (const path of [...this.availableDictionaries, ...this.legacyDictionaries].filter(isSyncConflict)) {
-			if (conflictOwner(path) !== user || this.reportedConflicts.has(path)) continue;
-			this.reportedConflicts.add(path);
+		for (const source of this.sources) {
+			if (!source.conflict || source.user !== user || this.reportedConflicts.has(source.path)) continue;
+			this.reportedConflicts.add(source.path);
 			new Notice(
-				`Langsoft: Syncthing made a conflict copy of your dictionary:\n${dictionaryName(path)}\n\n` +
-				"Words in it that are missing from your dictionary were not saved there. " +
-				"The copy is ignored; it isn't shown as a coworker.",
-				0
+				`Langsoft: found a Syncthing conflict copy of your dictionary:\n${source.path}\n\n` +
+				"Its words have been merged into your dictionary. Once you've checked nothing is missing, you can delete the copy."
 			);
 		}
 	}
@@ -231,31 +238,64 @@ export class DictionaryManager {
 		this.dictFolder = dictName;
 	}
 
-	/** List the JSON files in the dictionary folder, and in the old folder while it exists. */
-	async getAvailableDictionaries() {
+	/**
+	 * Load the current user's dictionary: this device's file, with all their
+	 * other files merged in. Only call from a queued task.
+	 */
+	private async loadOwn() {
+		if (!this.plugin.currentUser) return;
 		const adapter = this.plugin.app.vault.adapter;
-		const jsonFiles = async (folder: string) =>
-			(await adapter.list(folder)).files.filter((file: string) => file.endsWith(".json"));
-
-		this.availableDictionaries = await jsonFiles(this.dictFolder);
-		// only for the default folder: someone who chose their own folder has moved on from the old one
-		const useLegacy = this.dictFolder === DEFAULT_FOLDER && (await adapter.exists(LEGACY_FOLDER));
-		this.legacyFolder = useLegacy ? LEGACY_FOLDER : null;
-		this.legacyDictionaries = useLegacy ? await jsonFiles(LEGACY_FOLDER) : [];
+		const path = this.deviceFilePath();
+		if (await adapter.exists(path)) {
+			const stat = await adapter.stat(path);
+			const result = parseDeviceFile<DictionaryData>(await adapter.read(path));
+			if ("error" in result) {
+				this.markUnreadable(path, result.error);
+				return;
+			}
+			this.userDict = result.dict;
+			this.deviceFileMtime = stat?.mtime;
+		}
+		await this.mergeOwnSourcesIfChanged();
 	}
 
-	async loadPrimaryDictionary() {
-		// the user's own dictionary (<user>.json); it must contain a JSON object, at least {}
-		const path = this.userDictPath();
-		if (!(await this.plugin.app.vault.adapter.exists(path))) return;
-		const stat = await this.plugin.app.vault.adapter.stat(path);
-		const result = parseDictionary<DictionaryData>(await this.plugin.app.vault.adapter.read(path));
-		if ("error" in result) {
-			this.markUnreadable(path, result.error);
-			return;
+	/**
+	 * Merge in the current user's other files that changed since they were
+	 * last merged: other devices' files, files from older versions and
+	 * conflict copies. Saves this device's file if that added anything.
+	 * Only call from a queued task.
+	 */
+	private async mergeOwnSourcesIfChanged(): Promise<boolean> {
+		const user = this.plugin.currentUser;
+		if (!user || this.unreadableReason !== null) return false;
+		const adapter = this.plugin.app.vault.adapter;
+		const ownPath = this.deviceFilePath();
+		const firstTime = !(await adapter.exists(ownPath));
+		const before = JSON.stringify(this.userDict);
+
+		for (const source of this.sources) {
+			if (source.user !== user || source.path === ownPath) continue;
+			const stat = await adapter.stat(source.path);
+			if (!stat || stat.mtime === this.ownSourceMtimes[source.path]) continue;
+			const result = parseSource<DictionaryData>(source, await adapter.read(source.path));
+			if ("error" in result) {
+				if (!this.reportedUnreadable.has(source.path)) {
+					this.reportedUnreadable.add(source.path);
+					new Notice(`Langsoft: ${source.path} can't be read (${result.error}). Its words are left out until it is fixed.`, 0);
+				}
+				continue;
+			}
+			this.reportedUnreadable.delete(source.path);
+			this.userDict = mergeDictionaries(this.userDict, result.dict);
+			this.ownSourceMtimes[source.path] = stat.mtime;
 		}
-		this.userDict = result.dict;
-		this.userDictMtime = stat?.mtime;
+
+		if (JSON.stringify(this.userDict) === before) return false;
+		await this.saveNow();
+		if (firstTime && (await adapter.exists(ownPath))) {
+			new Notice(`Langsoft: your dictionary is now saved on this device as ${ownPath}. Your other files were merged in and left as they were.`);
+		}
+		return true;
 	}
 
 	private markUnreadable(path: string, reason: string) {
@@ -270,39 +310,46 @@ export class DictionaryManager {
 		this.unreadableReason = reason;
 	}
 
-	/** Pick up changes another device synced to the user's own dictionary. */
+	/** Pick up changes to the current user's files, e.g. synced from their other devices. */
 	reloadUserDictIfChanged(): Promise<void> {
 		return this.queueUserDictTask(async () => {
-			const path = this.userDictPath();
-			if (!this.plugin.currentUser || !(await this.plugin.app.vault.adapter.exists(path))) return;
-			if ((await this.mergeChangesFromDisk(path)) === "merged") {
+			if (!this.plugin.currentUser) return;
+			let changed = false;
+			if (await this.plugin.app.vault.adapter.exists(this.deviceFilePath())) {
+				changed = (await this.mergeChangesFromDisk(this.deviceFilePath())) === "merged";
+			}
+			changed = (await this.mergeOwnSourcesIfChanged()) || changed;
+			if (changed) {
 				this.plugin.refreshHighlights();
 			}
 		});
 	}
 
 	/**
-	 * If the file was changed by someone else (e.g. Syncthing bringing in
-	 * another device's edits) since it was last read or written, merge those
-	 * changes into the dictionary in memory. A file that couldn't be read
+	 * If this device's file was changed by something else (e.g. edited by
+	 * hand or restored from a backup) since it was last read or written,
+	 * merge that into the dictionary in memory. A file that couldn't be read
 	 * before is checked every time, so a fix is noticed.
 	 */
 	private async mergeChangesFromDisk(path: string): Promise<"unchanged" | "merged" | "unreadable"> {
 		const stat = await this.plugin.app.vault.adapter.stat(path);
 		if (!stat) return "unchanged";
-		if (this.unreadableReason === null && stat.mtime === this.userDictMtime) return "unchanged";
+		if (this.unreadableReason === null && stat.mtime === this.deviceFileMtime) return "unchanged";
 
-		const result = parseDictionary<DictionaryData>(await this.plugin.app.vault.adapter.read(path));
+		const result = parseDeviceFile<DictionaryData>(await this.plugin.app.vault.adapter.read(path));
 		if ("error" in result) {
 			this.markUnreadable(path, result.error);
 			return "unreadable";
 		}
-		if (this.unreadableReason !== null) {
-			this.unreadableReason = null;
-			new Notice(`Langsoft: your dictionary ${path} can be read again, and changes are saved again.`);
-		}
+		const wasUnreadable = this.unreadableReason !== null;
+		this.unreadableReason = null;
 		this.userDict = mergeDictionaries(result.dict, this.userDict);
-		this.userDictMtime = stat.mtime;
+		this.deviceFileMtime = stat.mtime;
+		if (wasUnreadable) {
+			new Notice(`Langsoft: your dictionary ${path} can be read again, and changes are saved again.`);
+			// files that couldn't be merged while it was unreadable
+			await this.mergeOwnSourcesIfChanged();
+		}
 		return "merged";
 	}
 
@@ -415,41 +462,42 @@ export class DictionaryManager {
 		}
 	}
 
-	/**
-	 * Save the user's dictionary. Changes another device made to the file
-	 * since it was last read are merged in first rather than overwritten.
-	 */
+	/** Save the user's dictionary to this device's file. */
 	writeUserDictToJson(): Promise<void> {
 		return this.queueUserDictTask(() => this.saveNow());
 	}
 
 	/** Save right away. Only call from inside a queued task. */
 	private async saveNow() {
-		const path = this.userDictPath();
-		// only write to a dictionary the user has set up, never create one under an empty or mistyped name
-		if (!this.plugin.currentUser) {
+		const user = this.plugin.currentUser;
+		if (!user) {
 			new Notice('Langsoft: this change was not saved because no user is chosen. Run the command "Langsoft: Switch user" to choose one.');
 			return;
 		}
-		if (!(await this.plugin.app.vault.adapter.exists(path))) {
-			new Notice(`Langsoft: this change was not saved because ${path} doesn't exist. Run the command "Langsoft: Switch user" to choose or create your user.`);
+		// never create a dictionary under an empty or mistyped name
+		if (!this.listUsers().includes(user)) {
+			new Notice(`Langsoft: this change was not saved because there is no dictionary for "${user}". Run the command "Langsoft: Switch user" to choose or create your user.`);
 			return;
 		}
-		const status = await this.mergeChangesFromDisk(path);
-		if (status === "unreadable") {
-			new Notice(`Langsoft: this change was not saved because ${path} can't be read. Fix or restore the file first.`);
-			return;
+		const adapter = this.plugin.app.vault.adapter;
+		const path = this.deviceFilePath();
+		let status: "unchanged" | "merged" | "unreadable" = "unchanged";
+		if (await adapter.exists(path)) {
+			status = await this.mergeChangesFromDisk(path);
+			if (status === "unreadable") {
+				new Notice(`Langsoft: this change was not saved because ${path} can't be read. Fix or restore the file first.`);
+				return;
+			}
 		}
-		await this.plugin.app.vault.adapter.write(path, JSON.stringify(this.userDict));
-		this.userDictMtime = (await this.plugin.app.vault.adapter.stat(path))?.mtime;
+		if (!(await adapter.exists(this.userFolderPath()))) {
+			await adapter.mkdir(this.userFolderPath());
+			this.userFolders.push(user);
+		}
+		await adapter.write(path, serializeDeviceFile(this.userDict));
+		this.deviceFileMtime = (await adapter.stat(path))?.mtime;
 		if (status === "merged") {
 			this.plugin.refreshHighlights();
 		}
 	}
-
-
-
-
-
 }
 

@@ -1,16 +1,10 @@
 // Rules for user names, with no Obsidian dependency so they can be unit tested.
-import { groupDictionaries } from "dictionary-files";
 
 /** Characters that can't be used in file names on some systems, or that Obsidian treats specially. */
 const FORBIDDEN_CHARACTERS = /[\\/:*?"<>|#^[\]\u0000-\u001f]/;
 /** File names Windows reserves. */
 const RESERVED_NAMES = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])$/i;
 const MAX_LENGTH = 50;
-
-/** The users that have a dictionary, given the dictionary file paths. */
-export function usersFromDictionaries(paths: string[]): string[] {
-	return [...groupDictionaries(paths).keys()].sort((a, b) => a.localeCompare(b));
-}
 
 /**
  * Check a name typed in for a new user. Returns the name to use (trimmed),

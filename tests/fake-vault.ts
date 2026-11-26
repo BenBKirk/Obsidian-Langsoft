@@ -2,6 +2,7 @@
 import { vi } from "vitest";
 import { DictionaryManager } from "../dictionaries";
 import { parseIntoWords } from "../words";
+import { serializeDeviceFile } from "../dictionary-files";
 import type LangsoftPlugin from "../main";
 
 export class FakeAdapter {
@@ -24,8 +25,18 @@ export class FakeAdapter {
 	async mkdir(path: string) {
 		this.folders.add(path);
 	}
+	/** Like Obsidian's adapter: the files and folders directly inside `folder`. */
 	async list(folder: string) {
-		return { files: [...this.files.keys()].filter((p) => p.startsWith(`${folder}/`)), folders: [] };
+		const parent = (path: string) => (path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "");
+		const files = [...this.files.keys()].filter((path) => parent(path) === folder);
+		const folders = new Set([...this.folders].filter((path) => parent(path) === folder));
+		for (const path of this.files.keys()) {
+			// folders that exist because files are in them
+			let dir = parent(path);
+			while (dir !== "" && parent(dir) !== folder && dir.startsWith(`${folder}/`)) dir = parent(dir);
+			if (parent(dir) === folder) folders.add(dir);
+		}
+		return { files, folders: [...folders] };
 	}
 	async read(path: string) {
 		const file = this.files.get(path);
@@ -42,13 +53,31 @@ export class FakeAdapter {
 }
 
 export const FOLDER = "Langsoft";
+/** The device ID tests run as, unless they say otherwise. */
+export const DEVICE = "desktop-0000test";
 export const LEGACY = ".langsoft_dictionaries";
 
-export async function makeManager(adapter: FakeAdapter, currentUser = "maria", folder = FOLDER) {
+/** Path of a user's file for a device. */
+export function deviceFile(user = "maria", device = DEVICE, folder = FOLDER) {
+	return `${folder}/${user}/${device}.json`;
+}
+
+/** Write a device file as another device (via sync) would. */
+export function putDevice(adapter: FakeAdapter, words: unknown, user = "maria", device = DEVICE) {
+	adapter.put(deviceFile(user, device), serializeDeviceFile(words));
+}
+
+/** The words in a device file. */
+export function readDevice(adapter: FakeAdapter, user = "maria", device = DEVICE) {
+	return adapter.json(deviceFile(user, device))?.words;
+}
+
+export async function makeManager(adapter: FakeAdapter, currentUser = "maria", folder = FOLDER, deviceId = DEVICE) {
 	adapter.folders.add(folder);
 	const plugin = {
 		settings: { dictionaryFolder: folder },
 		currentUser,
+		deviceId,
 		app: { vault: { adapter } },
 		refreshHighlights: vi.fn(),
 		parseIntoWords,

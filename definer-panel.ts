@@ -1,5 +1,5 @@
 import type LangsoftPlugin from "main";
-import { App, ButtonComponent, MarkdownView, moment, TextAreaComponent } from "obsidian";
+import { App, ButtonComponent, MarkdownView, moment, Platform, TextAreaComponent } from "obsidian";
 import { Definition } from "dictionaries";
 import { splitContext } from "words";
 
@@ -20,6 +20,8 @@ export class DefinerPanel {
 	selectionContext: string;
 	coworkerDiv: HTMLDivElement;
 	coworkerListContainer: HTMLUListElement;
+	/** The selected level: "unknown", "semiknown", "known", or "none" before a word is chosen. */
+	private level = "none";
 
 	constructor(container: HTMLElement, plugin: LangsoftPlugin) {
 		this.plugin = plugin;
@@ -30,6 +32,7 @@ export class DefinerPanel {
 	/** Build the Definer inside `container`. */
 	private render(container: HTMLElement) {
 		container.empty();
+		container.addClass("langsoft-definer");
 
 		container.createEl("h1", { text: "Langsoft 📖" });
 		// const searchEl = container.createEl("h5", { text: "Word / Phrase: " });
@@ -43,8 +46,7 @@ export class DefinerPanel {
 
 		this.unknownButton = new ButtonComponent(container);
 		this.unknownButton.setIcon("plane-takeoff")
-		this.unknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
-		this.unknownButton.buttonEl.style.color = "black";
+		this.unknownButton.buttonEl.addClass("langsoft-level-button");
 		this.unknownButton.onClick(() => {
 			if (this.getCurrentHighlightState() !== "unknown") {
 				if (this.listContainer.getElementsByTagName("summary").length > 0) {
@@ -58,8 +60,7 @@ export class DefinerPanel {
 
 		this.semiknownButton = new ButtonComponent(container);
 		this.semiknownButton.setIcon("plane")
-		this.semiknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
-		this.semiknownButton.buttonEl.style.color = "black";
+		this.semiknownButton.buttonEl.addClass("langsoft-level-button");
 		this.semiknownButton.onClick(() => {
 			if (this.getCurrentHighlightState() !== "semiknown") {
 				if (this.listContainer.getElementsByTagName("summary").length > 0) {
@@ -76,8 +77,7 @@ export class DefinerPanel {
 		// knownButton.setIcon("sparles")
 		// knownButton.setIcon("battery-full")
 		// this.knownButton.setClass("knownButton")
-		this.knownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
-		this.knownButton.buttonEl.style.color = "black";
+		this.knownButton.buttonEl.addClass("langsoft-level-button");
 		this.knownButton.onClick(() => {
 			if (this.getCurrentHighlightState() !== "known") {
 				if (this.listContainer.getElementsByTagName("summary").length > 0) {
@@ -115,6 +115,8 @@ export class DefinerPanel {
 				this.plugin.refreshHighlights();
 				this.addListItem(this.newDefinition.getValue().trim().toLowerCase(), context)
 				this.newDefinition.setValue("");
+				// on phones and tablets, focusing the note would open the on-screen keyboard over it
+				if (Platform.isMobile) return;
 				// Try to get the active Markdown view
 				let mdView = this.app.workspace.getActiveViewOfType(MarkdownView);
 
@@ -133,9 +135,9 @@ export class DefinerPanel {
 				}
 			}
 		});
-		container.addEventListener("keyup", (event) => {
-			// if (event.key === "Enter" && event.ctrlKey) {
-			if (event.key === "Enter") {
+		this.newDefinition.inputEl.addEventListener("keydown", (event) => {
+			// not while an input method or predictive keyboard is still composing text
+			if (event.key === "Enter" && !event.isComposing) {
 				event.preventDefault();
 				addButton.click();
 			}
@@ -241,48 +243,31 @@ export class DefinerPanel {
 		return table;
 	}
 
-		getCurrentHighlightState() {
-		let currentHighlight = "none";
-		if (this.unknownButton.buttonEl.style.backgroundColor !== "var(--interactive-normal)") {
-			currentHighlight = "unknown";
-		}
-		if (this.semiknownButton.buttonEl.style.backgroundColor !== "var(--interactive-normal)") {
-			currentHighlight = "semiknown";
-		}
-		if (this.knownButton.buttonEl.style.backgroundColor !== "var(--interactive-normal)") {
-			currentHighlight = "known";
-		}
-		return currentHighlight;
+	getCurrentHighlightState() {
+		return this.level;
 	}
 
-	// writeNewKnownLevelToDict() {
-	// 	console.log("should save highlight change")
-	// }
-
+	/** Show `selection` as the chosen level ("unknown", "semiknown" or "known"); anything else clears it. */
 	changeKnownLevelButtonColor(selection: string) {
-		const currentHighlight = this.getCurrentHighlightState();
-		if (currentHighlight === selection) { // don't change it if it is the same
-			return;
+		const buttons: Record<string, ButtonComponent> = {
+			unknown: this.unknownButton,
+			semiknown: this.semiknownButton,
+			known: this.knownButton,
+		};
+		const colours: Record<string, string> = {
+			unknown: this.plugin.settings.unknownColor,
+			semiknown: this.plugin.settings.semiknownColor,
+			known: this.plugin.settings.knownColor,
+		};
+		this.level = selection in buttons ? selection : "none";
+		for (const [level, button] of Object.entries(buttons)) {
+			const active = level === this.level;
+			button.buttonEl.toggleClass("is-active", active);
+			button.buttonEl.style.backgroundColor = active ? colours[level] : "";
 		}
-		// if (this.listContainer.getElementsByTagName("summary").length > 0) {
-		// find out if we need to write the change (only if there at least one definition)
-		// only one can be selected at a time, so this clears out every highlighted button ready for the new color
-		this.unknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
-		this.semiknownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
-		this.knownButton.buttonEl.style.backgroundColor = "var(--interactive-normal)";
-		if (selection === "unknown") {
-			this.unknownButton.buttonEl.style.backgroundColor = this.plugin.settings.unknownColor;
-		}
-		if (selection === "semiknown") {
-			this.semiknownButton.buttonEl.style.backgroundColor = this.plugin.settings.semiknownColor;
-		}
-		if (selection === "known") {
-			this.knownButton.buttonEl.style.backgroundColor = this.plugin.settings.knownColor;
-		}
-		// }
 	}
 
-	getFocus() {
+		getFocus() {
 		this.newDefinition.inputEl.focus();
 	}
 

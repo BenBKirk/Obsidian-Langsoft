@@ -4,7 +4,7 @@ A language-learning plugin for [Obsidian](https://obsidian.md). Read and write i
 
 ## Features
 
-- **Highlighting by familiarity.** Words are tinted *unknown* (red), *semi-known* (yellow) or *known* (green). Phrases of several words are underlined in the same colours. Colours can be changed or switched off in the settings.
+- **Highlighting by familiarity.** Words are tinted *unknown* (red), *semi-known* (yellow) or *known* (green). Phrases of several words are underlined in the same colours. Colours can be changed or switched off in the settings. Highlights appear in Reading view too, where selecting a word, or Ctrl+clicking (on a phone, tapping) a highlighted one, opens it in the sidebar.
 - **Definer sidebar.** Select text, or Ctrl+click a word, to open it in the sidebar. There you can:
   - set how well you know it: Unknown, Semi-known or Known (keys 1, 2, 3 while the sidebar has focus, or the commands **Mark as unknown / semi-known / known**, which can be given hotkeys)
   - add definitions (type one and press Enter)
@@ -96,13 +96,14 @@ For quick testing, clone the repository into `<vault>/.obsidian/plugins/langsoft
 | `coverage.ts`, `coverage-panel.ts` | How much of a note you know, and the bar showing it |
 | `locate.ts` | Finding the sentence a definition was added in |
 | `time.ts` | Saving and comparing timestamps |
+| `reading-view.ts` | Highlighting in Reading view |
 | `merge.ts` | Merging two versions of a dictionary |
 | `dictionary-files.ts` | Dictionary file layouts, the device file format, and conflict copies |
 | `user-modal.ts` | The "Who are you?" window |
 | `users.ts` | Listing users and checking new user names |
 | `words.ts` | Splitting text into words |
 
-`words.ts`, `users.ts`, `search.ts`, `locate.ts`, `progress.ts`, `team.ts`, `coverage.ts`, `time.ts`, `merge.ts` and `dictionary-files.ts` don't depend on Obsidian. The tests in `tests/` cover them, and run `DictionaryManager` against an in-memory vault (`tests/fake-vault.ts`) with a stand-in for the `obsidian` module (`tests/obsidian-stub.ts`).
+`words.ts`, `users.ts`, `search.ts`, `locate.ts`, `progress.ts`, `team.ts`, `coverage.ts`, `time.ts`, `merge.ts` and `dictionary-files.ts` don't depend on Obsidian, nor does `segmentText` in `reading-view.ts`. The tests in `tests/` cover them, and run `DictionaryManager` against an in-memory vault (`tests/fake-vault.ts`) with a stand-in for the `obsidian` module (`tests/obsidian-stub.ts`).
 
 ## Releasing
 

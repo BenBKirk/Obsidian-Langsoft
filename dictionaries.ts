@@ -1,6 +1,6 @@
 import type LangsoftPlugin from "main";
 import { moment, normalizePath, Notice } from "obsidian";
-import { conflictOwner, dictionaryName, isSyncConflict } from "dictionary-files";
+import { conflictOwner, dictionaryName, isSyncConflict, parseDictionary } from "dictionary-files";
 import { mergeDictionaries } from "merge";
 
 
@@ -44,6 +44,12 @@ export class DictionaryManager {
 
 	/** Modification time of the user's own dictionary when it was last read or written. */
 	private userDictMtime: number | undefined;
+	/**
+	 * Why the user's dictionary file couldn't be read, or null if it could.
+	 * While it can't be read, it is never written: that would replace it
+	 * with only what is in memory.
+	 */
+	unreadableReason: string | null = null;
 	/** Reads and writes of the user's dictionary run one at a time, in order. */
 	private userDictQueue: Promise<void> = Promise.resolve();
 
@@ -56,6 +62,7 @@ export class DictionaryManager {
 		await this.flush();
 		this.userDict = {};
 		this.userDictMtime = undefined;
+		this.unreadableReason = null;
 		this.otherDicts = {};
 		this.coworkerMtimes = {};
 		await this.getDictionaryFolder();
@@ -157,11 +164,25 @@ export class DictionaryManager {
 		const path = this.userDictPath();
 		if (!(await this.plugin.app.vault.adapter.exists(path))) return;
 		const stat = await this.plugin.app.vault.adapter.stat(path);
-		const dict = await this.plugin.app.vault.adapter.read(path);
-		if (dict) {
-			this.userDict = JSON.parse(dict);
+		const result = parseDictionary<DictionaryData>(await this.plugin.app.vault.adapter.read(path));
+		if ("error" in result) {
+			this.markUnreadable(path, result.error);
+			return;
 		}
+		this.userDict = result.dict;
 		this.userDictMtime = stat?.mtime;
+	}
+
+	private markUnreadable(path: string, reason: string) {
+		if (this.unreadableReason === null) {
+			new Notice(
+				`Langsoft: your dictionary ${path} can't be read (${reason}).\n\n` +
+				"Your changes won't be saved until the file is fixed or restored, e.g. from Syncthing's file versions. " +
+				"Langsoft notices when it is readable again.",
+				0
+			);
+		}
+		this.unreadableReason = reason;
 	}
 
 	/** Pick up changes another device synced to the user's own dictionary. */
@@ -169,7 +190,7 @@ export class DictionaryManager {
 		return this.queueUserDictTask(async () => {
 			const path = this.userDictPath();
 			if (!this.plugin.currentUser || !(await this.plugin.app.vault.adapter.exists(path))) return;
-			if (await this.mergeChangesFromDisk(path)) {
+			if ((await this.mergeChangesFromDisk(path)) === "merged") {
 				this.plugin.refreshHighlights();
 			}
 		});
@@ -178,24 +199,26 @@ export class DictionaryManager {
 	/**
 	 * If the file was changed by someone else (e.g. Syncthing bringing in
 	 * another device's edits) since it was last read or written, merge those
-	 * changes into the dictionary in memory. Returns true if it did.
+	 * changes into the dictionary in memory. A file that couldn't be read
+	 * before is checked every time, so a fix is noticed.
 	 */
-	private async mergeChangesFromDisk(path: string): Promise<boolean> {
+	private async mergeChangesFromDisk(path: string): Promise<"unchanged" | "merged" | "unreadable"> {
 		const stat = await this.plugin.app.vault.adapter.stat(path);
-		if (!stat || stat.mtime === this.userDictMtime) return false;
+		if (!stat) return "unchanged";
+		if (this.unreadableReason === null && stat.mtime === this.userDictMtime) return "unchanged";
 
-		const text = await this.plugin.app.vault.adapter.read(path);
-		let onDisk: DictionaryData;
-		try {
-			onDisk = text ? JSON.parse(text) : {};
-		} catch (e) {
-			// e.g. a half-written file; what is in memory is the best copy we have
-			console.warn(`Langsoft: ${path} is not valid JSON, not merging it`, e);
-			return false;
+		const result = parseDictionary<DictionaryData>(await this.plugin.app.vault.adapter.read(path));
+		if ("error" in result) {
+			this.markUnreadable(path, result.error);
+			return "unreadable";
 		}
-		this.userDict = mergeDictionaries(onDisk, this.userDict);
+		if (this.unreadableReason !== null) {
+			this.unreadableReason = null;
+			new Notice(`Langsoft: your dictionary ${path} can be read again, and changes are saved again.`);
+		}
+		this.userDict = mergeDictionaries(result.dict, this.userDict);
 		this.userDictMtime = stat.mtime;
-		return true;
+		return "merged";
 	}
 
 	/** Wait until every read and save of the user's dictionary started so far has finished. */
@@ -323,10 +346,14 @@ export class DictionaryManager {
 				new Notice(`Langsoft: this change was not saved because ${path} doesn't exist. Run the command "Langsoft: Switch user" to choose or create your user.`);
 				return;
 			}
-			const merged = await this.mergeChangesFromDisk(path);
+			const status = await this.mergeChangesFromDisk(path);
+			if (status === "unreadable") {
+				new Notice(`Langsoft: this change was not saved because ${path} can't be read. Fix or restore the file first.`);
+				return;
+			}
 			await this.plugin.app.vault.adapter.write(path, JSON.stringify(this.userDict));
 			this.userDictMtime = (await this.plugin.app.vault.adapter.stat(path))?.mtime;
-			if (merged) {
+			if (status === "merged") {
 				this.plugin.refreshHighlights();
 			}
 		});

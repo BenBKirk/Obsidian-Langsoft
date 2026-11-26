@@ -18,3 +18,22 @@ export function isSyncConflict(path: string): boolean {
 export function conflictOwner(path: string): string {
 	return dictionaryName(path).replace(SYNC_CONFLICT, "");
 }
+
+/**
+ * Read the text of a dictionary file. An empty file is an empty
+ * dictionary. Anything that isn't a JSON object is an error, with a
+ * message saying what is wrong.
+ */
+export function parseDictionary<T = Record<string, unknown>>(text: string): { dict: T } | { error: string } {
+	if (text.trim() === "") return { dict: {} as T };
+	let value: unknown;
+	try {
+		value = JSON.parse(text);
+	} catch (e) {
+		return { error: e instanceof Error ? e.message : String(e) };
+	}
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return { error: "it does not contain a JSON object" };
+	}
+	return { dict: value as T };
+}

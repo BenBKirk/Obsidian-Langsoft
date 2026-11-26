@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { conflictOwner, dictionaryName, isSyncConflict } from "../dictionary-files";
+import { conflictOwner, dictionaryName, isSyncConflict, parseDictionary } from "../dictionary-files";
 
 describe("dictionaryName", () => {
 	it("drops the folder and the .json extension", () => {
@@ -29,5 +29,26 @@ describe("isSyncConflict / conflictOwner", () => {
 
 	it("is not fooled by the folder name", () => {
 		expect(isSyncConflict("x.sync-conflict-1/maria.json")).toBe(false);
+	});
+});
+
+describe("parseDictionary", () => {
+	it("reads a JSON object", () => {
+		expect(parseDictionary('{"hund": {"highlight": "known"}}')).toEqual({ dict: { hund: { highlight: "known" } } });
+	});
+
+	it("treats an empty file as an empty dictionary", () => {
+		expect(parseDictionary("")).toEqual({ dict: {} });
+		expect(parseDictionary("  \n")).toEqual({ dict: {} });
+	});
+
+	it("reports invalid JSON", () => {
+		expect(parseDictionary('{ "hund": { "highlight": "known", }')).toHaveProperty("error");
+	});
+
+	it("reports JSON that isn't an object", () => {
+		for (const text of ["[]", "null", "42", '"text"']) {
+			expect(parseDictionary(text), text).toEqual({ error: "it does not contain a JSON object" });
+		}
 	});
 });

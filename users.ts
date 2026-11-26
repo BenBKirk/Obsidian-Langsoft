@@ -1,5 +1,5 @@
 // Rules for user names, with no Obsidian dependency so they can be unit tested.
-import { dictionaryName, isSyncConflict } from "dictionary-files";
+import { groupDictionaries } from "dictionary-files";
 
 /** Characters that can't be used in file names on some systems, or that Obsidian treats specially. */
 const FORBIDDEN_CHARACTERS = /[\\/:*?"<>|#^[\]\u0000-\u001f]/;
@@ -9,11 +9,7 @@ const MAX_LENGTH = 50;
 
 /** The users that have a dictionary, given the dictionary file paths. */
 export function usersFromDictionaries(paths: string[]): string[] {
-	return paths
-		.filter((path) => path.endsWith(".json") && !isSyncConflict(path))
-		.map(dictionaryName)
-		.filter((name) => name !== "")
-		.sort((a, b) => a.localeCompare(b));
+	return [...groupDictionaries(paths).keys()].sort((a, b) => a.localeCompare(b));
 }
 
 /**

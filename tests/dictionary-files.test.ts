@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { conflictOwner, dictionaryName, isSyncConflict, parseDictionary } from "../dictionary-files";
+import { conflictOwner, dictionaryName, groupDictionaries, isSyncConflict, parseDictionary } from "../dictionary-files";
 
 describe("dictionaryName", () => {
 	it("drops the folder and the .json extension", () => {
@@ -50,5 +50,30 @@ describe("parseDictionary", () => {
 		for (const text of ["[]", "null", "42", '"text"']) {
 			expect(parseDictionary(text), text).toEqual({ error: "it does not contain a JSON object" });
 		}
+	});
+});
+
+describe("groupDictionaries", () => {
+	it("groups the files of each user across folders, in order", () => {
+		const groups = groupDictionaries([
+			"Langsoft/maria.json",
+			"Langsoft/peter.json",
+			".langsoft_dictionaries/maria.json",
+			".langsoft_dictionaries/anna.json",
+		]);
+		expect([...groups.entries()]).toEqual([
+			["maria", ["Langsoft/maria.json", ".langsoft_dictionaries/maria.json"]],
+			["peter", ["Langsoft/peter.json"]],
+			["anna", [".langsoft_dictionaries/anna.json"]],
+		]);
+	});
+
+	it("leaves out conflict copies and other files", () => {
+		const groups = groupDictionaries([
+			"Langsoft/maria.sync-conflict-20261125-143012-ABC1234.json",
+			"Langsoft/notes.txt",
+			"Langsoft/.json",
+		]);
+		expect(groups.size).toBe(0);
 	});
 });

@@ -352,3 +352,20 @@ describe("switching user", () => {
 		expect(Object.keys(manager.otherDicts)).toEqual(["maria"]);
 	});
 });
+
+describe("deleting definitions", () => {
+	it("records in the history when the last definition of a word is deleted", async () => {
+		putDevice(adapter, { hund: { ...word("known", "dog"), definitions: { dog: context(), hound: context() } } });
+		const { manager } = await makeManager(adapter);
+
+		manager.markDefinitionDeleted("hund", "dog");
+		expect(manager.userDict.hund.highlighthistory).toHaveLength(1);
+		expect(manager.userDict.hund.highlight).toBe("known");
+
+		manager.markDefinitionDeleted("hund", "hound");
+		await manager.flush();
+		expect(manager.userDict.hund.highlight).toBe("None");
+		expect(manager.userDict.hund.highlighthistory.map((h) => h.level)).toEqual(["known", "None"]);
+		expect(readDevice(adapter).hund.highlighthistory.at(-1).level).toBe("None");
+	});
+});

@@ -30,7 +30,7 @@ export const TriggerField = StateField.define<number>({
 });
 
 /** True if refreshHighlights() was called in this update. */
-function wasTriggered(update: ViewUpdate): boolean {
+export function wasTriggered(update: ViewUpdate): boolean {
 	return update.startState.field(TriggerField) !== update.state.field(TriggerField);
 }
 

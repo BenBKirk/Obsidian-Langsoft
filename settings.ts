@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting, debounce, TextAreaComponent, TextComponent, DropdownComponent, Component, ButtonComponent, Modal, Notice } from 'obsidian';
+import { App, PluginSettingTab, Setting } from 'obsidian';
 import LangsoftPlugin from 'main';
 
 
@@ -48,10 +48,36 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
+	private displayUserSetting(containerEl: HTMLElement) {
+		new Setting(containerEl).setName("User").setHeading();
+		const setting = new Setting(containerEl)
+			.setName("You are")
+			.setDesc("Your definitions are saved in this user's dictionary. Remembered on this device only.");
+
+		setting.addDropdown((dropdown) => {
+			const current = this.plugin.currentUser;
+			this.plugin.listUsers().then((users) => {
+				if (!current || !users.includes(current)) {
+					dropdown.addOption(current, current ? `${current} (no dictionary)` : "Choose…");
+				}
+				for (const user of users) dropdown.addOption(user, user);
+				dropdown.setValue(current);
+				dropdown.onChange(async (value) => {
+					if (value) await this.plugin.switchUser(value);
+				});
+			});
+		});
+		setting.addButton((button) =>
+			button.setButtonText("New user…").onClick(() => this.plugin.openUserPicker(() => this.display()))
+		);
+	}
+
 	display(): void {
 		const { containerEl } = this;
 
 		containerEl.empty();
+
+		this.displayUserSetting(containerEl);
 
 		containerEl.createEl("b", { text: "Word Highlighting" })
 		const unknowns = new Setting(containerEl)
@@ -184,70 +210,6 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 		// 	});
 
 
-		// containerEl.createEl("b", { text: "Create or Select Users" })
-		// const list: string[] = []
-		// this.plugin.dictManager.availableDictionaries.forEach((value) => {
-		// 	list.push(value.slice(23, -5))
-		// });
-
-
-		// let tacUser: TextComponent;
-		// const users = new Setting(containerEl)
-		// 	.setName("Current User")
-		// 	.setDesc("Change user using the dropdown menu")
-
-		// users.addDropdown((dropdown) => {
-		// 	list.forEach((item) => {
-		// 		// dropdown.addOption(item, item.toLowerCase().replace(/\s+/g, '_'));
-		// 		dropdown.addOption(item, item);
-		//
-		// 	});
-		// 	dropdown.onChange(async (value: string) => {
-		// 		new Notice(`Logged in as "${value}"`);
-		// 		// const newValue = value.trim().length === 0 ? DEFAULT_SETTINGS.currentUser : value.trim();
-		// 		this.plugin.settings.currentUser = value;
-		// 		await this.plugin.saveSettings();
-		// 		tac.setValue(this.plugin.settings.currentUser);
-		// 	})
-		// });
-		//
-		// users.addButton((button: ButtonComponent) => {
-		// 	button.setButtonText("Create New User")
-		// 	button.onClick(async (value: string) => {
-		// 		new ExampleModal(this.app, (newuserName) => {
-		// 			new Notice(`Created new user: ${newuserName}!`);
-		//
-		// 		}).open();
-		//
-		// 	})
-		//
-		// });
-
 	}
 
-}
-
-export class ExampleModal extends Modal {
-	constructor(app: App, onSubmit: (result: string) => void) {
-		super(app);
-		this.setTitle('What\'s your name?');
-
-		let name = '';
-		new Setting(this.contentEl)
-			.setName('New User Name')
-			.addText((text) =>
-				text.onChange((value) => {
-					name = value;
-				}));
-
-		new Setting(this.contentEl)
-			.addButton((btn) =>
-				btn
-					.setButtonText('Create')
-					.setCta()
-					.onClick(() => {
-						this.close();
-						onSubmit(name);
-					}));
-	}
 }

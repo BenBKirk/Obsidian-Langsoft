@@ -52,6 +52,8 @@ export class DictionaryManager {
 	}
 
 	async init() {
+		// let saves of the dictionary that was loaded before finish first
+		await this.flush();
 		this.userDict = {};
 		this.userDictMtime = undefined;
 		this.otherDicts = {};
@@ -196,6 +198,11 @@ export class DictionaryManager {
 		return true;
 	}
 
+	/** Wait until every read and save of the user's dictionary started so far has finished. */
+	flush(): Promise<void> {
+		return this.userDictQueue;
+	}
+
 	private queueUserDictTask(task: () => Promise<void>): Promise<void> {
 		this.userDictQueue = this.userDictQueue.then(task).catch((e) => {
 			console.error("Langsoft: could not read or save your dictionary", e);
@@ -308,8 +315,12 @@ export class DictionaryManager {
 		return this.queueUserDictTask(async () => {
 			const path = this.userDictPath();
 			// only write to a dictionary the user has set up, never create one under an empty or mistyped name
-			if (!this.plugin.currentUser || !(await this.plugin.app.vault.adapter.exists(path))) {
-				new Notice("Langsoft: no dictionary is set up for you yet, so this change was not saved. See the README for how to set one up.");
+			if (!this.plugin.currentUser) {
+				new Notice('Langsoft: this change was not saved because no user is chosen. Run the command "Langsoft: Switch user" to choose one.');
+				return;
+			}
+			if (!(await this.plugin.app.vault.adapter.exists(path))) {
+				new Notice(`Langsoft: this change was not saved because ${path} doesn't exist. Run the command "Langsoft: Switch user" to choose or create your user.`);
 				return;
 			}
 			const merged = await this.mergeChangesFromDisk(path);

@@ -1,10 +1,12 @@
-import { Editor, MarkdownView, Plugin, TFile, WorkspaceLeaf } from "obsidian";
+import { Editor, MarkdownView, normalizePath, Plugin, TFile, WorkspaceLeaf } from "obsidian";
 import { EditorView, hoverTooltip } from "@codemirror/view";
 import { createSelectionHighlightPlugin, createHighlightPlugin, TriggerEffect, TriggerField } from "highlighter";
 import { DEFAULT_SETTINGS, LangsoftPluginSettings, LangsoftSettingsTab } from "settings";
 import { DictionaryManager } from "dictionaries";
 import { VIEW_TYPE_DEFINER, DefinerView } from "definer";
 import { buildSelectionContext, findWordAt, parseIntoWords as splitIntoWords } from "words";
+import { usersFromDictionaries } from "users";
+import { UserModal } from "user-modal";
 
 
 export default class LangsoftPlugin extends Plugin {
@@ -13,6 +15,7 @@ export default class LangsoftPlugin extends Plugin {
 	settings: LangsoftPluginSettings;
 	/** Whose dictionary is being edited on this device. Empty if not chosen yet. */
 	currentUser = "";
+	statusBarEl: HTMLElement;
 	settingsTab: LangsoftSettingsTab;
 	dictManager: DictionaryManager;
 	styleEl: Element;
@@ -45,6 +48,24 @@ export default class LangsoftPlugin extends Plugin {
 			VIEW_TYPE_DEFINER,
 			(leaf) => new DefinerView(leaf, this)
 		);
+
+		this.addCommand({
+			id: "switch-user",
+			name: "Switch user",
+			callback: () => this.openUserPicker(),
+		});
+
+		// desktop only: Obsidian has no status bar on phones
+		this.statusBarEl = this.addStatusBarItem();
+		this.statusBarEl.addClass("mod-clickable");
+		this.statusBarEl.setAttribute("aria-label", "Switch Langsoft user");
+		this.registerDomEvent(this.statusBarEl, "click", () => this.openUserPicker());
+		this.updateStatusBar();
+
+		// first run on this device
+		this.app.workspace.onLayoutReady(() => {
+			if (!this.currentUser) this.openUserPicker();
+		});
 
 
 
@@ -331,6 +352,41 @@ export default class LangsoftPlugin extends Plugin {
 			delete this.settings.currentUser;
 			await this.saveData(this.settings);
 		}
+	}
+
+	/** The users that have a dictionary in the dictionary folder. */
+	async listUsers(): Promise<string[]> {
+		await this.dictManager.getDictionaryFolder();
+		await this.dictManager.getAvailableDictionaries();
+		return usersFromDictionaries(this.dictManager.availableDictionaries);
+	}
+
+	/** Create an empty dictionary for a new user. Leaves an existing one alone. */
+	async createUser(name: string) {
+		await this.dictManager.getDictionaryFolder();
+		const path = normalizePath(`${this.dictManager.dictFolder}/${name}.json`);
+		if (!(await this.app.vault.adapter.exists(path))) {
+			await this.app.vault.adapter.write(path, "{}");
+		}
+	}
+
+	/** Make `name` the current user on this device and load their dictionary. */
+	async switchUser(name: string) {
+		// finish saving the previous user's changes to their own dictionary first
+		await this.dictManager.flush();
+		this.storeCurrentUser(name);
+		this.SelectedText = [];
+		await this.dictManager.init();
+		this.getDefinerViewLeaf()?.handleSelection("", "");
+		this.updateStatusBar();
+	}
+
+	openUserPicker(onDone?: () => void) {
+		new UserModal(this.app, this, onDone).open();
+	}
+
+	updateStatusBar() {
+		this.statusBarEl?.setText(this.currentUser ? `Langsoft: ${this.currentUser}` : "Langsoft: choose user");
 	}
 
 	/** Remember the user on this device. Does not reload the dictionaries; see switchUser. */

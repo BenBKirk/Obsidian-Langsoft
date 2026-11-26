@@ -96,7 +96,13 @@ export default class LangsoftPlugin extends Plugin {
 		this.addCommand({
 			id: "search-definitions",
 			name: "Search definitions",
-			callback: () => new SearchModal(this.app, this).open(),
+			callback: () => new SearchModal(this.app, this, "meaning").open(),
+		});
+
+		this.addCommand({
+			id: "search-words",
+			name: "Search words",
+			callback: () => new SearchModal(this.app, this, "word").open(),
 		});
 
 		this.addCommand({

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DefinitionIndex } from "../search";
+import { DefinitionIndex, TermIndex } from "../search";
 import type { Definition, DictionaryData, WordEntry } from "../dictionaries";
 
 const def = (deleted = false, sentence = "ein <u>Hund </u>bellt"): Definition => ({
@@ -131,5 +131,65 @@ describe("building the index", () => {
 		expect(index.size).toBe(40000);
 		expect(built - start).toBeLessThan(1500);
 		expect(searched - built).toBeLessThan(200);
+	});
+});
+
+describe("TermIndex.search", () => {
+	const words: DictionaryData = {
+		hund: entry("known", ["dog"]),
+		hunde: entry("semiknown", ["dogs"]),
+		hündin: entry("unknown", ["female dog"]),
+		"der hund bellt": entry("unknown", ["the dog barks"]),
+		"auf jeden fall": entry("known", ["in any case"]),
+		katze: entry("known", [], ["cat"]), // only a deleted definition
+		bellt: entry("unknown", ["barks"]),
+	};
+	const coworkers = {
+		dave: { wolf: entry("unknown", ["wolf"]), hund: entry("known", ["hound"]), laut: entry("known", ["loud"]) },
+		tabea: { wolf: entry("known", ["wild dog"]), welpe: entry("None", [], ["puppy"]) },
+	};
+	const index = new TermIndex(words, coworkers);
+	const found = (query: string) => index.search(query).map((r) => r.term);
+
+	it("finds words by their beginning, the word itself first", () => {
+		expect(found("hund")).toEqual(["hund", "hunde", "der hund bellt"]);
+		expect(found("hun")).toEqual(["hund", "hunde", "der hund bellt"]);
+		expect(found("hün")).toEqual(["hündin"]);
+	});
+
+	it("finds phrases by any of their words", () => {
+		expect(found("fall")).toEqual(["auf jeden fall"]);
+		expect(found("jeden f")).toEqual(["auf jeden fall"]);
+	});
+
+	it("leaves out words with no definition left, and coworkers' words they have no level for", () => {
+		expect(found("katze")).toEqual([]);
+		expect(found("welpe")).toEqual([]);
+	});
+
+	it("gives your definitions for your words, and coworkers' (named) for the rest", () => {
+		const [hund] = index.search("hund");
+		expect(hund).toMatchObject({ highlight: "known", coworkers: [], inQuery: false });
+		expect(hund.definitions.map((d) => d.definition)).toEqual(["dog"]);
+
+		const [wolf] = index.search("wolf");
+		expect(wolf).toMatchObject({ highlight: "coworker", coworkers: ["dave", "tabea"] });
+		expect(wolf.definitions.map((d) => d.definition)).toEqual(["wolf", "wild dog"]);
+	});
+
+	it("finds the words and phrases in a sentence, in order, longer phrases first", () => {
+		const results = index.search("Der Hund bellt laut!");
+		expect(results.filter((r) => r.inQuery).map((r) => r.term)).toEqual(["der hund bellt", "hund", "bellt", "laut"]);
+	});
+
+	it("lists a word once even if found both ways", () => {
+		const results = index.search("hund bellt");
+		expect(results.map((r) => r.term)).toEqual(["der hund bellt", "hund", "bellt"]);
+		expect(results[0].inQuery).toBe(false);
+		expect(results.slice(1).every((r) => r.inQuery)).toBe(true);
+	});
+
+	it("returns nothing for an empty query", () => {
+		expect(index.search("")).toEqual([]);
 	});
 });

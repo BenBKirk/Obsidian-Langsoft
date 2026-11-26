@@ -145,13 +145,12 @@ export class ProgressView extends ItemView {
 	}
 
 	/** Words as buttons that open them in the Definer; long lists show the first few. */
-	private renderWords(el: HTMLElement, key: string, words: { term: string; level: Level; isNew?: boolean }[]) {
+	private renderWords(el: HTMLElement, key: string, words: { term: string; level: Level }[]) {
 		const list = el.createDiv({ cls: "langsoft-word-list" });
 		const all = this.expanded.has(key);
 		for (const word of all ? words : words.slice(0, WORDS_SHOWN)) {
 			const chip = list.createEl("button", { cls: "langsoft-word-chip", text: word.term });
 			chip.style.borderLeftColor = this.colour(word.level);
-			if (word.isNew) chip.createSpan({ cls: "langsoft-word-new", text: "new" });
 			chip.setAttribute("aria-label", "Open in the Definer");
 			chip.addEventListener("click", async () => {
 				const definer = await this.plugin.openDefiner();
@@ -184,17 +183,32 @@ export class ProgressView extends ItemView {
 	private renderPeriodWords(el: HTMLElement, period: PeriodStats) {
 		const words = periodWords(this.plugin.dictManager.userDict, period);
 		const isNew = new Set(words.newWords);
+		const levelOf = new Map<string, Level>();
+		for (const level of LEVEL_ORDER) for (const term of words.reached[level]) levelOf.set(term, level);
 		const section = el.createDiv({ cls: "langsoft-period-words" });
+
+		// each word once: new words together, then words you already had that changed level
+		if (words.newWords.length > 0) {
+			section.createDiv({
+				cls: "langsoft-word-heading",
+				text: `New words in ${period.label} (${words.newWords.length})`,
+			});
+			this.renderWords(
+				section,
+				`${period.label}:new`,
+				words.newWords.map((term) => ({ term, level: levelOf.get(term) ?? "unknown" }))
+			);
+		}
 		for (const level of LEVEL_ORDER) {
-			const terms = words.reached[level];
+			const terms = words.reached[level].filter((term) => !isNew.has(term));
 			if (terms.length === 0) continue;
 			const heading = section.createDiv({ cls: "langsoft-word-heading" });
 			heading.createSpan({ cls: "langsoft-progress-swatch" }).style.backgroundColor = this.colour(level);
-			heading.appendText(`Reached ${LEVEL_NAMES[level].toLowerCase()} in ${period.label} (${terms.length})`);
+			heading.appendText(`Moved to ${LEVEL_NAMES[level].toLowerCase()} in ${period.label} (${terms.length})`);
 			this.renderWords(
 				section,
 				`${period.label}:${level}`,
-				terms.map((term) => ({ term, level, isNew: isNew.has(term) }))
+				terms.map((term) => ({ term, level }))
 			);
 		}
 	}

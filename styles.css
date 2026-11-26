@@ -373,11 +373,6 @@ If your plugin does not need CSS, delete this file.
     font-size: var(--font-ui-small);
     border-left: 4px solid transparent;
 }
-.langsoft-word-new {
-    margin-left: 0.4em;
-    font-size: var(--font-ui-smallest);
-    color: var(--text-muted);
-}
 .langsoft-word-more {
     height: auto;
     padding: 2px 8px;

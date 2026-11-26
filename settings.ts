@@ -1,5 +1,6 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import LangsoftPlugin from 'main';
+import { DEFAULT_FOLDER } from 'dictionary-files';
 
 
 export interface LangsoftPluginSettings {
@@ -29,7 +30,7 @@ export const DEFAULT_SETTINGS: LangsoftPluginSettings = {
 	knownColor: "#00FF00",
 	coworkerEnabled: true,
 	coworkerColor: "#0080FF",
-	dictionaryFolder: ".langsoft_dictionaries"
+	dictionaryFolder: DEFAULT_FOLDER
 }
 
 

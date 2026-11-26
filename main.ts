@@ -1,4 +1,4 @@
-import { debounce, Editor, MarkdownView, Platform, Plugin, TFile, WorkspaceLeaf } from "obsidian";
+import { debounce, Editor, MarkdownView, Notice, Platform, Plugin, TFile, WorkspaceLeaf } from "obsidian";
 import { EditorView, hoverTooltip } from "@codemirror/view";
 import { createSelectionHighlightPlugin, createHighlightPlugin, TriggerEffect, TriggerField } from "highlighter";
 import { DEFAULT_SETTINGS, LangsoftPluginSettings, LangsoftSettingsTab } from "settings";
@@ -12,6 +12,8 @@ import { ProgressView, VIEW_TYPE_PROGRESS } from "progress-view";
 import { createCoveragePanel } from "coverage-panel";
 import { createDefinerBottomPanel } from "definer-bottom-panel";
 import type { DefinerPanel } from "definer-panel";
+import type { Definition } from "dictionaries";
+import { ContextMatch, findContext } from "locate";
 
 
 export default class LangsoftPlugin extends Plugin {
@@ -251,6 +253,57 @@ export default class LangsoftPlugin extends Plugin {
 	// }
 
 	/** Open the progress page, or switch to it if it is already open. */
+	/**
+	 * Open the note a definition was added in, with the word selected, if
+	 * its sentence can still be found there. Otherwise say why not.
+	 */
+	async goToDefinitionContext(details: Pick<Definition, "file" | "sentence">) {
+		const name = details?.file;
+		if (!name) {
+			new Notice("Langsoft: no note was saved with this definition.");
+			return;
+		}
+		// only the file name is saved, not its folder, so try every note with that name
+		const notes = this.app.vault.getMarkdownFiles().filter((file) => file.name === name);
+		if (notes.length === 0) {
+			new Notice(`Langsoft: there is no note called "${name}" in this vault.`);
+			return;
+		}
+		let best: { file: TFile; match: ContextMatch } | null = null;
+		for (const file of notes) {
+			const match = findContext(await this.app.vault.cachedRead(file), details.sentence);
+			if (match && (!best || (match.exact && !best.match.exact))) best = { file, match };
+		}
+		if (!best) {
+			new Notice(`Langsoft: the sentence this was added from isn't in "${name}" any more.`);
+			return;
+		}
+
+		const leaf = this.app.workspace.getLeaf(false);
+		// in editing mode, where the word can be selected
+		await leaf.openFile(best.file, { active: true, state: { mode: "source" } });
+		if (!(leaf.view instanceof MarkdownView)) return;
+		const editor = leaf.view.editor;
+		const from = editor.offsetToPos(best.match.from);
+		const to = editor.offsetToPos(best.match.to);
+		editor.setSelection(from, to);
+		editor.scrollIntoView({ from, to }, true);
+
+		// show the word in the Definer too, as if it had been selected by hand
+		const definer = await this.openDefiner();
+		definer?.handleSelection(editor.getSelection().trim(), this.getContextForSelection(editor));
+		if (!Platform.isMobile) {
+			// the outline a Ctrl+click gives, and focus back in the note
+			// (on phones and tablets, focusing would open the keyboard)
+			this.SelectedText = [best.match.from, best.match.to];
+			this.refreshHighlights();
+			editor.focus();
+		}
+		if (!best.match.exact) {
+			new Notice("Langsoft: the sentence has changed since this was added; this is the closest match.");
+		}
+	}
+
 	async openProgress() {
 		const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_PROGRESS)[0];
 		const leaf = existing ?? this.app.workspace.getLeaf("tab");

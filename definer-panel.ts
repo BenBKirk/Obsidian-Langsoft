@@ -17,7 +17,10 @@ export class DefinerPanel {
 	unknownButton: ButtonComponent;
 	semiknownButton: ButtonComponent;
 	knownButton: ButtonComponent;
+	/** The sentence the shown word was selected in; empty if it didn't come from a note (e.g. from search). */
 	selectionContext: string;
+	/** The note the shown word was selected in, recorded when it was selected; undefined if not from a note. */
+	selectionFile: string | undefined;
 	coworkerDiv: HTMLDivElement;
 	coworkerListContainer: HTMLUListElement;
 	/** The selected level: "unknown", "semiknown", "known", or "none" before a word is chosen. */
@@ -156,13 +159,19 @@ export class DefinerPanel {
 
 
 
+	/**
+	 * Where a definition added now comes from: the note and sentence the
+	 * word was selected in. A word that didn't come from a note (e.g. one
+	 * opened from search) has neither, rather than whatever note is open.
+	 */
 	getCurrentContext(): Definition {
 		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
-		const activeFile = this.app.workspace.getActiveFile();
+		const fromNote = Boolean(this.selectionContext);
 		return {
 			deleted: false,
 			timestamp: timestamp,
-			file: activeFile?.name, sentence: this.selectionContext
+			file: fromNote ? this.selectionFile : undefined,
+			sentence: fromNote ? this.selectionContext : "",
 		};
 	}
 
@@ -186,7 +195,7 @@ export class DefinerPanel {
 	// const name = this.coworkerListContainer.createEl('h2', { text: dict });
 	// }
 
-	addCoworkerListItem(defText: string, context: Definition) {
+	addCoworkerListItem(defText: string, coworkerContext: Definition) {
 		const details = this.coworkerListContainer.createEl("details");
 		const summary = this.coworkerListContainer.createEl("summary");
 		const copyDefButton = this.coworkerListContainer.createEl("button", { text: defText });
@@ -200,8 +209,11 @@ export class DefinerPanel {
 				}
 			}
 			if (!seen) {
-				const context = this.getCurrentContext();
-				// this.plugin.dictManager.addNewDefinition(defText.trim().toLowerCase(), this.getCurrentHighlightState(), this.newDefinition.getValue().trim().toLowerCase(), context);
+				let context = this.getCurrentContext();
+				// not selected in a note: keep where the coworker saw it, rather than nothing
+				if (!this.selectionContext) {
+					context = { ...context, file: coworkerContext.file, sentence: coworkerContext.sentence ?? "" };
+				}
 				this.plugin.dictManager.addNewDefinition(this.selectedTextComponent.getValue().trim().toLowerCase(), this.getCurrentHighlightState(), defText, context);
 				this.plugin.dictManager.writeUserDictToJson();
 				this.plugin.refreshHighlights();
@@ -215,7 +227,7 @@ export class DefinerPanel {
 		})
 		details.appendChild(summary);
 		summary.appendChild(copyDefButton);
-		const table = this.createTable(context.sentence, context.file, context.timestamp);
+		const table = this.createTable(coworkerContext.sentence, coworkerContext.file, coworkerContext.timestamp);
 		details.appendChild(table);
 	}
 
@@ -241,7 +253,15 @@ export class DefinerPanel {
 		} else {
 			contextCell.setText(String(context ?? ""));
 		}
-		addRow("File").setText(String(file ?? ""));
+		const fileCell = addRow("File");
+		fileCell.setText(String(file ?? ""));
+		if (file) {
+			const go = fileCell.createEl("a", { cls: "langsoft-go-to-sentence", text: "Go to sentence" });
+			go.addEventListener("click", (event) => {
+				event.preventDefault();
+				this.plugin.goToDefinitionContext({ file, sentence: String(context ?? "") });
+			});
+		}
 		addRow("Date").setText(String(date ?? ""));
 		return table;
 	}
@@ -279,6 +299,8 @@ export class DefinerPanel {
 	handleSelection(selection: string, context: string) {
 		this.selectedTextComponent.setValue(selection);
 		this.selectionContext = context;
+		// the note it was selected in, now, before another note can become the active one
+		this.selectionFile = context ? this.app.workspace.getActiveFile()?.name : undefined;
 		this.listContainer.empty();
 		this.coworkerDiv.hide()
 		this.coworkerListContainer.empty();

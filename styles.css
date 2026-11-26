@@ -162,10 +162,17 @@ If your plugin does not need CSS, delete this file.
     background-color: var(--background-modifier-hover);
 }
 .langsoft-progress-area {
-    height: 180px; /* BAR_AREA_HEIGHT in progress-view.ts */
+    height: 182px; /* BAR_HEIGHT in progress-view.ts, plus the total above it */
     display: flex;
-    align-items: flex-end;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+}
+.langsoft-progress-bar-total {
+    font-size: var(--font-ui-smallest);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    line-height: 16px;
 }
 .langsoft-progress-bar {
     width: 70%;
@@ -241,11 +248,28 @@ If your plugin does not need CSS, delete this file.
 }
 .langsoft-activity-grid {
     display: grid;
-    grid-auto-flow: column;
-    grid-template-rows: repeat(7, 11px);
-    grid-auto-columns: 11px;
+    /* columns are set in progress-view.ts: weekday names, then one per week */
+    grid-template-rows: 14px repeat(7, 11px);
     gap: 2px;
     width: max-content;
+}
+.langsoft-activity-weekday,
+.langsoft-activity-month {
+    font-size: 9px;
+    line-height: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+.langsoft-activity-grid .langsoft-activity-day {
+    cursor: pointer;
+}
+.langsoft-activity-day.is-today {
+    outline: 1px solid var(--text-muted);
+    outline-offset: 1px;
+}
+.langsoft-activity-day.is-selected {
+    outline: 2px solid var(--text-normal);
+    outline-offset: 1px;
 }
 .langsoft-activity-day {
     width: 11px;
@@ -260,15 +284,7 @@ If your plugin does not need CSS, delete this file.
 .langsoft-activity-2 { opacity: 0.5; }
 .langsoft-activity-3 { opacity: 0.75; }
 .langsoft-activity-4 { opacity: 1; }
-.langsoft-activity-inner {
-    display: inline-block;
-}
-.langsoft-activity-dates {
-    display: flex;
-    justify-content: space-between;
-    font-size: var(--font-ui-smallest);
-    color: var(--text-muted);
-}
+
 
 /* how much of the note you know, at the bottom of each note */
 .langsoft-coverage {
@@ -300,4 +316,73 @@ If your plugin does not need CSS, delete this file.
 }
 .langsoft-coverage-words {
     color: var(--text-normal);
+}
+
+/* headline numbers at the top of the progress page */
+.langsoft-headline {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: var(--size-4-3);
+    margin-bottom: var(--size-4-4);
+}
+.langsoft-headline-tile {
+    padding: var(--size-4-3);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-m);
+}
+.langsoft-headline-number {
+    font-size: 2em;
+    font-weight: var(--font-bold);
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    display: flex;
+    align-items: center;
+    gap: 0.3em;
+}
+.langsoft-headline-number .langsoft-progress-swatch {
+    width: 0.4em;
+    height: 0.4em;
+    margin: 0;
+}
+.langsoft-headline-label {
+    color: var(--text-normal);
+}
+.langsoft-headline-detail {
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+}
+
+/* lists of words, behind a period's or a day's numbers */
+.langsoft-period-words,
+.langsoft-day-words {
+    margin: var(--size-4-2) 0 var(--size-4-4);
+}
+.langsoft-word-heading {
+    font-size: var(--font-ui-small);
+    color: var(--text-muted);
+    margin: var(--size-4-3) 0 var(--size-4-1);
+}
+.langsoft-word-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--size-4-1);
+}
+.langsoft-word-chip {
+    height: auto;
+    padding: 2px 8px;
+    font-size: var(--font-ui-small);
+    border-left: 4px solid transparent;
+}
+.langsoft-word-new {
+    margin-left: 0.4em;
+    font-size: var(--font-ui-smallest);
+    color: var(--text-muted);
+}
+.langsoft-word-more {
+    height: auto;
+    padding: 2px 8px;
+    font-size: var(--font-ui-small);
+    background: none;
+    box-shadow: none;
+    color: var(--text-accent);
 }

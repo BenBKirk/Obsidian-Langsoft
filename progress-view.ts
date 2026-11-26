@@ -1,6 +1,17 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
 import type LangsoftPlugin from "main";
-import { activityCalendar, computeProgress, growthSeries, Level, PeriodKind, PeriodStats } from "progress";
+import {
+	ActivityCalendar,
+	activityCalendar,
+	computeProgress,
+	dayChanges,
+	dayKey,
+	growthSeries,
+	Level,
+	PeriodKind,
+	periodWords,
+	PeriodStats,
+} from "progress";
 
 export const VIEW_TYPE_PROGRESS = "langsoft-progress";
 
@@ -8,7 +19,10 @@ const LEVEL_NAMES: Record<Level, string> = { known: "Known", semiknown: "Semi-kn
 /** Top to bottom in the summary; bottom to top in the bars. */
 const LEVEL_ORDER: Level[] = ["known", "semiknown", "unknown"];
 /** Height in pixels of the tallest possible bar. */
-const BAR_AREA_HEIGHT = 180;
+const BAR_HEIGHT = 164;
+/** How many words to list before "show all". */
+const WORDS_SHOWN = 30;
+const WEEKDAYS = ["Mon", "", "Wed", "", "Fri", "", ""];
 const KIND_NAMES: Record<PeriodKind, string> = { week: "Week", month: "Month", year: "Year" };
 const CURRENT_NAMES: Record<PeriodKind, string> = { week: "This week", month: "This month", year: "This year" };
 
@@ -18,6 +32,12 @@ export class ProgressView extends ItemView {
 	kind: PeriodKind = "month";
 	/** The period shown in the summary, as an index into the periods; null for the current one. */
 	selected: number | null = null;
+	/** The calendar day whose words are listed, if any. */
+	selectedDay: Date | null = null;
+	/** Word lists showing all their words rather than the first few. */
+	private expanded = new Set<string>();
+	/** How far the calendar is scrolled; null for "at today", which is where it starts. */
+	private calendarScroll: number | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: LangsoftPlugin) {
 		super(leaf);
@@ -42,6 +62,13 @@ export class ProgressView extends ItemView {
 
 	render() {
 		const el = this.contentEl;
+		// redrawn whenever the dictionary changes; stay where the reader is
+		const scrollTop = el.scrollTop;
+		this.build(el);
+		el.scrollTop = scrollTop;
+	}
+
+	private build(el: HTMLElement) {
 		el.empty();
 		el.addClass("langsoft-progress");
 
@@ -52,8 +79,11 @@ export class ProgressView extends ItemView {
 			return;
 		}
 
-		// first: it covers the whole last year, whatever period is chosen below
-		this.renderActivity(el);
+		const dict = this.plugin.dictManager.userDict;
+		const calendar = activityCalendar(dict);
+		this.renderHeadline(el, calendar);
+		// before the period buttons: it covers the whole last year, whatever period is chosen
+		this.renderActivity(el, calendar);
 
 		const switcher = el.createDiv({ cls: "langsoft-progress-kinds" });
 		for (const kind of Object.keys(KIND_NAMES) as PeriodKind[]) {
@@ -62,11 +92,12 @@ export class ProgressView extends ItemView {
 			button.addEventListener("click", () => {
 				this.kind = kind;
 				this.selected = null;
+				this.expanded.clear();
 				this.render();
 			});
 		}
 
-		const periods = computeProgress(this.plugin.dictManager.userDict, this.kind);
+		const periods = computeProgress(dict, this.kind);
 		const index = this.selected !== null && this.selected < periods.length ? this.selected : periods.length - 1;
 		const current = periods[periods.length - 1];
 		if (LEVEL_ORDER.every((level) => current.totals[level] === 0) && periods.every((p) => p.newWords === 0)) {
@@ -75,6 +106,7 @@ export class ProgressView extends ItemView {
 		}
 
 		this.renderSummary(el, periods[index], index === periods.length - 1);
+		this.renderPeriodWords(el, periods[index]);
 		this.renderChart(el, periods, index);
 		this.renderGrowth(el);
 	}
@@ -82,6 +114,74 @@ export class ProgressView extends ItemView {
 	private colour(level: Level): string {
 		const { settings } = this.plugin;
 		return level === "known" ? settings.knownColor : level === "semiknown" ? settings.semiknownColor : settings.unknownColor;
+	}
+
+	/** Three numbers to answer "how am I doing?" at a glance. */
+	private renderHeadline(el: HTMLElement, calendar: ActivityCalendar) {
+		const dict = this.plugin.dictManager.userDict;
+		const thisWeek = computeProgress(dict, "week").pop()!;
+		const tiles = el.createDiv({ cls: "langsoft-headline" });
+		const tile = (value: number, label: string, detail: string, colour?: string) => {
+			const t = tiles.createDiv({ cls: "langsoft-headline-tile" });
+			const number = t.createDiv({ cls: "langsoft-headline-number", text: String(value) });
+			if (colour) number.createSpan({ cls: "langsoft-progress-swatch" }).style.backgroundColor = colour;
+			t.createDiv({ cls: "langsoft-headline-label", text: label });
+			t.createDiv({ cls: "langsoft-headline-detail", text: detail });
+		};
+		tile(
+			thisWeek.totals.known,
+			"known words",
+			thisWeek.reached.known > 0 ? `+${thisWeek.reached.known} this week` : "none new this week",
+			this.colour("known")
+		);
+		tile(thisWeek.newWords, "new this week", `${thisWeek.totals.unknown + thisWeek.totals.semiknown + thisWeek.totals.known} words in all`);
+		tile(
+			calendar.currentStreak,
+			calendar.currentStreak === 1 ? "day in a row" : "days in a row",
+			`longest: ${calendar.longestStreak}`
+		);
+	}
+
+	/** Words as buttons that open them in the Definer; long lists show the first few. */
+	private renderWords(el: HTMLElement, key: string, words: { term: string; level: Level; isNew?: boolean }[]) {
+		const list = el.createDiv({ cls: "langsoft-word-list" });
+		const all = this.expanded.has(key);
+		for (const word of all ? words : words.slice(0, WORDS_SHOWN)) {
+			const chip = list.createEl("button", { cls: "langsoft-word-chip", text: word.term });
+			chip.style.borderLeftColor = this.colour(word.level);
+			if (word.isNew) chip.createSpan({ cls: "langsoft-word-new", text: "new" });
+			chip.setAttribute("aria-label", "Open in the Definer");
+			chip.addEventListener("click", async () => {
+				const definer = await this.plugin.openDefiner();
+				definer?.handleSelection(word.term, "");
+			});
+		}
+		if (!all && words.length > WORDS_SHOWN) {
+			const more = list.createEl("button", { cls: "langsoft-word-more", text: `${words.length - WORDS_SHOWN} more…` });
+			more.addEventListener("click", () => {
+				this.expanded.add(key);
+				this.render();
+			});
+		}
+	}
+
+	/** The words behind the selected period's "reached" numbers. */
+	private renderPeriodWords(el: HTMLElement, period: PeriodStats) {
+		const words = periodWords(this.plugin.dictManager.userDict, period);
+		const isNew = new Set(words.newWords);
+		const section = el.createDiv({ cls: "langsoft-period-words" });
+		for (const level of LEVEL_ORDER) {
+			const terms = words.reached[level];
+			if (terms.length === 0) continue;
+			const heading = section.createDiv({ cls: "langsoft-word-heading" });
+			heading.createSpan({ cls: "langsoft-progress-swatch" }).style.backgroundColor = this.colour(level);
+			heading.appendText(`Reached ${LEVEL_NAMES[level].toLowerCase()} (${terms.length})`);
+			this.renderWords(
+				section,
+				`${period.label}:${level}`,
+				terms.map((term) => ({ term, level, isNew: isNew.has(term) }))
+			);
+		}
 	}
 
 	private renderSummary(el: HTMLElement, period: PeriodStats, isCurrent: boolean) {
@@ -131,6 +231,7 @@ export class ProgressView extends ItemView {
 			});
 
 			const area = column.createDiv({ cls: "langsoft-progress-area" });
+			area.createDiv({ cls: "langsoft-progress-bar-total", text: String(totalOf(period)) });
 			// sizes in pixels rather than percentages: the column is a button, and themes
 			// size buttons in ways that keep percentage heights from working
 			const bar = area.createDiv({ cls: "langsoft-progress-bar" });
@@ -138,7 +239,7 @@ export class ProgressView extends ItemView {
 			for (const level of [...LEVEL_ORDER].reverse()) {
 				if (period.totals[level] === 0) continue;
 				const segment = bar.createDiv({ cls: "langsoft-progress-segment" });
-				segment.style.height = `${Math.max(1, (period.totals[level] / max) * BAR_AREA_HEIGHT)}px`;
+				segment.style.height = `${Math.max(1, (period.totals[level] / max) * BAR_HEIGHT)}px`;
 				segment.style.backgroundColor = this.colour(level);
 			}
 			column.createDiv({ cls: "langsoft-progress-label", text: period.label });
@@ -203,42 +304,80 @@ export class ProgressView extends ItemView {
 		}
 	}
 
-	/** A square per day for the last year, shaded by how much was done. */
-	private renderActivity(el: HTMLElement) {
-		const calendar = activityCalendar(this.plugin.dictManager.userDict);
+	/** A square per day for the last year, shaded by how much was done; click a day for its words. */
+	private renderActivity(el: HTMLElement, calendar: ActivityCalendar) {
 		el.createEl("h3", { text: "Activity" });
-
 		const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 		el.createEl("p", {
 			cls: "langsoft-activity-summary",
-			text:
-				`Current streak: ${plural(calendar.currentStreak, "day")} · ` +
-				`Longest streak: ${plural(calendar.longestStreak, "day")} · ` +
-				`Active on ${calendar.activeDays} of the last ${calendar.days.length} days`,
+			text: `Active on ${calendar.activeDays} of the last ${calendar.days.length} days. Click a day to see its words.`,
 		});
 
 		const scroller = el.createDiv({ cls: "langsoft-activity-scroller" });
-		// as wide as the grid, so the dates line up under its ends
-		const inner = scroller.createDiv({ cls: "langsoft-activity-inner" });
-		const grid = inner.createDiv({ cls: "langsoft-activity-grid" });
-		for (const day of calendar.days) {
+		const grid = scroller.createDiv({ cls: "langsoft-activity-grid" });
+		const weeks = Math.ceil(calendar.days.length / 7);
+		grid.style.gridTemplateColumns = `28px repeat(${weeks}, 11px)`;
+
+		// Mon, Wed, Fri down the side
+		for (const [row, name] of WEEKDAYS.entries()) {
+			if (!name) continue;
+			const label = grid.createDiv({ cls: "langsoft-activity-weekday", text: name });
+			label.style.gridColumn = "1";
+			label.style.gridRow = String(row + 2);
+		}
+
+		// month names along the top, over the week a month starts in
+		let lastLabelWeek = -10;
+		for (let week = 0; week < weeks; week++) {
+			const days = calendar.days.slice(week * 7, week * 7 + 7);
+			const first = week === 0 ? days[0] : days.find((d) => d.date.getDate() === 1);
+			// at least three weeks apart, so the names don't overlap
+			if (!first || week - lastLabelWeek < 3) continue;
+			const month = grid.createDiv({ cls: "langsoft-activity-month", text: formatDate(first.date, "year").split(" ")[0] });
+			month.style.gridColumn = `${week + 2} / span 3`;
+			month.style.gridRow = "1";
+			lastLabelWeek = week;
+		}
+
+		const today = dayKey(new Date());
+		const selected = this.selectedDay ? dayKey(this.selectedDay) : null;
+		for (const [i, day] of calendar.days.entries()) {
 			const shade = day.count === 0 ? 0 : Math.min(4, Math.ceil((day.count / Math.max(1, calendar.max)) * 4));
 			const cell = grid.createDiv({ cls: `langsoft-activity-day langsoft-activity-${shade}` });
-			const label = `${day.date.toDateString()}: ${plural(day.count, "change")}`;
+			cell.style.gridColumn = String(Math.floor(i / 7) + 2);
+			cell.style.gridRow = String((i % 7) + 2);
+			const key = dayKey(day.date);
+			cell.toggleClass("is-today", key === today);
+			cell.toggleClass("is-selected", key === selected);
 			// Obsidian shows aria-label as a tooltip, so no title as well
-			cell.setAttribute("aria-label", label);
+			cell.setAttribute("aria-label", `${day.date.toDateString()}: ${plural(day.count, "change")}`);
+			cell.addEventListener("click", () => {
+				this.selectedDay = key === selected ? null : day.date;
+				this.render();
+			});
 		}
-		const dates = inner.createDiv({ cls: "langsoft-activity-dates" });
-		dates.createSpan({ text: formatDate(calendar.days[0].date, "year") });
-		dates.createSpan({ text: "Today" });
 
 		const legend = el.createDiv({ cls: "langsoft-progress-legend" });
 		legend.createSpan({ text: "Less" });
 		for (let shade = 0; shade <= 4; shade++) legend.createSpan({ cls: `langsoft-activity-day langsoft-activity-${shade}` });
 		legend.createSpan({ text: "More" });
 
-		// show the most recent weeks first on narrow screens
-		window.requestAnimationFrame(() => (scroller.scrollLeft = scroller.scrollWidth));
+		if (this.selectedDay) {
+			const changes = dayChanges(this.plugin.dictManager.userDict, this.selectedDay);
+			const section = el.createDiv({ cls: "langsoft-day-words" });
+			section.createDiv({
+				cls: "langsoft-word-heading",
+				text: `${this.selectedDay.toDateString()}: ${changes.length === 0 ? "nothing added or changed" : plural(changes.length, "word")}`,
+			});
+			this.renderWords(section, `day:${dayKey(this.selectedDay)}`, changes);
+		}
+
+		// start at today; after a redraw, stay where the reader scrolled to
+		scroller.addEventListener("scroll", () => {
+			const atEnd = scroller.scrollLeft + scroller.clientWidth >= scroller.scrollWidth - 2;
+			this.calendarScroll = atEnd ? null : scroller.scrollLeft;
+		});
+		window.requestAnimationFrame(() => (scroller.scrollLeft = this.calendarScroll ?? scroller.scrollWidth));
 	}
 
 	async onClose() {

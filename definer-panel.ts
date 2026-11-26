@@ -1,163 +1,98 @@
 import type LangsoftPlugin from "main";
-import { App, ButtonComponent, MarkdownView, moment, Platform, TextAreaComponent } from "obsidian";
-import { Definition } from "dictionaries";
+import { App, MarkdownView, moment, Platform } from "obsidian";
+import type { Definition, WordEntry } from "dictionaries";
+import { SearchModal } from "search-modal";
 import { splitContext } from "words";
+
+type Level = "unknown" | "semiknown" | "known";
+export const LEVELS: Level[] = ["unknown", "semiknown", "known"];
+const LEVEL_NAMES: Record<Level, string> = { unknown: "Unknown", semiknown: "Semi-known", known: "Known" };
+const SHORT_NAMES: Record<Level, string> = { unknown: "Unknown", semiknown: "Semi", known: "Known" };
+
+/** How long "Deleted … Undo" stays, in milliseconds. */
+const UNDO_TIME = 10000;
 
 /**
  * The Definer: the selected word, its level, your definitions and your
  * coworkers'. Drawn into any container, so it can live in the sidebar or
- * in a panel at the bottom of the editor.
+ * in a panel at the bottom of the editor. It is redrawn from the
+ * dictionary after every change.
  */
 export class DefinerPanel {
 	plugin: LangsoftPlugin;
 	app: App;
-	selectedTextComponent: TextAreaComponent;
-	newDefinition: TextAreaComponent;
-	listContainer: HTMLUListElement;
-	unknownButton: ButtonComponent;
-	semiknownButton: ButtonComponent;
-	knownButton: ButtonComponent;
-	/** The sentence the shown word was selected in; empty if it didn't come from a note (e.g. from search). */
-	selectionContext: string;
-	/** The note the shown word was selected in, recorded when it was selected; undefined if not from a note. */
-	selectionFile: string | undefined;
-	coworkerDiv: HTMLDivElement;
-	coworkerListContainer: HTMLUListElement;
-	/** The selected level: "unknown", "semiknown", "known", or "none" before a word is chosen. */
-	private level = "none";
-
-	/** In compact mode (the phone panel), the big title and spacing are left out. */
+	private container: HTMLElement;
+	/** In compact mode (the phone panel), less is shown. */
 	private compact: boolean;
+
+	/** The word or phrase shown, as in the dictionary (lower case); empty for none. */
+	term = "";
+	/** The sentence the word was selected in; empty if it didn't come from a note (e.g. from search). */
+	selectionContext = "";
+	/** The note the word was selected in, recorded when it was selected; undefined if not from a note. */
+	selectionFile: string | undefined;
+	/** The level shown: the word's own, or the one a first definition will get. */
+	private level: Level = "unknown";
+	/** The definition being edited, if any. */
+	private editing: string | null = null;
+	/** The definition just deleted, for "Undo". */
+	private deleted: { definition: string; level: string } | null = null;
+	private deletedTimer: number | undefined;
+	private addInput: HTMLInputElement | null = null;
 
 	constructor(container: HTMLElement, plugin: LangsoftPlugin, options: { compact?: boolean } = {}) {
 		this.plugin = plugin;
 		this.app = plugin.app;
+		this.container = container;
 		this.compact = options.compact ?? false;
-		this.render(container);
-	}
-
-	/** Build the Definer inside `container`. */
-	private render(container: HTMLElement) {
-		container.empty();
 		container.addClass("langsoft-definer");
-
-		if (!this.compact) container.createEl("h1", { text: "Langsoft 📖" });
-		this.selectedTextComponent = new TextAreaComponent(container);
-		this.selectedTextComponent.setPlaceholder(
-			Platform.isMobile ? "Long-press a word in your note" : "Select some text in main window"
-		);
-		this.selectedTextComponent.setDisabled(true);
-
-		if (!this.compact) container.createEl("h1", { text: " " });
-
-		this.unknownButton = new ButtonComponent(container);
-		this.unknownButton.setIcon("plane-takeoff")
-		this.unknownButton.buttonEl.addClass("langsoft-level-button");
-		this.unknownButton.onClick(() => {
-			if (this.getCurrentHighlightState() !== "unknown") {
-				if (this.listContainer.getElementsByTagName("summary").length > 0) {
-					// this.writeNewKnownLevelToDict("unknown")
-					this.plugin.dictManager.writeHighlightChangeToJson(this.selectedTextComponent.getValue(), "unknown")
-				}
-			}
-			this.changeKnownLevelButtonColor("unknown");
-
-		})
-
-		this.semiknownButton = new ButtonComponent(container);
-		this.semiknownButton.setIcon("plane")
-		this.semiknownButton.buttonEl.addClass("langsoft-level-button");
-		this.semiknownButton.onClick(() => {
-			if (this.getCurrentHighlightState() !== "semiknown") {
-				if (this.listContainer.getElementsByTagName("summary").length > 0) {
-					// this.writeNewKnownLevelToDict("semiknown")
-					this.plugin.dictManager.writeHighlightChangeToJson(this.selectedTextComponent.getValue(), "semiknown")
-				}
-			}
-			this.changeKnownLevelButtonColor("semiknown");
-		})
-
-		this.knownButton = new ButtonComponent(container);
-		// knownButton.setButtonText("known");
-		this.knownButton.setIcon("rocket")
-		// knownButton.setIcon("sparles")
-		// knownButton.setIcon("battery-full")
-		// this.knownButton.setClass("knownButton")
-		this.knownButton.buttonEl.addClass("langsoft-level-button");
-		this.knownButton.onClick(() => {
-			if (this.getCurrentHighlightState() !== "known") {
-				if (this.listContainer.getElementsByTagName("summary").length > 0) {
-					// this.writeNewKnownLevelToDict("known")
-					this.plugin.dictManager.writeHighlightChangeToJson(this.selectedTextComponent.getValue(), "known")
-				}
-			}
-			this.changeKnownLevelButtonColor("known");
-		})
-
-		if (!this.compact) container.createEl("h1", { text: "" }); // create some space
-
-		const userDictEl = container.createEl("div", { text: "My Definitions: " });
-
-		// Create the list container
-		this.listContainer = userDictEl.createEl("ul", { cls: "my-dynamic-list" });
-
-		const newMeaningEl = container.createEl("div", { text: " " });
-
-		this.newDefinition = new TextAreaComponent(newMeaningEl);
-		this.newDefinition.setPlaceholder("New definition");
-		// this.wordDefinition.setValue("blank")
-		newMeaningEl.createEl("br", { text: " " });
-
-		// Example: Adding a button to add new items dynamically
-		const addButton = newMeaningEl.createEl("button", { text: "Add Definition" });
-		addButton.addEventListener("click", () => {
-			const newDefVal = this.newDefinition.getValue().trim();
-			const selVal = this.selectedTextComponent.getValue().trim();
-			// const val = this.newDefinition.getValue().trim();
-			if (newDefVal !== "" && selVal !== "") {
-				const context = this.getCurrentContext();
-				this.plugin.dictManager.addNewDefinition(this.selectedTextComponent.getValue().trim().toLowerCase(), this.getCurrentHighlightState(), this.newDefinition.getValue().trim().toLowerCase(), context);
-				this.plugin.dictManager.writeUserDictToJson();
-				this.plugin.refreshHighlights();
-				this.addListItem(this.newDefinition.getValue().trim().toLowerCase(), context)
-				this.newDefinition.setValue("");
-				// on phones and tablets, focusing the note would open the on-screen keyboard over it
-				if (Platform.isMobile) return;
-				// Try to get the active Markdown view
-				let mdView = this.app.workspace.getActiveViewOfType(MarkdownView);
-
-				if (!mdView) {
-					// No Markdown editor is active → find any leaf with MarkdownView
-					const leaves = this.app.workspace.getLeavesOfType("markdown");
-					if (leaves.length > 0) {
-						const leaf = leaves[this.plugin.lastTabIndex];
-						this.app.workspace.setActiveLeaf(leaf); // make it active
-						mdView = leaf.view as MarkdownView;
-					}
-				}
-
-				if (mdView) {
-					mdView.editor.focus(); // focus the editor
-				}
-			}
-		});
-		this.newDefinition.inputEl.addEventListener("keydown", (event) => {
-			// not while an input method or predictive keyboard is still composing text
-			if (event.key === "Enter" && !event.isComposing) {
+		container.toggleClass("is-compact", this.compact);
+		// 1, 2, 3 set the level, while the Definer has focus but not when typing
+		container.addEventListener("keydown", (event) => {
+			const target = event.target as HTMLElement;
+			if (target.closest("input, textarea") || event.ctrlKey || event.metaKey || event.altKey) return;
+			const level = LEVELS[Number(event.key) - 1];
+			if (level && this.term) {
 				event.preventDefault();
-				addButton.click();
+				this.setLevel(level);
 			}
 		});
-
-
-		this.coworkerDiv = container.createEl("div", { text: "" });
-		this.coworkerDiv.hide();
-		this.coworkerDiv.createEl("hr") //divider
-		this.coworkerDiv.createEl("div", { text: "Co-Workers Definitions: " });
-		this.coworkerListContainer = this.coworkerDiv.createEl("ul", { cls: "my-dynamic-list" });
+		this.render();
 	}
 
+	/** Show a word or phrase, and where it was selected (`context` is empty if not from a note). */
+	handleSelection(selection: string, context: string) {
+		const term = selection.trim().toLowerCase();
+		const same = term === this.term && context === this.selectionContext;
+		// the same word again while working in the Definer (e.g. after clicking in it): keep what is being typed
+		if (same && this.container.contains(document.activeElement)) return;
+		this.term = term;
+		this.selectionContext = context;
+		// the note it was selected in, now, before another note can become the active one
+		if (!same) this.selectionFile = context ? this.app.workspace.getActiveFile()?.name : undefined;
+		if (!same) {
+			this.editing = null;
+			this.deleted = null;
+		}
+		const highlight = this.ownEntry()?.highlight;
+		this.level = isLevel(highlight) ? highlight : "unknown";
+		this.render();
+	}
 
+	/** Put the cursor in the field for adding a definition. */
+	getFocus() {
+		this.addInput?.focus();
+	}
+
+	/** Set the shown word's level: straight away if it has definitions, otherwise for the first one added. */
+	setLevel(level: Level) {
+		if (!this.term || level === this.level) return;
+		if (this.liveDefinitions().length > 0) {
+			this.plugin.dictManager.writeHighlightChangeToJson(this.term, level);
+		}
+		this.level = level;
+		this.render();
+	}
 
 	/**
 	 * Where a definition added now comes from: the note and sentence the
@@ -175,165 +110,356 @@ export class DefinerPanel {
 		};
 	}
 
-	addListItem(text: string, context: Definition) {
-		const details = this.listContainer.createEl("details");
-		const summary = this.listContainer.createEl("summary");
-		summary.textContent = text;
-		details.appendChild(summary);
-		const table = this.createTable(context.sentence, context.file, context.timestamp);
-		details.appendChild(table);
-		const removeButton = details.createEl("a", { text: "Delete" });
-		removeButton.addEventListener("click", () => {
-			details.remove();
-			const definitionToDelete = details.find("summary").getText();
-			this.plugin.dictManager.markDefinitionDeleted(this.selectedTextComponent.getValue().toLowerCase(), definitionToDelete);
-			// this.handleSelection(text, context);
-		});
+	// --- reading the dictionary -------------------------------------------------
+
+	private ownEntry(): WordEntry | undefined {
+		return this.term ? this.plugin.dictManager.userDict[this.term] : undefined;
 	}
 
-	// addCoworkerTitleItem(dict: string) {
-	// const name = this.coworkerListContainer.createEl('h2', { text: dict });
-	// }
-
-	addCoworkerListItem(defText: string, coworkerContext: Definition) {
-		const details = this.coworkerListContainer.createEl("details");
-		const summary = this.coworkerListContainer.createEl("summary");
-		const copyDefButton = this.coworkerListContainer.createEl("button", { text: defText });
-		copyDefButton.addEventListener("click", () => {
-			// const test = new Notice(copyDefButton.parentElement?.firstChild?.textContent?.trim());
-			// check if definiton is unique or if the same one already exists
-			let seen = false;
-			for (const item of this.listContainer.children) {
-				if (item.children.item(0)?.textContent === defText) {
-					seen = true
-				}
-			}
-			if (!seen) {
-				let context = this.getCurrentContext();
-				// not selected in a note: keep where the coworker saw it, rather than nothing
-				if (!this.selectionContext) {
-					context = { ...context, file: coworkerContext.file, sentence: coworkerContext.sentence ?? "" };
-				}
-				this.plugin.dictManager.addNewDefinition(this.selectedTextComponent.getValue().trim().toLowerCase(), this.getCurrentHighlightState(), defText, context);
-				this.plugin.dictManager.writeUserDictToJson();
-				this.plugin.refreshHighlights();
-				// this.newDefinition.setValue("");
-				// this.addListItem(defText, context);
-				this.addListItem(defText, context)
-
-
-			}
-
-		})
-		details.appendChild(summary);
-		summary.appendChild(copyDefButton);
-		const table = this.createTable(coworkerContext.sentence, coworkerContext.file, coworkerContext.timestamp);
-		details.appendChild(table);
+	private liveDefinitions(): [string, Definition][] {
+		return Object.entries(this.ownEntry()?.definitions ?? {}).filter(([, d]) => d && !d.deleted);
 	}
 
-	/**
-	 * Context, file and date of a definition. Everything is inserted as text,
-	 * never as HTML, because these values can come from other people's
-	 * dictionaries.
-	 */
-	createTable(context: string | undefined, file: string | undefined, date: string | undefined): HTMLTableElement {
-		const table = createEl("table");
-		const addRow = (title: string) => {
-			const row = table.createEl("tr");
-			row.createEl("td").createEl("strong", { text: `${title}: ` });
-			return row.createEl("td");
-		};
-
-		const contextCell = addRow("Context");
-		const parts = splitContext(String(context ?? ""));
-		if (parts) {
-			contextCell.appendText(parts.before);
-			contextCell.createEl("u", { text: parts.selection });
-			contextCell.appendText(parts.after);
-		} else {
-			contextCell.setText(String(context ?? ""));
+	/** Coworkers' definitions, identical ones combined; `yours` marks ones you have too. */
+	private coworkerDefinitions(): { definition: string; details: Definition; names: string[]; yours: boolean }[] {
+		const mine = new Set(this.liveDefinitions().map(([definition]) => definition));
+		const combined = new Map<string, { definition: string; details: Definition; names: string[]; yours: boolean }>();
+		for (const name of Object.keys(this.plugin.dictManager.otherDicts).sort((a, b) => a.localeCompare(b))) {
+			const entry = this.plugin.dictManager.otherDicts[name]?.[this.term];
+			if (!entry || entry.highlight === "None") continue;
+			for (const [definition, details] of Object.entries(entry.definitions ?? {})) {
+				if (!details || details.deleted) continue;
+				const existing = combined.get(definition);
+				if (existing) existing.names.push(name);
+				else combined.set(definition, { definition, details, names: [name], yours: mine.has(definition) });
+			}
 		}
-		const fileCell = addRow("File");
-		fileCell.setText(String(file ?? ""));
-		if (file) {
-			const go = fileCell.createEl("a", { cls: "langsoft-go-to-sentence", text: "Go to sentence" });
-			go.addEventListener("click", (event) => {
-				event.preventDefault();
-				this.plugin.goToDefinitionContext({ file, sentence: String(context ?? "") });
+		return [...combined.values()];
+	}
+
+	// --- changing the dictionary ------------------------------------------------
+
+	private add(text: string, context = this.getCurrentContext()) {
+		const definition = text.trim().toLowerCase();
+		if (!this.term || definition === "") return;
+		const manager = this.plugin.dictManager;
+		manager.addNewDefinition(this.term, this.level, definition, context);
+		manager.writeUserDictToJson();
+		this.plugin.refreshHighlights();
+		this.deleted = null;
+		this.render();
+	}
+
+	private copy(definition: string, coworkerDetails: Definition) {
+		let context = this.getCurrentContext();
+		// not selected in a note: keep where the coworker saw it, rather than nothing
+		if (!this.selectionContext) {
+			context = { ...context, file: coworkerDetails.file, sentence: coworkerDetails.sentence ?? "" };
+		}
+		this.add(definition, context);
+	}
+
+	private remove(definition: string) {
+		const level = this.ownEntry()?.highlight ?? this.level;
+		this.plugin.dictManager.markDefinitionDeleted(this.term, definition);
+		this.deleted = { definition, level };
+		window.clearTimeout(this.deletedTimer);
+		this.deletedTimer = window.setTimeout(() => {
+			this.deleted = null;
+			this.render();
+		}, UNDO_TIME);
+		this.render();
+	}
+
+	private undoRemove() {
+		if (!this.deleted) return;
+		this.plugin.dictManager.restoreDefinition(this.term, this.deleted.definition, this.deleted.level);
+		this.deleted = null;
+		window.clearTimeout(this.deletedTimer);
+		this.render();
+	}
+
+	private rename(from: string, to: string) {
+		this.plugin.dictManager.renameDefinition(this.term, from, to);
+		this.editing = null;
+		this.render();
+	}
+
+	/** After adding a definition on desktop, go back to the note to keep reading. */
+	private returnToNote() {
+		// on phones and tablets, focusing the note would open the on-screen keyboard over it
+		if (Platform.isMobile) return;
+		let view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (!view) {
+			const leaves = this.app.workspace.getLeavesOfType("markdown");
+			const leaf = leaves[this.plugin.lastTabIndex] ?? leaves[0];
+			if (leaf) {
+				this.app.workspace.setActiveLeaf(leaf);
+				view = leaf.view as MarkdownView;
+			}
+		}
+		view?.editor.focus();
+	}
+
+	// --- drawing ------------------------------------------------------------------
+
+	private render() {
+		const el = this.container;
+		el.empty();
+		this.addInput = null;
+		if (!this.term) {
+			this.renderEmpty(el);
+			return;
+		}
+		this.renderHeader(el);
+		this.renderLevels(el);
+		this.renderOwn(el);
+		this.renderCoworkers(el);
+		this.renderPhrases(el);
+	}
+
+	private renderEmpty(el: HTMLElement) {
+		const empty = el.createDiv({ cls: "langsoft-definer-empty" });
+		empty.createDiv({ cls: "langsoft-definer-empty-title", text: "No word selected" });
+		empty.createDiv({
+			text: Platform.isMobile
+				? "Long-press a word in a note to select it."
+				: "Select a word in a note, or Ctrl+click it.",
+		});
+		const buttons = empty.createDiv({ cls: "langsoft-definer-empty-buttons" });
+		this.searchButton(buttons, "word", "Search words", "⌕ Search words");
+		this.searchButton(buttons, "meaning", "Search by meaning", "⌕ Search by meaning");
+	}
+
+	private searchButton(el: HTMLElement, mode: "word" | "meaning", label: string, text: string) {
+		const button = el.createEl("button", { cls: "langsoft-definer-search", text });
+		button.setAttribute("aria-label", label);
+		button.addEventListener("click", () => new SearchModal(this.app, this.plugin, mode).open());
+	}
+
+	private renderHeader(el: HTMLElement) {
+		const row = el.createDiv({ cls: "langsoft-definer-word-row" });
+		// the same classes as the highlighting, so it gets the same colour
+		const hasDefinitions = this.liveDefinitions().length > 0;
+		row.createSpan({ cls: `langsoft-definer-word ${hasDefinitions ? this.level : ""}`, text: this.term });
+		row.createSpan({ cls: "langsoft-definer-spacer" });
+		if (this.compact) {
+			this.searchButton(row, "word", "Search words", "⌕");
+		} else {
+			this.searchButton(row, "word", "Search words", "⌕ word");
+			this.searchButton(row, "meaning", "Search by meaning", "⌕ meaning");
+		}
+
+		if (!this.compact && this.selectionContext) {
+			const sentence = el.createDiv({ cls: "langsoft-definer-sentence" });
+			this.renderContext(sentence, this.selectionContext);
+			if (this.selectionFile) {
+				sentence.createSpan({ cls: "langsoft-definer-faint", text: ` · ${noteName(this.selectionFile)}` });
+			}
+		}
+	}
+
+	private renderLevels(el: HTMLElement) {
+		const levels = el.createDiv({ cls: "langsoft-definer-levels" });
+		for (const [i, level] of LEVELS.entries()) {
+			const button = levels.createEl("button", { cls: "langsoft-definer-level" });
+			const colour = this.colour(level);
+			button.createSpan({ cls: "langsoft-definer-dot" }).style.backgroundColor = colour;
+			button.appendText(this.compact ? SHORT_NAMES[level] : LEVEL_NAMES[level]);
+			if (!Platform.isMobile) button.createSpan({ cls: "langsoft-definer-key", text: String(i + 1) });
+			const active = level === this.level;
+			button.toggleClass("is-active", active);
+			if (active) button.style.backgroundColor = colour;
+			button.setAttribute("aria-pressed", String(active));
+			button.addEventListener("click", () => this.setLevel(level));
+		}
+		if (!this.compact) {
+			el.createDiv({
+				cls: "langsoft-definer-hint",
+				text:
+					this.liveDefinitions().length > 0
+						? `Changes straight away.${Platform.isMobile ? "" : " Keys 1 · 2 · 3."}`
+						: "The level for the first definition you add.",
 			});
 		}
-		addRow("Date").setText(String(date ?? ""));
-		return table;
 	}
 
-	getCurrentHighlightState() {
-		return this.level;
-	}
+	private renderOwn(el: HTMLElement) {
+		const definitions = this.liveDefinitions();
+		const heading = el.createDiv({ cls: "langsoft-definer-section" });
+		heading.createSpan({ text: "Your definitions" });
+		if (definitions.length > 0) heading.createSpan({ text: String(definitions.length) });
 
-	/** Show `selection` as the chosen level ("unknown", "semiknown" or "known"); anything else clears it. */
-	changeKnownLevelButtonColor(selection: string) {
-		const buttons: Record<string, ButtonComponent> = {
-			unknown: this.unknownButton,
-			semiknown: this.semiknownButton,
-			known: this.knownButton,
+		const add = el.createDiv({ cls: "langsoft-definer-add" });
+		const input = add.createEl("input", {
+			type: "text",
+			placeholder: definitions.length > 0 ? "Add a definition…" : "No definitions yet. Add the first…",
+		});
+		input.setAttribute("aria-label", "New definition");
+		this.addInput = input;
+		const submit = () => {
+			const text = input.value;
+			if (text.trim() === "") return;
+			this.add(text);
+			this.returnToNote();
 		};
-		const colours: Record<string, string> = {
-			unknown: this.plugin.settings.unknownColor,
-			semiknown: this.plugin.settings.semiknownColor,
-			known: this.plugin.settings.knownColor,
-		};
-		this.level = selection in buttons ? selection : "none";
-		for (const [level, button] of Object.entries(buttons)) {
-			const active = level === this.level;
-			button.buttonEl.toggleClass("is-active", active);
-			button.buttonEl.style.backgroundColor = active ? colours[level] : "";
-		}
-	}
-
-		getFocus() {
-		this.newDefinition.inputEl.focus();
-	}
-
-
-
-	handleSelection(selection: string, context: string) {
-		this.selectedTextComponent.setValue(selection);
-		this.selectionContext = context;
-		// the note it was selected in, now, before another note can become the active one
-		this.selectionFile = context ? this.app.workspace.getActiveFile()?.name : undefined;
-		this.listContainer.empty();
-		this.coworkerDiv.hide()
-		this.coworkerListContainer.empty();
-		if (selection === "") {
-			this.changeKnownLevelButtonColor("None");
-		} else {
-			const result = this.plugin.dictManager.userDict[selection.toLowerCase()];
-			for (const [name, dict] of Object.entries(this.plugin.dictManager.otherDicts)) {
-				const coworkerResult = dict[selection.toLowerCase()];
-				if (coworkerResult && coworkerResult.highlight != "None") {
-					this.coworkerListContainer.createEl('div', { text: name });
-					for (const [key, val] of Object.entries(coworkerResult.definitions)) {
-						if (!val.deleted) {
-							this.addCoworkerListItem(key, val);
-
-						}
-					}
-					this.coworkerDiv.show();
-
-				}
+		input.addEventListener("keydown", (event) => {
+			// not while an input method or predictive keyboard is still composing text
+			if (event.key === "Enter" && !event.isComposing) {
+				event.preventDefault();
+				submit();
 			}
-			if (result && result.highlight != "None") {
-				this.changeKnownLevelButtonColor(result.highlight);
-				for (const [key, val] of Object.entries(result.definitions)) {
-					if (!val.deleted) {
-						this.addListItem(key, val);
-					}
-				}
+		});
+		const plus = add.createEl("button", { cls: "mod-cta", text: "+" });
+		plus.setAttribute("aria-label", "Add definition");
+		plus.addEventListener("click", submit);
 
+		const list = el.createDiv({ cls: "langsoft-definer-list" });
+		for (const [definition, details] of definitions) {
+			const item = list.createDiv({ cls: "langsoft-definer-def" });
+			const line = item.createDiv({ cls: "langsoft-definer-def-line" });
+			if (this.editing === definition) {
+				this.renderEditor(line, definition);
 			} else {
-				this.changeKnownLevelButtonColor("unknown");
-				// test code:
+				line.createSpan({ cls: "langsoft-definer-def-text", text: definition });
+				this.tool(line, "✎", "Edit", () => {
+					this.editing = definition;
+					this.render();
+				});
+				this.tool(line, "🗑", "Delete", () => this.remove(definition));
 			}
+			if (!this.compact) this.renderDetails(item, details);
+		}
+
+		if (this.deleted) {
+			const toast = el.createDiv({ cls: "langsoft-definer-toast" });
+			toast.createSpan({ text: `Deleted “${this.deleted.definition}”.` });
+			const undo = toast.createEl("a", { text: "Undo", href: "#" });
+			undo.addEventListener("click", (event) => {
+				event.preventDefault();
+				this.undoRemove();
+			});
 		}
 	}
+
+	private renderEditor(line: HTMLElement, definition: string) {
+		const input = line.createEl("input", { type: "text", cls: "langsoft-definer-edit", value: definition });
+		input.setAttribute("aria-label", "Edit definition");
+		input.addEventListener("keydown", (event) => {
+			if (event.key === "Enter" && !event.isComposing) {
+				event.preventDefault();
+				this.rename(definition, input.value);
+			} else if (event.key === "Escape") {
+				event.preventDefault();
+				event.stopPropagation();
+				this.editing = null;
+				this.render();
+			}
+		});
+		this.tool(line, "✓", "Save", () => this.rename(definition, input.value));
+		this.tool(line, "✕", "Cancel", () => {
+			this.editing = null;
+			this.render();
+		});
+		window.setTimeout(() => {
+			input.focus();
+			input.select();
+		}, 0);
+	}
+
+	/** The sentence, note and date a definition was added with, and "Go to sentence". */
+	private renderDetails(el: HTMLElement, details: Definition) {
+		const meta = el.createDiv({ cls: "langsoft-definer-meta" });
+		const parts: (() => void)[] = [];
+		const sentence = String(details.sentence ?? "");
+		if (sentence.trim()) parts.push(() => this.renderContext(meta, sentence));
+		if (details.file) parts.push(() => meta.appendText(noteName(details.file!)));
+		const date = moment(details.timestamp, "YYYY-MM-DD HH:mm:ss");
+		if (date.isValid()) parts.push(() => meta.appendText(date.format("D MMM YYYY")));
+		parts.forEach((part, i) => {
+			if (i > 0) meta.appendText(" · ");
+			part();
+		});
+		if (details.file) {
+			meta.appendText(" · ");
+			const go = meta.createEl("a", { text: "Go to sentence", href: "#" });
+			go.addEventListener("click", (event) => {
+				event.preventDefault();
+				this.plugin.goToDefinitionContext({ file: details.file, sentence });
+			});
+		}
+	}
+
+	private renderCoworkers(el: HTMLElement) {
+		const coworkers = this.coworkerDefinitions();
+		if (coworkers.length === 0) return;
+		el.createDiv({ cls: "langsoft-definer-section" }).createSpan({ text: "Coworkers" });
+
+		for (const item of coworkers.filter((c) => !c.yours)) {
+			const block = el.createDiv({ cls: "langsoft-definer-coworker" });
+			block.style.borderLeftColor = this.plugin.settings.coworkerColor;
+			const row = block.createDiv({ cls: "langsoft-definer-def-line" });
+			row.createSpan({ cls: "langsoft-definer-def-text", text: item.definition });
+			row.createSpan({ cls: "langsoft-definer-faint", text: item.names.join(", ") });
+			const add = row.createEl("button", { cls: "langsoft-definer-copy", text: this.compact ? "+" : "+ Add" });
+			add.setAttribute("aria-label", "Add to your definitions");
+			add.addEventListener("click", () => this.copy(item.definition, item.details));
+			if (!this.compact) this.renderDetails(block, item.details);
+		}
+		for (const item of coworkers.filter((c) => c.yours)) {
+			el.createDiv({
+				cls: "langsoft-definer-also",
+				text: `${item.names.join(", ")} also ${item.names.length === 1 ? "has" : "have"}: ${item.definition}`,
+			});
+		}
+	}
+
+	/** Phrases you've defined that start with this word; tap one to open it. */
+	private renderPhrases(el: HTMLElement) {
+		const dict = this.plugin.dictManager.userDict;
+		const phrases = (this.ownEntry()?.firstwordofphrase ?? []).filter((phrase) =>
+			Object.values(dict[phrase]?.definitions ?? {}).some((d) => d && !d.deleted)
+		);
+		if (phrases.length === 0) return;
+		el.createDiv({ cls: "langsoft-definer-section" }).createSpan({ text: `Phrases with “${this.term}”` });
+		const chips = el.createDiv({ cls: "langsoft-definer-chips" });
+		for (const phrase of phrases) {
+			const chip = chips.createEl("button", { cls: "langsoft-definer-chip", text: phrase });
+			chip.addEventListener("click", () => this.handleSelection(phrase, ""));
+		}
+	}
+
+	/** A saved context as “before <u>word</u> after”, as text (it can come from coworkers' files). */
+	private renderContext(el: HTMLElement, context: string) {
+		const parts = splitContext(context);
+		if (!parts) {
+			el.appendText(context);
+			return;
+		}
+		const before = parts.before.trim();
+		const after = parts.after.trim();
+		el.appendText(`“${before ? `${before} ` : ""}`);
+		el.createEl("u", { text: parts.selection.trim() });
+		el.appendText(`${after ? ` ${after}` : ""}”`);
+	}
+
+	private tool(el: HTMLElement, icon: string, label: string, action: () => void) {
+		const button = el.createEl("button", { cls: "langsoft-definer-tool clickable-icon", text: icon });
+		button.setAttribute("aria-label", label);
+		button.addEventListener("click", action);
+	}
+
+	private colour(level: Level): string {
+		const { settings } = this.plugin;
+		return level === "known" ? settings.knownColor : level === "semiknown" ? settings.semiknownColor : settings.unknownColor;
+	}
+}
+
+function isLevel(level: unknown): level is Level {
+	return level === "unknown" || level === "semiknown" || level === "known";
+}
+
+/** "2025-10-23 Notes.md" → "2025-10-23 Notes". */
+function noteName(file: string): string {
+	return file.replace(/\.md$/, "");
 }

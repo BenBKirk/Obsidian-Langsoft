@@ -93,6 +93,24 @@ export default class LangsoftPlugin extends Plugin {
 			callback: () => this.openProgress(),
 		});
 
+		// the level of the word in the Definer; can be given hotkeys or put in the phone toolbar
+		for (const [level, name] of [
+			["unknown", "Mark as unknown"],
+			["semiknown", "Mark as semi-known"],
+			["known", "Mark as known"],
+		] as const) {
+			this.addCommand({
+				id: `mark-${level}`,
+				name,
+				checkCallback: (checking) => {
+					const definer = this.getDefiner();
+					if (!definer?.term) return false;
+					if (!checking) definer.setLevel(level);
+					return true;
+				},
+			});
+		}
+
 		this.addCommand({
 			id: "search-definitions",
 			name: "Search definitions",

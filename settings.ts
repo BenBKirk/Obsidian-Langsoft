@@ -14,6 +14,8 @@ export interface LangsoftPluginSettings {
 	coworkerColor: string,
 	/** Show how much of a note you know, at the bottom of the note. */
 	showNoteCoverage: boolean,
+	/** Highlight words in Reading view too. */
+	highlightReadingView: boolean,
 	/**
 	 * Only read to carry over the user from older versions. The current user
 	 * is now stored on each device (see LangsoftPlugin.currentUser), because
@@ -33,6 +35,7 @@ export const DEFAULT_SETTINGS: LangsoftPluginSettings = {
 	coworkerEnabled: true,
 	coworkerColor: "#0080FF",
 	showNoteCoverage: true,
+	highlightReadingView: true,
 	dictionaryFolder: DEFAULT_FOLDER
 }
 
@@ -82,6 +85,16 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 		containerEl.empty();
 
 		this.displayUserSetting(containerEl);
+
+		new Setting(containerEl)
+			.setName("Highlight words in Reading view")
+			.setDesc("As while editing. Select a word, or Ctrl+click a highlighted one (tap it on a phone), to open it in the Definer.")
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.highlightReadingView).onChange((value) => {
+					this.plugin.settings.highlightReadingView = value;
+					this.plugin.refreshHighlights();
+				})
+			);
 
 		new Setting(containerEl)
 			.setName("Show how much of a note you know")

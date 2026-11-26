@@ -66,3 +66,19 @@ export function buildSelectionContext(line: string, cursorCh: number, selection:
 	const wordsAfter = wordListAfter.join(" ");
 	return `${wordsBefore} <u>${selection} </u>${wordsAfter}`;
 }
+
+/**
+ * Split a context made by buildSelectionContext back into its parts, so the
+ * selection can be shown underlined without treating the text as HTML.
+ * Returns null if the context has no <u></u> markers.
+ */
+export function splitContext(context: string): { before: string; selection: string; after: string } | null {
+	const start = context.indexOf("<u>");
+	const end = context.lastIndexOf("</u>");
+	if (start === -1 || end < start) return null;
+	return {
+		before: context.slice(0, start),
+		selection: context.slice(start + "<u>".length, end),
+		after: context.slice(end + "</u>".length),
+	};
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSelectionContext, findWordAt, parseIntoWords } from "../words";
+import { buildSelectionContext, findWordAt, parseIntoWords, splitContext } from "../words";
 
 const texts = (text: string) => parseIntoWords(text).map((w) => w.text);
 
@@ -112,5 +112,35 @@ describe("buildSelectionContext", () => {
 
 	it("uses the requested number of context words", () => {
 		expect(buildSelectionContext("one two three X four five six", 15, "X", 2)).toBe("...three  <u>X </u> four...");
+	});
+});
+
+describe("splitContext", () => {
+	it("splits a context into the text before, the selection and the text after", () => {
+		expect(splitContext("the cat  <u>sat </u> on the mat")).toEqual({
+			before: "the cat  ",
+			selection: "sat ",
+			after: " on the mat",
+		});
+	});
+
+	it("round-trips with buildSelectionContext", () => {
+		const context = buildSelectionContext("a b c", 3, "b");
+		const parts = splitContext(context);
+		expect(parts && parts.before + "<u>" + parts.selection + "</u>" + parts.after).toBe(context);
+	});
+
+	it("keeps any other markup as plain text", () => {
+		expect(splitContext('<img src=x onerror="alert(1)"> <u>word </u><b>x</b>')).toEqual({
+			before: '<img src=x onerror="alert(1)"> ',
+			selection: "word ",
+			after: "<b>x</b>",
+		});
+	});
+
+	it("returns null without markers", () => {
+		expect(splitContext("plain text")).toBeNull();
+		expect(splitContext("")).toBeNull();
+		expect(splitContext("</u> backwards <u>")).toBeNull();
 	});
 });

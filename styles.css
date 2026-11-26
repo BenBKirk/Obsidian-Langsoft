@@ -186,3 +186,105 @@ If your plugin does not need CSS, delete this file.
     text-overflow: ellipsis;
     padding: var(--size-4-1) 0;
 }
+.langsoft-progress h3 {
+    margin-top: var(--size-4-8);
+}
+.langsoft-progress-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--size-4-1) var(--size-4-4);
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+    margin-top: var(--size-4-2);
+}
+.langsoft-progress-legend .langsoft-activity-day {
+    display: inline-block;
+}
+
+/* growth curve */
+.langsoft-growth {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+.langsoft-growth text {
+    fill: var(--text-muted);
+    font-size: 11px;
+}
+.langsoft-growth-grid {
+    stroke: var(--background-modifier-border);
+    stroke-width: 1;
+}
+.langsoft-growth-area {
+    stroke: var(--background-primary);
+    stroke-width: 1;
+}
+
+/* activity calendar */
+.langsoft-activity-summary {
+    color: var(--text-muted);
+    font-size: var(--font-ui-small);
+}
+.langsoft-activity-scroller {
+    overflow-x: auto;
+    padding-bottom: var(--size-4-1);
+}
+.langsoft-activity-grid {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(7, 11px);
+    grid-auto-columns: 11px;
+    gap: 2px;
+    width: max-content;
+}
+.langsoft-activity-day {
+    width: 11px;
+    height: 11px;
+    border-radius: 2px;
+    background-color: var(--interactive-accent);
+}
+.langsoft-activity-0 {
+    background-color: var(--background-modifier-border);
+}
+.langsoft-activity-1 { opacity: 0.3; }
+.langsoft-activity-2 { opacity: 0.5; }
+.langsoft-activity-3 { opacity: 0.75; }
+.langsoft-activity-4 { opacity: 1; }
+.langsoft-activity-inner {
+    display: inline-block;
+}
+.langsoft-activity-dates {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--font-ui-smallest);
+    color: var(--text-muted);
+}
+
+/* how much of the note you know, at the bottom of each note */
+.langsoft-coverage {
+    padding: var(--size-4-1) var(--size-4-3) var(--size-4-2);
+    border-top: 1px solid var(--background-modifier-border);
+    background: var(--background-primary);
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+}
+.langsoft-coverage-bar {
+    display: flex;
+    height: 5px;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: var(--size-4-1);
+    background: var(--background-modifier-border);
+}
+.langsoft-coverage-new {
+    background-color: var(--background-modifier-border);
+}
+.langsoft-coverage-text {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--size-4-3);
+}
+.langsoft-coverage-words {
+    color: var(--text-normal);
+}

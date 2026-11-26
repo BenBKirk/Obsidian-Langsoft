@@ -12,6 +12,8 @@ export interface LangsoftPluginSettings {
 	knownColor: string,
 	coworkerEnabled: boolean,
 	coworkerColor: string,
+	/** Show how much of a note you know, at the bottom of the note. */
+	showNoteCoverage: boolean,
 	/**
 	 * Only read to carry over the user from older versions. The current user
 	 * is now stored on each device (see LangsoftPlugin.currentUser), because
@@ -30,6 +32,7 @@ export const DEFAULT_SETTINGS: LangsoftPluginSettings = {
 	knownColor: "#00FF00",
 	coworkerEnabled: true,
 	coworkerColor: "#0080FF",
+	showNoteCoverage: true,
 	dictionaryFolder: DEFAULT_FOLDER
 }
 
@@ -79,6 +82,16 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 		containerEl.empty();
 
 		this.displayUserSetting(containerEl);
+
+		new Setting(containerEl)
+			.setName("Show how much of a note you know")
+			.setDesc("A bar at the bottom of each note with the share of its words you know, half know, don't know, or haven't looked up yet.")
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.showNoteCoverage).onChange((value) => {
+					this.plugin.settings.showNoteCoverage = value;
+					this.plugin.refreshHighlights();
+				})
+			);
 
 		containerEl.createEl("b", { text: "Word Highlighting" })
 		const unknowns = new Setting(containerEl)

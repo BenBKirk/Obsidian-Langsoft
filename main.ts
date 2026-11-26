@@ -9,6 +9,7 @@ import { DEFAULT_FOLDER, LEGACY_FOLDER } from "dictionary-files";
 import { UserModal } from "user-modal";
 import { SearchModal } from "search-modal";
 import { ProgressView, VIEW_TYPE_PROGRESS } from "progress-view";
+import { createCoveragePanel } from "coverage-panel";
 import { createDefinerBottomPanel } from "definer-bottom-panel";
 import type { DefinerPanel } from "definer-panel";
 
@@ -49,6 +50,7 @@ export default class LangsoftPlugin extends Plugin {
 		this.registerEditorExtension(this.mySelectionViewPlugin);
 		this.registerEditorExtension(TriggerField);
 		this.registerEditorExtension(this.bottomPanel.extension);
+		this.registerEditorExtension(createCoveragePanel(this));
 
 		// On phones and tablets, show what is selected in the note: long-pressing
 		// a word selects it. Waits until the selection has stopped changing.

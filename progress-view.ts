@@ -1,6 +1,6 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
 import type LangsoftPlugin from "main";
-import { computeProgress, Level, PeriodKind, PeriodStats } from "progress";
+import { activityCalendar, computeProgress, growthSeries, Level, PeriodKind, PeriodStats } from "progress";
 
 export const VIEW_TYPE_PROGRESS = "langsoft-progress";
 
@@ -71,6 +71,8 @@ export class ProgressView extends ItemView {
 
 		this.renderSummary(el, periods[index], index === periods.length - 1);
 		this.renderChart(el, periods, index);
+		this.renderGrowth(el);
+		this.renderActivity(el);
 	}
 
 	private colour(level: Level): string {
@@ -138,7 +140,129 @@ export class ProgressView extends ItemView {
 		}
 	}
 
+	/** Stacked areas of the words at each level over time, known at the bottom. */
+	private renderGrowth(el: HTMLElement) {
+		const series = growthSeries(this.plugin.dictManager.userDict, this.kind);
+		if (series.length < 2) return;
+		el.createEl("h3", { text: "Growth" });
+
+		const width = 600;
+		const height = 220;
+		const margin = { top: 10, right: 12, bottom: 24, left: 44 };
+		const plotWidth = width - margin.left - margin.right;
+		const plotHeight = height - margin.top - margin.bottom;
+		const first = series[0].time.getTime();
+		const lastTime = series[series.length - 1].time.getTime();
+		const totalOf = (t: Record<Level, number>) => LEVEL_ORDER.reduce((sum, level) => sum + t[level], 0);
+		const max = niceMax(Math.max(1, ...series.map((p) => totalOf(p.totals))));
+		const x = (time: number) => margin.left + ((time - first) / Math.max(1, lastTime - first)) * plotWidth;
+		const y = (value: number) => margin.top + plotHeight - (value / max) * plotHeight;
+
+		const chart = svg("svg", { viewBox: `0 0 ${width} ${height}`, class: "langsoft-growth", role: "img" });
+		const latest = series[series.length - 1].totals;
+		chart.setAttribute(
+			"aria-label",
+			`Words by level over time. Now: ${LEVEL_ORDER.map((l) => `${LEVEL_NAMES[l]} ${latest[l]}`).join(", ")}`
+		);
+
+		// grid lines and their values
+		for (const value of [0, max / 2, max].filter(Number.isInteger)) {
+			svg("line", { x1: margin.left, x2: width - margin.right, y1: y(value), y2: y(value), class: "langsoft-growth-grid" }, chart);
+			const text = svg("text", { x: margin.left - 6, y: y(value) + 4, "text-anchor": "end" }, chart);
+			text.textContent = String(Math.round(value));
+		}
+
+		// known at the bottom, then semi-known, then unknown
+		const below = series.map(() => 0);
+		for (const level of LEVEL_ORDER) {
+			const above = series.map((p, i) => below[i] + p.totals[level]);
+			const top = series.map((p, i) => `${x(p.time.getTime())},${y(above[i])}`);
+			const bottom = series.map((p, i) => `${x(p.time.getTime())},${y(below[i])}`).reverse();
+			svg("polygon", { points: [...top, ...bottom].join(" "), fill: this.colour(level), class: "langsoft-growth-area" }, chart);
+			above.forEach((value, i) => (below[i] = value));
+		}
+
+		// dates along the bottom: first, middle, last
+		const middle = series[Math.floor(series.length / 2)];
+		for (const [point, anchor] of [[series[0], "start"], [middle, "middle"], [series[series.length - 1], "end"]] as const) {
+			const text = svg("text", { x: x(point.time.getTime()), y: height - 6, "text-anchor": anchor }, chart);
+			text.textContent = point === series[series.length - 1] ? "Now" : formatDate(point.time, this.kind);
+		}
+		el.appendChild(chart);
+
+		const legend = el.createDiv({ cls: "langsoft-progress-legend" });
+		for (const level of LEVEL_ORDER) {
+			const item = legend.createSpan();
+			item.createSpan({ cls: "langsoft-progress-swatch" }).style.backgroundColor = this.colour(level);
+			item.appendText(LEVEL_NAMES[level]);
+		}
+	}
+
+	/** A square per day for the last year, shaded by how much was done. */
+	private renderActivity(el: HTMLElement) {
+		const calendar = activityCalendar(this.plugin.dictManager.userDict);
+		el.createEl("h3", { text: "Activity" });
+
+		const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+		el.createEl("p", {
+			cls: "langsoft-activity-summary",
+			text:
+				`Current streak: ${plural(calendar.currentStreak, "day")} · ` +
+				`Longest streak: ${plural(calendar.longestStreak, "day")} · ` +
+				`Active on ${calendar.activeDays} of the last ${calendar.days.length} days`,
+		});
+
+		const scroller = el.createDiv({ cls: "langsoft-activity-scroller" });
+		// as wide as the grid, so the dates line up under its ends
+		const inner = scroller.createDiv({ cls: "langsoft-activity-inner" });
+		const grid = inner.createDiv({ cls: "langsoft-activity-grid" });
+		for (const day of calendar.days) {
+			const shade = day.count === 0 ? 0 : Math.min(4, Math.ceil((day.count / Math.max(1, calendar.max)) * 4));
+			const cell = grid.createDiv({ cls: `langsoft-activity-day langsoft-activity-${shade}` });
+			const label = `${day.date.toDateString()}: ${plural(day.count, "change")}`;
+			cell.setAttribute("aria-label", label);
+			cell.setAttribute("title", label);
+		}
+		const dates = inner.createDiv({ cls: "langsoft-activity-dates" });
+		dates.createSpan({ text: formatDate(calendar.days[0].date, "year") });
+		dates.createSpan({ text: "Today" });
+
+		const legend = el.createDiv({ cls: "langsoft-progress-legend" });
+		legend.createSpan({ text: "Less" });
+		for (let shade = 0; shade <= 4; shade++) legend.createSpan({ cls: `langsoft-activity-day langsoft-activity-${shade}` });
+		legend.createSpan({ text: "More" });
+
+		// show the most recent weeks first on narrow screens
+		window.requestAnimationFrame(() => (scroller.scrollLeft = scroller.scrollWidth));
+	}
+
 	async onClose() {
 		// Nothing to clean up.
 	}
+}
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function svg(tag: string, attributes: Record<string, string | number>, parent?: Element): SVGElement {
+	const element = document.createElementNS(SVG_NS, tag);
+	for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, String(value));
+	parent?.appendChild(element);
+	return element;
+}
+
+/** A round number at least `value`, for the top of a chart: 1, 2, 5, 10, 20, 50, ... */
+function niceMax(value: number): number {
+	const power = Math.pow(10, Math.floor(Math.log10(value)));
+	for (const step of [1, 2, 5, 10]) {
+		if (step * power >= value) return step * power;
+	}
+	return 10 * power;
+}
+
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function formatDate(date: Date, kind: PeriodKind): string {
+	return kind === "year"
+		? `${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`
+		: `${date.getDate()} ${MONTH_NAMES[date.getMonth()]}`;
 }

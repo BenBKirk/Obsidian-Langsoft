@@ -70,6 +70,20 @@ describe("mergeDictionaries", () => {
 		expect(mergeDictionaries(b, a).hund.highlight).toBe("semiknown");
 	});
 
+	it("ignores removal entries in the history when working out the level", () => {
+		const removedThenReadded = { hund: entry("unknown", { dog: def("2026-01-03 10:00:00") }, [
+			["known", "2026-01-01 10:00:00"],
+			["None", "2026-01-02 10:00:00"],
+			["unknown", "2026-01-03 10:00:00"],
+		]) };
+		const removed = { hund: entry("None", { dog: def("2026-01-01 10:00:00", true) }, [
+			["known", "2026-01-01 10:00:00"],
+			["None", "2026-01-02 10:00:00"],
+		]) };
+		expect(mergeDictionaries(removed, removedThenReadded).hund.highlight).toBe("unknown");
+		expect(mergeDictionaries(removedThenReadded, removed).hund.highlight).toBe("unknown");
+	});
+
 	it("turns the highlight off when no definition is left", () => {
 		const a = { hund: entry("None", { dog: def("2026-01-01 10:00:00", true) }) };
 		const b = { hund: entry("known", { dog: def("2026-01-01 10:00:00") }) };

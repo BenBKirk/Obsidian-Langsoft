@@ -454,6 +454,9 @@ export class DictionaryManager {
 			}
 			if (!otherDefinitionExists) {
 				this.userDict[term].highlight = "None";
+				// record when the word was removed, so progress statistics can place it in time
+				const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
+				this.userDict[term].highlighthistory.push({ level: "None", timestamp });
 			}
 			this.writeUserDictToJson();
 			this.plugin.refreshHighlights()

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addPeriods, computeProgress, parseTimestamp, periodStart } from "../progress";
+import { activityCalendar, addPeriods, computeProgress, dayKey, growthSeries, parseTimestamp, periodStart } from "../progress";
 import type { DictionaryData, WordEntry } from "../dictionaries";
 
 /** A word with a definition and level changes at the given times. */
@@ -9,6 +9,9 @@ const word = (history: [string, string][], deleted = false): WordEntry => ({
 	highlighthistory: history.map(([level, timestamp]) => ({ level, timestamp })),
 	firstwordofphrase: [],
 });
+
+/** The last element (Array.prototype.at isn't in the ES2018 library this project targets). */
+const last = <T>(items: T[]): T => items[items.length - 1];
 
 // Wednesday 25 November 2026, 12:00 local time
 const NOW = new Date(2026, 10, 25, 12, 0, 0);
@@ -137,5 +140,81 @@ describe("computeProgress", () => {
 			x: { highlight: "known", definitions: { a: { deleted: false, timestamp: "garbage", sentence: "" } }, highlighthistory: [{ level: "known", timestamp: "garbage" }], firstwordofphrase: [] },
 		};
 		expect(computeProgress(old, "month", NOW)[11].totals.known).toBe(1);
+	});
+});
+
+describe("growthSeries", () => {
+	const dict: DictionaryData = {
+		hund: word([
+			["unknown", "2026-10-05 10:00:00"],
+			["known", "2026-11-10 10:00:00"],
+		]),
+		maus: word([["unknown", "2026-11-24 09:00:00"]]),
+	};
+
+	it("has a point a day for weeks, a week for months and a month for years, ending now", () => {
+		const weeks = growthSeries(dict, "week", NOW);
+		expect(weeks[0].time).toEqual(new Date(2026, 8, 7)); // Monday 11 weeks before this week
+		expect(weeks[1].time).toEqual(new Date(2026, 8, 8));
+		expect(last(weeks).time).toEqual(NOW);
+
+		const months = growthSeries(dict, "month", NOW);
+		expect(months[1].time.getTime() - months[0].time.getTime()).toBeGreaterThanOrEqual(6.9 * 24 * 3600 * 1000);
+		expect(last(months).time).toEqual(NOW);
+
+		const years = growthSeries(dict, "year", NOW);
+		expect(years[0].time).toEqual(new Date(2026, 0, 1));
+		expect(years[1].time).toEqual(new Date(2026, 1, 1));
+	});
+
+	it("counts the words at each level at each point", () => {
+		const series = growthSeries(dict, "week", NOW);
+		const at = (y: number, m: number, d: number) => series.find((p) => p.time.getTime() === new Date(y, m, d).getTime())!.totals;
+		expect(at(2026, 9, 5)).toEqual({ unknown: 0, semiknown: 0, known: 0 }); // just before hund was added
+		expect(at(2026, 9, 6)).toEqual({ unknown: 1, semiknown: 0, known: 0 });
+		expect(at(2026, 10, 11)).toEqual({ unknown: 0, semiknown: 0, known: 1 });
+		expect(last(series).totals).toEqual({ unknown: 1, semiknown: 0, known: 1 });
+	});
+});
+
+describe("activityCalendar", () => {
+	const day = (d: string, level = "unknown"): [string, string] => [level, `${d} 10:00:00`];
+
+	it("covers the last 53 weeks, from a Monday up to today", () => {
+		const calendar = activityCalendar({}, NOW);
+		expect(calendar.days[0].date.getDay()).toBe(1);
+		expect(last(calendar.days).date).toEqual(new Date(2026, 10, 25));
+		expect(calendar.days.length).toBe(52 * 7 + 3);
+		expect(calendar).toMatchObject({ max: 0, currentStreak: 0, longestStreak: 0, activeDays: 0 });
+	});
+
+	it("counts additions and level changes per day, including deleted words", () => {
+		const dict = {
+			a: word([day("2026-11-20"), day("2026-11-24", "known")]),
+			b: word([day("2026-11-24")], true),
+			c: { highlight: "None", definitions: {}, highlighthistory: [{ level: "None", timestamp: "2026-11-24 10:00:00" }], firstwordofphrase: [] },
+		};
+		const calendar = activityCalendar(dict, NOW);
+		const count = (key: string) => calendar.days.find((d) => dayKey(d.date) === key)!.count;
+		expect(count("2026-11-24")).toBe(2);
+		expect(count("2026-11-20")).toBe(1);
+		expect(calendar.max).toBe(2);
+		expect(calendar.activeDays).toBe(2);
+	});
+
+	it("works out streaks; today doesn't break one until it is over", () => {
+		const dict = {
+			a: word([day("2026-11-22"), day("2026-11-23", "semiknown"), day("2026-11-24", "known")]),
+			b: word([day("2026-10-01"), day("2026-10-02", "known"), day("2026-10-03", "unknown"), day("2026-10-04", "known")]),
+		};
+		expect(activityCalendar(dict, NOW)).toMatchObject({ currentStreak: 3, longestStreak: 4 });
+		const withToday = { ...dict, c: word([day("2026-11-25")]) };
+		expect(activityCalendar(withToday, NOW).currentStreak).toBe(4);
+		expect(activityCalendar(dict, new Date(2026, 10, 27)).currentStreak).toBe(0);
+	});
+
+	it("counts streaks across month and year ends", () => {
+		const dict = { a: word([day("2025-12-31"), day("2026-01-01", "known")]) };
+		expect(activityCalendar(dict, NOW).longestStreak).toBe(2);
 	});
 });

@@ -63,8 +63,12 @@ type Timeline = { time: number; level: string }[];
  * time. Words with no usable history fall back to their oldest definition.
  */
 function timelines(dict: DictionaryData): Timeline[] {
-	const result: Timeline[] = [];
-	for (const entry of Object.values(dict ?? {}) as (WordEntry | undefined)[]) {
+	return [...timelinesByTerm(dict).values()];
+}
+
+function timelinesByTerm(dict: DictionaryData): Map<string, Timeline> {
+	const result = new Map<string, Timeline>();
+	for (const [term, entry] of Object.entries(dict ?? {}) as [string, WordEntry | undefined][]) {
 		if (!entry) continue;
 		const definitions = Object.values(entry.definitions ?? {});
 		if (!definitions.some((d) => d && !d.deleted)) continue;
@@ -77,7 +81,7 @@ function timelines(dict: DictionaryData): Timeline[] {
 			timeline = Number.isFinite(first) ? [{ time: first, level: entry.highlight }] : [];
 		}
 		timeline.sort((a, b) => a.time - b.time);
-		if (timeline.length > 0) result.push(timeline);
+		if (timeline.length > 0) result.set(term, timeline);
 	}
 	return result;
 }
@@ -241,4 +245,49 @@ export function activityCalendar(dict: DictionaryData, now = new Date()): Activi
 		longestStreak,
 		activeDays: days.filter((day) => day.count > 0).length,
 	};
+}
+
+export interface PeriodWords {
+	/** Words that reached each level during the period, sorted. */
+	reached: Record<Level, string[]>;
+	/** Words that had no level at the start of the period and one at the end, sorted. */
+	newWords: string[];
+}
+
+/** The words behind a period's numbers: the same counting as computeProgress. */
+export function periodWords(dict: DictionaryData, period: { start: Date; end: Date }, now = new Date()): PeriodWords {
+	const start = period.start.getTime();
+	const until = Math.min(period.end.getTime(), now.getTime() + 1);
+	const result: PeriodWords = { reached: { unknown: [], semiknown: [], known: [] }, newWords: [] };
+	for (const [term, timeline] of timelinesByTerm(dict)) {
+		const before = levelAt(timeline, start);
+		const after = levelAt(timeline, until);
+		if (after === null) continue;
+		if (after !== before) result.reached[after].push(term);
+		if (before === null) result.newWords.push(term);
+	}
+	const sort = (terms: string[]) => terms.sort((a, b) => a.localeCompare(b));
+	for (const level of LEVELS) sort(result.reached[level]);
+	sort(result.newWords);
+	return result;
+}
+
+/**
+ * What happened on one day: each word added or changed, with the level it
+ * was given (its last change that day). Counts every word's history,
+ * including words deleted since, like the activity calendar.
+ */
+export function dayChanges(dict: DictionaryData, day: Date): { term: string; level: Level }[] {
+	const key = dayKey(day);
+	const changes: { term: string; level: Level }[] = [];
+	for (const [term, entry] of Object.entries(dict ?? {}) as [string, WordEntry | undefined][]) {
+		let last: { time: number; level: Level } | null = null;
+		for (const change of entry?.highlighthistory ?? []) {
+			const time = parseTimestamp(change?.timestamp);
+			if (!time || !isLevel(change.level) || dayKey(time) !== key) continue;
+			if (!last || time.getTime() >= last.time) last = { time: time.getTime(), level: change.level };
+		}
+		if (last) changes.push({ term, level: last.level });
+	}
+	return changes.sort((a, b) => a.term.localeCompare(b.term));
 }

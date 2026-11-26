@@ -108,7 +108,7 @@ export class DefinitionIndex {
 		// candidates: definitions with a word starting like the longest query word
 		const first = [...queryTokens].sort((a, b) => b.length - a.length)[0];
 		const candidates = new Set<number>();
-		for (const token of this.tokensStartingWith(first)) {
+		for (const token of tokensStartingWith(this.sortedTokens, first)) {
 			for (const i of this.byToken.get(token) ?? []) candidates.add(i);
 		}
 
@@ -133,18 +133,155 @@ export class DefinitionIndex {
 			return { ...result, coworkers: [...result.coworkers] };
 		});
 	}
+}
 
-	/** Every indexed word that starts with `prefix`, found by binary search in the sorted list. */
-	private *tokensStartingWith(prefix: string): Generator<string> {
-		let low = 0;
-		let high = this.sortedTokens.length;
-		while (low < high) {
-			const mid = (low + high) >>> 1;
-			if (this.sortedTokens[mid] < prefix) low = mid + 1;
-			else high = mid;
+export interface WordResult {
+	/** The word or phrase, e.g. "hund" or "auf jeden fall". */
+	term: string;
+	/** Your level for it, or "coworker" if only coworkers have it. */
+	highlight: string;
+	/** Your live definitions, or, if you have none, your coworkers'. */
+	definitions: { definition: string; details: Definition }[];
+	/** Coworkers the definitions come from; empty if they are yours. */
+	coworkers: string[];
+	/** True if the word or phrase was found inside the query (a sentence) rather than by its beginning. */
+	inQuery: boolean;
+}
+
+interface IndexedTerm extends Omit<WordResult, "inQuery"> {
+	tokens: string[];
+}
+
+/**
+ * An index of the words and phrases in your dictionary and your coworkers',
+ * for searching in the language being learnt.
+ */
+export class TermIndex {
+	private terms: IndexedTerm[] = [];
+	private sortedTokens: string[] = [];
+	private byToken = new Map<string, number[]>();
+	/** For finding words and phrases inside a sentence: by their first word. */
+	private byFirstToken = new Map<string, number[]>();
+
+	constructor(own: DictionaryData, coworkers: BookShelf) {
+		const live = (entry: DictionaryData[string] | undefined) =>
+			Object.entries(entry?.definitions ?? {})
+				.filter(([, details]) => details && !details.deleted)
+				.map(([definition, details]) => ({ definition, details }));
+
+		const byTerm = new Map<string, IndexedTerm>();
+		for (const [term, entry] of Object.entries(own ?? {})) {
+			const definitions = live(entry);
+			if (definitions.length === 0) continue;
+			byTerm.set(term, { term, highlight: entry.highlight, definitions, coworkers: [], tokens: tokenise(term) });
 		}
-		for (let i = low; i < this.sortedTokens.length && this.sortedTokens[i].startsWith(prefix); i++) {
-			yield this.sortedTokens[i];
+		for (const name of Object.keys(coworkers ?? {}).sort((a, b) => a.localeCompare(b))) {
+			for (const [term, entry] of Object.entries(coworkers[name] ?? {})) {
+				if (!entry || entry.highlight === "None") continue;
+				const definitions = live(entry);
+				if (definitions.length === 0) continue;
+				const existing = byTerm.get(term);
+				// yours wins; coworkers' definitions are only shown for words you haven't defined
+				if (existing && existing.coworkers.length === 0) continue;
+				if (existing) {
+					existing.coworkers.push(name);
+					for (const d of definitions) {
+						if (!existing.definitions.some((e) => e.definition === d.definition)) existing.definitions.push(d);
+					}
+				} else {
+					byTerm.set(term, { term, highlight: "coworker", definitions, coworkers: [name], tokens: tokenise(term) });
+				}
+			}
 		}
+
+		this.terms = [...byTerm.values()].filter((t) => t.tokens.length > 0);
+		for (const [i, term] of this.terms.entries()) {
+			for (const token of new Set(term.tokens)) {
+				const list = this.byToken.get(token);
+				if (list) list.push(i);
+				else this.byToken.set(token, [i]);
+			}
+			const first = this.byFirstToken.get(term.tokens[0]);
+			if (first) first.push(i);
+			else this.byFirstToken.set(term.tokens[0], [i]);
+		}
+		this.sortedTokens = [...this.byToken.keys()].sort();
 	}
+
+	get size(): number {
+		return this.terms.length;
+	}
+
+	/**
+	 * Words and phrases for a query in the language being learnt:
+	 * - those in which every word of the query begins a word ("hun" finds
+	 *   "hund"; "jeden f" finds "auf jeden fall"), the term itself first,
+	 *   then those starting with the query, then shorter ones;
+	 * - for a query of several words (a sentence), also every word and
+	 *   phrase that appears in it, in the order they appear.
+	 */
+	search(query: string, limit = 50): WordResult[] {
+		const queryTokens = tokenise(query);
+		if (queryTokens.length === 0) return [];
+		const results: WordResult[] = [];
+		const seen = new Set<number>();
+
+		const longest = [...queryTokens].sort((a, b) => b.length - a.length)[0];
+		const candidates = new Set<number>();
+		for (const token of tokensStartingWith(this.sortedTokens, longest)) {
+			for (const i of this.byToken.get(token) ?? []) candidates.add(i);
+		}
+		const rank = (term: IndexedTerm) => {
+			if (term.tokens.join(" ") === queryTokens.join(" ")) return 0;
+			if (queryTokens.every((q, j) => term.tokens[j]?.startsWith(q))) return 1;
+			return 2;
+		};
+		const matches = [...candidates]
+			.filter((i) => queryTokens.every((q) => this.terms[i].tokens.some((t) => t.startsWith(q))))
+			.map((i) => ({ i, rank: rank(this.terms[i]) }))
+			.sort(
+				(a, b) =>
+					a.rank - b.rank ||
+					Number(this.terms[a.i].coworkers.length > 0) - Number(this.terms[b.i].coworkers.length > 0) ||
+					this.terms[a.i].tokens.length - this.terms[b.i].tokens.length ||
+					this.terms[a.i].term.localeCompare(this.terms[b.i].term)
+			);
+		for (const { i } of matches) {
+			seen.add(i);
+			results.push(this.result(i, false));
+		}
+
+		// a sentence: the words and phrases in it, in order
+		if (queryTokens.length > 1) {
+			for (let start = 0; start < queryTokens.length; start++) {
+				const here = (this.byFirstToken.get(queryTokens[start]) ?? [])
+					.filter((i) => this.terms[i].tokens.every((t, j) => queryTokens[start + j] === t))
+					// longer phrases first
+					.sort((a, b) => this.terms[b].tokens.length - this.terms[a].tokens.length);
+				for (const i of here) {
+					if (seen.has(i)) continue;
+					seen.add(i);
+					results.push(this.result(i, true));
+				}
+			}
+		}
+		return results.slice(0, limit);
+	}
+
+	private result(i: number, inQuery: boolean): WordResult {
+		const { tokens, ...term } = this.terms[i];
+		return { ...term, coworkers: [...term.coworkers], definitions: [...term.definitions], inQuery };
+	}
+}
+
+/** Every word in a sorted list that starts with `prefix`, found by binary search. */
+function* tokensStartingWith(sorted: string[], prefix: string): Generator<string> {
+	let low = 0;
+	let high = sorted.length;
+	while (low < high) {
+		const mid = (low + high) >>> 1;
+		if (sorted[mid] < prefix) low = mid + 1;
+		else high = mid;
+	}
+	for (let i = low; i < sorted.length && sorted[i].startsWith(prefix); i++) yield sorted[i];
 }

@@ -1,26 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkNewUserName, usersFromDictionaries } from "../users";
-
-describe("usersFromDictionaries", () => {
-	it("lists the dictionaries by name, sorted, without conflict copies", () => {
-		expect(
-			usersFromDictionaries([
-				"dicts/peter.json",
-				"dicts/Anna Maria.json",
-				"dicts/maria.sync-conflict-20261125-143012-ABC1234.json",
-				"dicts/notes.txt",
-			])
-		).toEqual(["Anna Maria", "peter"]);
-	});
-
-	it("lists a user with files in two folders once", () => {
-		expect(usersFromDictionaries(["Langsoft/maria.json", ".langsoft_dictionaries/maria.json"])).toEqual(["maria"]);
-	});
-
-	it("is empty when there are no dictionaries", () => {
-		expect(usersFromDictionaries([])).toEqual([]);
-	});
-});
+import { checkNewUserName } from "../users";
 
 describe("checkNewUserName", () => {
 	const existing = ["Maria", "peter"];

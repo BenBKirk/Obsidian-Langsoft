@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { Notice } from "./obsidian-stub";
-import { FakeAdapter, FOLDER, LEGACY, makeManager } from "./fake-vault";
+import { FakeAdapter, FOLDER, LEGACY, makeManager, putDevice, readDevice } from "./fake-vault";
 import type { DictionaryData } from "../dictionaries";
 
-// Before version 1.2, dictionaries were kept in the hidden folder LEGACY.
+// Older layouts, which are read and merged in but never written:
+// - 1.2: one file per user in the dictionary folder (FLAT)
+// - 1.1 and earlier: one file per user in the hidden folder (OLD)
 
-const OWN = `${FOLDER}/maria.json`;
-const OLD_OWN = `${LEGACY}/maria.json`;
+const FLAT = `${FOLDER}/maria.json`;
+const OLD = `${LEGACY}/maria.json`;
 
 const word = (highlight: string, definition: string, timestamp = "2026-01-01 10:00:00"): DictionaryData[string] => ({
 	highlight,
@@ -23,95 +25,106 @@ beforeEach(() => {
 	Notice.shown = [];
 });
 
-describe("your own dictionary in the old folder", () => {
-	it("is copied to the new folder on the first run, leaving the old file alone", async () => {
-		adapter.put(OLD_OWN, { hund: word("known", "dog") });
-		const before = { ...adapter.files.get(OLD_OWN)! };
+describe("your dictionary from an older version", () => {
+	it("is copied into this device's file on the first run, leaving the old file alone", async () => {
+		adapter.put(FLAT, { hund: word("known", "dog") });
+		const before = { ...adapter.files.get(FLAT)! };
 		const { manager } = await makeManager(adapter);
 
-		expect(adapter.json(OWN)).toEqual({ hund: word("known", "dog") });
+		expect(readDevice(adapter)).toEqual({ hund: word("known", "dog") });
 		expect(manager.userDict.hund.highlight).toBe("known");
-		expect(adapter.files.get(OLD_OWN)).toEqual(before);
-		expect(Notice.shown.join()).toMatch(/copied your dictionary/);
+		expect(adapter.files.get(FLAT)).toEqual(before);
+		expect(Notice.shown.join()).toMatch(/now saved on this device/);
 	});
 
-	it("is merged in when it has words the new file doesn't", async () => {
-		adapter.put(OWN, { hund: word("known", "dog") });
-		adapter.put(OLD_OWN, { hund: word("known", "dog"), katze: word("unknown", "cat") });
-		const { manager } = await makeManager(adapter);
+	it("is copied from the old hidden folder too", async () => {
+		adapter.put(OLD, { hund: word("known", "dog") });
+		await makeManager(adapter);
 
-		expect(Object.keys(manager.userDict).sort()).toEqual(["hund", "katze"]);
-		expect(Object.keys(adapter.json(OWN)).sort()).toEqual(["hund", "katze"]);
+		expect(readDevice(adapter)).toEqual({ hund: word("known", "dog") });
 	});
 
-	it("keeps being merged in when a device on an old version changes it", async () => {
-		adapter.put(OLD_OWN, { hund: word("known", "dog") });
+	it("is merged from every layout at once", async () => {
+		adapter.put(FLAT, { hund: word("known", "dog") });
+		adapter.put(OLD, { katze: word("unknown", "cat") });
+		putDevice(adapter, { maus: word("unknown", "mouse") }, "maria", "mobile-0000ffff");
 		const { manager } = await makeManager(adapter);
 
-		// the phone, still on 1.1, adds a word to the old file
-		adapter.put(OLD_OWN, { hund: word("known", "dog"), maus: word("unknown", "mouse", "2026-01-02 10:00:00") });
-		await manager.reloadOtherDictsIfChanged(); // switching notes
-		await manager.flush();
-
-		expect(Object.keys(adapter.json(OWN)).sort()).toEqual(["hund", "maus"]);
+		expect(Object.keys(manager.userDict).sort()).toEqual(["hund", "katze", "maus"]);
+		expect(Object.keys(readDevice(adapter)).sort()).toEqual(["hund", "katze", "maus"]);
 	});
 
-	it("does not cause a save when nothing changed", async () => {
-		adapter.put(OLD_OWN, { hund: word("known", "dog") });
+	it("keeps being merged in when a device on an older version changes it", async () => {
+		adapter.put(FLAT, { hund: word("known", "dog") });
 		const { manager } = await makeManager(adapter);
-		const saved = adapter.files.get(OWN)!.mtime;
 
+		// the phone, still on 1.2, adds a word
+		adapter.put(FLAT, { hund: word("known", "dog"), maus: word("unknown", "mouse", "2026-01-02 10:00:00") });
 		await manager.reloadOtherDictsIfChanged();
 		await manager.flush();
-		const second = await makeManager(adapter); // e.g. restarting Obsidian
-		await second.manager.flush();
 
-		expect(adapter.files.get(OWN)!.mtime).toBe(saved);
-	});
-
-	it("is not copied when it can't be read", async () => {
-		adapter.put(OLD_OWN, "{ broken");
-		const { manager } = await makeManager(adapter);
-
-		expect(adapter.files.has(OWN)).toBe(false);
-		expect(manager.userDict).toEqual({});
-		expect(adapter.files.get(OLD_OWN)!.data).toBe("{ broken");
+		expect(Object.keys(readDevice(adapter)).sort()).toEqual(["hund", "maus"]);
 	});
 
 	it("is never written to", async () => {
-		adapter.put(OLD_OWN, { hund: word("known", "dog") });
+		adapter.put(FLAT, { hund: word("known", "dog") });
+		adapter.put(OLD, { hund: word("known", "dog") });
+		const before = [{ ...adapter.files.get(FLAT)! }, { ...adapter.files.get(OLD)! }];
 		const { manager } = await makeManager(adapter);
-		const before = { ...adapter.files.get(OLD_OWN)! };
 
 		manager.addNewDefinition("katze", "unknown", "cat", { deleted: false, timestamp: "2026-01-02 10:00:00", sentence: "" });
 		await manager.writeUserDictToJson();
 
-		expect(adapter.files.get(OLD_OWN)).toEqual(before);
-		expect(Object.keys(adapter.json(OWN)).sort()).toEqual(["hund", "katze"]);
+		expect([adapter.files.get(FLAT), adapter.files.get(OLD)]).toEqual(before);
+	});
+
+	it("is left out with a notice when it can't be read, and not overwritten", async () => {
+		adapter.put(FLAT, "{ broken");
+		const { manager } = await makeManager(adapter);
+
+		expect(manager.userDict).toEqual({});
+		expect(adapter.files.get(FLAT)!.data).toBe("{ broken");
+		expect(Notice.shown.join()).toMatch(/maria\.json can't be read/);
 	});
 });
 
-describe("coworkers' dictionaries in the old folder", () => {
-	it("are shown for coworkers who haven't updated yet", async () => {
-		adapter.put(OWN, {});
+describe("conflict copies of your dictionary", () => {
+	it("have their words merged in, with a notice", async () => {
+		adapter.put(FLAT, { hund: word("known", "dog") });
+		// the side that lost the conflict had a word the other didn't
+		adapter.put(`${FOLDER}/maria.sync-conflict-20261125-143012-ABC1234.json`, { katze: word("unknown", "cat") });
+		adapter.put(`${LEGACY}/maria.sync-conflict-20261120-090000-ABC1234.json`, { maus: word("unknown", "mouse") });
+		const { manager } = await makeManager(adapter);
+
+		expect(Object.keys(manager.userDict).sort()).toEqual(["hund", "katze", "maus"]);
+		expect(Object.keys(readDevice(adapter)).sort()).toEqual(["hund", "katze", "maus"]);
+		expect(Notice.shown.filter((n) => /conflict copy/.test(n))).toHaveLength(2);
+		expect(manager.otherDicts).toEqual({});
+	});
+});
+
+describe("coworkers on older versions", () => {
+	it("are shown from the old hidden folder", async () => {
+		putDevice(adapter, {});
 		adapter.put(`${LEGACY}/peter.json`, { hund: word("known", "dog") });
 		const { manager } = await makeManager(adapter);
 
 		expect(Object.keys(manager.otherDicts)).toEqual(["peter"]);
 	});
 
-	it("are merged with the coworker's file in the new folder", async () => {
-		adapter.put(OWN, {});
-		adapter.put(`${FOLDER}/peter.json`, { hund: word("known", "dog") });
-		adapter.put(`${LEGACY}/peter.json`, { katze: word("unknown", "cat") });
+	it("have every layout merged", async () => {
+		putDevice(adapter, {});
+		putDevice(adapter, { hund: word("known", "dog") }, "peter");
+		adapter.put(`${FOLDER}/peter.json`, { katze: word("unknown", "cat") });
+		adapter.put(`${LEGACY}/peter.json`, { maus: word("unknown", "mouse") });
 		const { manager } = await makeManager(adapter);
 
-		expect(Object.keys(manager.otherDicts.peter).sort()).toEqual(["hund", "katze"]);
+		expect(Object.keys(manager.otherDicts.peter).sort()).toEqual(["hund", "katze", "maus"]);
 	});
 
-	it("are reloaded when the old file changes", async () => {
-		adapter.put(OWN, {});
-		adapter.put(`${FOLDER}/peter.json`, { hund: word("known", "dog") });
+	it("are reloaded when an old file changes", async () => {
+		putDevice(adapter, {});
+		putDevice(adapter, { hund: word("known", "dog") }, "peter");
 		adapter.put(`${LEGACY}/peter.json`, {});
 		const { manager } = await makeManager(adapter);
 
@@ -120,21 +133,12 @@ describe("coworkers' dictionaries in the old folder", () => {
 
 		expect(Object.keys(manager.otherDicts.peter).sort()).toEqual(["hund", "katze"]);
 	});
-
-	it("include your own conflict copies in the notice", async () => {
-		adapter.put(OWN, {});
-		adapter.put(`${LEGACY}/maria.sync-conflict-20261125-143012-ABC1234.json`, {});
-		const { manager } = await makeManager(adapter);
-
-		expect(manager.otherDicts).toEqual({});
-		expect(Notice.shown.join()).toMatch(/conflict copy/);
-	});
 });
 
 describe("with a folder of your own choosing", () => {
-	it("the old folder is ignored", async () => {
-		adapter.put("Mine/maria.json", {});
-		adapter.put(OLD_OWN, { hund: word("known", "dog") });
+	it("the old hidden folder is ignored", async () => {
+		adapter.put("Mine/maria/desktop-0000test.json", JSON.stringify({ format: 2, words: {} }));
+		adapter.put(OLD, { hund: word("known", "dog") });
 		adapter.put(`${LEGACY}/peter.json`, { hund: word("known", "dog") });
 		const { manager } = await makeManager(adapter, "maria", "Mine");
 

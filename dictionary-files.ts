@@ -44,22 +44,6 @@ export function parseDictionary<T = Record<string, unknown>>(text: string): { di
 }
 
 /**
- * Group dictionary files by whose they are, e.g. one user's file in the
- * current folder and in the old one. Conflict copies and files that aren't
- * JSON are left out. Paths keep their order within each group.
- */
-export function groupDictionaries(paths: string[]): Map<string, string[]> {
-	const groups = new Map<string, string[]>();
-	for (const path of paths) {
-		if (!path.endsWith(".json") || isSyncConflict(path)) continue;
-		const name = dictionaryName(path);
-		if (name === "") continue;
-		groups.set(name, [...(groups.get(name) ?? []), path]);
-	}
-	return groups;
-}
-
-/**
  * One file that holds (part of) a user's dictionary.
  *
  * - "device": `<folder>/<user>/<device>.json`, written by one device only (1.3 and later)

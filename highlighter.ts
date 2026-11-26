@@ -10,6 +10,7 @@ import {
 } from '@codemirror/view';
 import LangsoftPlugin from "main";
 import type { DictionaryData } from "dictionaries";
+import { termKey } from "words";
 import { StateField, StateEffect } from "@codemirror/state";
 
 // Define an effect to signal updates
@@ -73,31 +74,24 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 				index: number
 			) {
 				const dict = this.plugin?.dictManager?.userDict;
-				const result = dict?.[word.text.trim().toLowerCase()];
+				const key = termKey(word.text);
+				const result = dict?.[key];
 
-				// if (!result) return;
-
-				// if (!result) { //if there is nothing in the primary dictionary, check other users dictionarys
-				// for (let i = 0; i < this.plugin?.dictManager?.otherDicts.; i++)
-				if (this.plugin.dictManager.otherDicts) {
-					for (const [name, dict] of Object.entries(this.plugin.dictManager.otherDicts)) {
-						const otherresult = dict?.[word.text.trim().toLowerCase()];
-						if (otherresult) {
-							if (!result && otherresult.highlight != "None") {
-								builder.add(word.from, word.to, Decoration.mark({ class: "coworker" }))
-
-							}
-							if (Array.isArray(otherresult.firstwordofphrase)) {
-								for (const phrase of otherresult.firstwordofphrase) {
-									this.highlightPhrase(builder, phrase, words, index, true, dict)
-								}
-							}
-
+				// coworkers' words: blue only if the word isn't in your dictionary at all
+				let markedCoworker = false;
+				for (const otherDict of Object.values(this.plugin.dictManager.otherDicts ?? {})) {
+					const otherresult = otherDict?.[key];
+					if (!otherresult) continue;
+					if (!result && !markedCoworker && otherresult.highlight != "None") {
+						builder.add(word.from, word.to, Decoration.mark({ class: "coworker" }));
+						markedCoworker = true;
+					}
+					if (Array.isArray(otherresult.firstwordofphrase)) {
+						for (const phrase of otherresult.firstwordofphrase) {
+							this.highlightPhrase(builder, phrase, words, index, true, otherDict);
 						}
 					}
 				}
-
-				// } else {
 
 				if (!result) return;
 				// Highlight the single word
@@ -109,8 +103,6 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 						this.highlightPhrase(builder, phrase, words, index, false, dict);
 					}
 				}
-
-				// }
 
 			}
 
@@ -124,7 +116,7 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 			) {
 				if (!phrase) return;
 				// const regex = /\b\w+\b/g;
-				const parts = this.plugin.parseIntoWords(phrase.trim().toLowerCase(), 0)
+				const parts = this.plugin.parseIntoWords(termKey(phrase), 0)
 				// const regex = /[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu;
 				// const parts = phrase.match(regex);
 				if (!parts) return;
@@ -135,13 +127,13 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 
 
 				for (let i = 0; i < parts.length; i++) {
-					reconstructedPhrase.push(parts[i].text.toLowerCase())
+					reconstructedPhrase.push(parts[i].text)
 					const nextWord = words[index + i];
 					if (!nextWord) {
 						lookAhead.length = 0;
 						break;
 					}
-					lookAhead.push(nextWord.text.toLowerCase());
+					lookAhead.push(termKey(nextWord.text));
 					if (i === parts.length - 1) {
 						end = nextWord.to;
 					}
@@ -153,6 +145,8 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 					const phraseResult = dict?.[phrase];
 					if (phraseResult) {
 						if (iscoworker) {
+							// as for single words: only phrases you don't have, and that the coworker has a level for
+							if (phraseResult.highlight === "None" || this.plugin.dictManager.userDict?.[phrase]) return;
 							builder.add(
 								words[index].from,
 								end,

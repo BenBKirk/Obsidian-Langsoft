@@ -4,7 +4,7 @@ import { createSelectionHighlightPlugin, createHighlightPlugin, TriggerEffect, T
 import { DEFAULT_SETTINGS, LangsoftPluginSettings, LangsoftSettingsTab } from "settings";
 import { DictionaryManager } from "dictionaries";
 import { VIEW_TYPE_DEFINER, DefinerView } from "definer";
-import { buildSelectionContext, findWordAt, parseIntoWords as splitIntoWords } from "words";
+import { buildSelectionContext, findWordAt, parseIntoWords as splitIntoWords, termKey } from "words";
 import { DEFAULT_FOLDER, LEGACY_FOLDER } from "dictionary-files";
 import { UserModal } from "user-modal";
 import { SearchModal } from "search-modal";
@@ -614,7 +614,7 @@ export default class LangsoftPlugin extends Plugin {
 		const match = findWordAt(line.text, pos - line.from);
 		if (!match) return null;
 
-		const word = match.text.toLowerCase();
+		const word = termKey(match.text);
 		const def = this.dictManager.userDict[word];
 		if (!def || def.highlight === "None") return null;
 

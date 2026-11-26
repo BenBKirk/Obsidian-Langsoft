@@ -1,5 +1,5 @@
 import type LangsoftPlugin from "main";
-import { moment, normalizePath, Notice } from "obsidian";
+import { normalizePath, Notice } from "obsidian";
 import {
 	classifyDictionaryPath,
 	DEFAULT_FOLDER,
@@ -9,7 +9,9 @@ import {
 	parseSource,
 	serializeDeviceFile,
 } from "dictionary-files";
-import { mergeDictionaries } from "merge";
+import { mergeDictionaries, normalizeKeys } from "merge";
+import { termKey } from "words";
+import { nowTimestamp } from "time";
 
 
 export interface Definition {
@@ -181,7 +183,8 @@ export class DictionaryManager {
 				try {
 					const result = parseSource<DictionaryData>(source, await adapter.read(source.path));
 					if ("error" in result) throw new Error(result.error);
-					combined = combined ? mergeDictionaries(combined, result.dict) : result.dict;
+					const dict = normalizeKeys(result.dict);
+					combined = combined ? mergeDictionaries(combined, dict) : dict;
 					// only remembered once the file has been read successfully, so a broken file is retried
 					this.coworkerMtimes[source.path] = stats[i]?.mtime;
 				} catch (e) {
@@ -253,7 +256,7 @@ export class DictionaryManager {
 				this.markUnreadable(path, result.error);
 				return;
 			}
-			this.userDict = result.dict;
+			this.userDict = normalizeKeys(result.dict);
 			this.deviceFileMtime = stat?.mtime;
 		}
 		await this.mergeOwnSourcesIfChanged();
@@ -286,7 +289,7 @@ export class DictionaryManager {
 				continue;
 			}
 			this.reportedUnreadable.delete(source.path);
-			this.userDict = mergeDictionaries(this.userDict, result.dict);
+			this.userDict = mergeDictionaries(this.userDict, normalizeKeys(result.dict));
 			this.ownSourceMtimes[source.path] = stat.mtime;
 		}
 
@@ -343,7 +346,7 @@ export class DictionaryManager {
 		}
 		const wasUnreadable = this.unreadableReason !== null;
 		this.unreadableReason = null;
-		this.userDict = mergeDictionaries(result.dict, this.userDict);
+		this.userDict = mergeDictionaries(normalizeKeys(result.dict), this.userDict);
 		this.deviceFileMtime = stat.mtime;
 		if (wasUnreadable) {
 			new Notice(`Langsoft: your dictionary ${path} can be read again, and changes are saved again.`);
@@ -377,8 +380,8 @@ export class DictionaryManager {
 	}
 
 	writeHighlightChangeToJson(term: string, level: string) {
-		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
-		const entry = this.userDict[term.trim().toLowerCase()];
+		const timestamp = nowTimestamp();
+		const entry = this.userDict[termKey(term)];
 		if (entry) {
 			entry.highlighthistory.push({ level: level, timestamp: timestamp })
 			entry.highlight = level;
@@ -390,7 +393,7 @@ export class DictionaryManager {
 
 
 	addNewDefinition(term: string, level: string, defText: string, context: Definition) {
-		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
+		const timestamp = nowTimestamp();
 		const sameTermFound = this.userDict[term];
 		if (sameTermFound) { // just update the existing word / phrase
 			// check if there is already a matching definition
@@ -455,7 +458,7 @@ export class DictionaryManager {
 			if (!otherDefinitionExists) {
 				this.userDict[term].highlight = "None";
 				// record when the word was removed, so progress statistics can place it in time
-				const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
+				const timestamp = nowTimestamp();
 				this.userDict[term].highlighthistory.push({ level: "None", timestamp });
 			}
 			this.writeUserDictToJson();
@@ -474,7 +477,7 @@ export class DictionaryManager {
 		const entry = this.userDict[term];
 		const details = entry?.definitions[definition];
 		if (!details) return;
-		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
+		const timestamp = nowTimestamp();
 		entry.definitions[definition] = { ...details, deleted: false, timestamp };
 		if (entry.highlight === "None") {
 			entry.highlight = level;
@@ -494,7 +497,7 @@ export class DictionaryManager {
 		const details = entry?.definitions[from];
 		const text = to.trim().toLowerCase();
 		if (!details || details.deleted || text === "" || text === from) return;
-		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
+		const timestamp = nowTimestamp();
 		const existing = entry.definitions[text];
 		if (!existing || existing.deleted) {
 			entry.definitions[text] = { ...details, deleted: false, timestamp };

@@ -62,7 +62,7 @@ Older versions kept one file per person: `Langsoft/<name>.json` in 1.2, and `.la
 
 ### Using several devices
 
-Use the same user on as many devices as you like. Each device has its own file, and changes from your other devices are merged in when you switch notes. Keep the devices in the same time zone: when the same definition or level was changed on two devices, the most recent change wins, judged by its timestamp.
+Use the same user on as many devices as you like. Each device has its own file, and changes from your other devices are merged in when you switch notes. When the same definition or level was changed on two devices, the most recent change wins. From version 1.8, changes are timestamped in UTC, so this works across time zones; changes saved by older versions have no time zone and are read in the local time of the device doing the merge.
 
 If Syncthing ever made conflict copies of your dictionary (`...sync-conflict-....json`), for example with an older version, Langsoft merges their words in and shows a notice. Once you've checked nothing is missing, you can delete the copies.
 
@@ -95,13 +95,14 @@ For quick testing, clone the repository into `<vault>/.obsidian/plugins/langsoft
 | `progress.ts`, `team.ts`, `progress-view.ts` | Progress and team statistics, and the progress page |
 | `coverage.ts`, `coverage-panel.ts` | How much of a note you know, and the bar showing it |
 | `locate.ts` | Finding the sentence a definition was added in |
+| `time.ts` | Saving and comparing timestamps |
 | `merge.ts` | Merging two versions of a dictionary |
 | `dictionary-files.ts` | Dictionary file layouts, the device file format, and conflict copies |
 | `user-modal.ts` | The "Who are you?" window |
 | `users.ts` | Listing users and checking new user names |
 | `words.ts` | Splitting text into words |
 
-`words.ts`, `users.ts`, `search.ts`, `locate.ts`, `progress.ts`, `team.ts`, `coverage.ts`, `merge.ts` and `dictionary-files.ts` don't depend on Obsidian. The tests in `tests/` cover them, and run `DictionaryManager` against an in-memory vault (`tests/fake-vault.ts`) with a stand-in for the `obsidian` module (`tests/obsidian-stub.ts`).
+`words.ts`, `users.ts`, `search.ts`, `locate.ts`, `progress.ts`, `team.ts`, `coverage.ts`, `time.ts`, `merge.ts` and `dictionary-files.ts` don't depend on Obsidian. The tests in `tests/` cover them, and run `DictionaryManager` against an in-memory vault (`tests/fake-vault.ts`) with a stand-in for the `obsidian` module (`tests/obsidian-stub.ts`).
 
 ## Releasing
 

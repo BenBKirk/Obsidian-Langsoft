@@ -23,9 +23,13 @@ export class DefinerPanel {
 	/** The selected level: "unknown", "semiknown", "known", or "none" before a word is chosen. */
 	private level = "none";
 
-	constructor(container: HTMLElement, plugin: LangsoftPlugin) {
+	/** In compact mode (the phone panel), the big title and spacing are left out. */
+	private compact: boolean;
+
+	constructor(container: HTMLElement, plugin: LangsoftPlugin, options: { compact?: boolean } = {}) {
 		this.plugin = plugin;
 		this.app = plugin.app;
+		this.compact = options.compact ?? false;
 		this.render(container);
 	}
 
@@ -34,15 +38,14 @@ export class DefinerPanel {
 		container.empty();
 		container.addClass("langsoft-definer");
 
-		container.createEl("h1", { text: "Langsoft 📖" });
-		// const searchEl = container.createEl("h5", { text: "Word / Phrase: " });
-		// const searchEl = container.createEl("h5", { text: "" });
+		if (!this.compact) container.createEl("h1", { text: "Langsoft 📖" });
 		this.selectedTextComponent = new TextAreaComponent(container);
-		// this.searchTerm = new SearchComponent(searchEl);
-		this.selectedTextComponent.setPlaceholder("Select some text in main window");
+		this.selectedTextComponent.setPlaceholder(
+			Platform.isMobile ? "Long-press a word in your note" : "Select some text in main window"
+		);
 		this.selectedTextComponent.setDisabled(true);
 
-		container.createEl("h1", { text: " " });
+		if (!this.compact) container.createEl("h1", { text: " " });
 
 		this.unknownButton = new ButtonComponent(container);
 		this.unknownButton.setIcon("plane-takeoff")
@@ -88,7 +91,7 @@ export class DefinerPanel {
 			this.changeKnownLevelButtonColor("known");
 		})
 
-		container.createEl("h1", { text: "" }); // create some space
+		if (!this.compact) container.createEl("h1", { text: "" }); // create some space
 
 		const userDictEl = container.createEl("div", { text: "My Definitions: " });
 

@@ -1,4 +1,4 @@
-import { Editor, MarkdownView, Platform, Plugin, TFile, WorkspaceLeaf } from "obsidian";
+import { debounce, Editor, MarkdownView, Platform, Plugin, TFile, WorkspaceLeaf } from "obsidian";
 import { EditorView, hoverTooltip } from "@codemirror/view";
 import { createSelectionHighlightPlugin, createHighlightPlugin, TriggerEffect, TriggerField } from "highlighter";
 import { DEFAULT_SETTINGS, LangsoftPluginSettings, LangsoftSettingsTab } from "settings";
@@ -8,6 +8,8 @@ import { buildSelectionContext, findWordAt, parseIntoWords as splitIntoWords } f
 import { DEFAULT_FOLDER, LEGACY_FOLDER } from "dictionary-files";
 import { UserModal } from "user-modal";
 import { SearchModal } from "search-modal";
+import { createDefinerBottomPanel } from "definer-bottom-panel";
+import type { DefinerPanel } from "definer-panel";
 
 
 export default class LangsoftPlugin extends Plugin {
@@ -22,6 +24,8 @@ export default class LangsoftPlugin extends Plugin {
 	 */
 	deviceId = "";
 	statusBarEl: HTMLElement;
+	/** The Definer at the bottom of the editor, used on phones. */
+	bottomPanel = createDefinerBottomPanel(this);
 	settingsTab: LangsoftSettingsTab;
 	dictManager: DictionaryManager;
 	styleEl: Element;
@@ -43,6 +47,18 @@ export default class LangsoftPlugin extends Plugin {
 		this.registerEditorExtension(this.myViewPlugin);
 		this.registerEditorExtension(this.mySelectionViewPlugin);
 		this.registerEditorExtension(TriggerField);
+		this.registerEditorExtension(this.bottomPanel.extension);
+
+		// On phones and tablets, show what is selected in the note: long-pressing
+		// a word selects it. Waits until the selection has stopped changing.
+		if (Platform.isMobile) {
+			const showSelection = debounce(() => this.showEditorSelection(), 600, true);
+			this.registerEditorExtension(
+				EditorView.updateListener.of((update) => {
+					if (update.selectionSet && !update.state.selection.main.empty) showSelection();
+				})
+			);
+		}
 
 		this.dictManager = new DictionaryManager(this);
 		this.dictManager.init();
@@ -55,6 +71,15 @@ export default class LangsoftPlugin extends Plugin {
 			VIEW_TYPE_DEFINER,
 			(leaf) => new DefinerView(leaf, this)
 		);
+
+		this.addCommand({
+			id: "define-selection",
+			name: "Define selection",
+			editorCallback: async () => {
+				const definer = await this.showEditorSelection(true);
+				if (!Platform.isMobile) definer?.getFocus();
+			},
+		});
 
 		this.addCommand({
 			id: "search-definitions",
@@ -83,6 +108,8 @@ export default class LangsoftPlugin extends Plugin {
 
 
 		this.registerDomEvent(document.body, "mouseup", async (event) => {
+			// desktop only: touch screens send mouse events for every tap; see showEditorSelection
+			if (Platform.isMobile) return;
 			this.SelectedText = [];
 			const editor = this.app.workspace.activeEditor?.editor;
 			if (!editor) return;
@@ -146,7 +173,7 @@ export default class LangsoftPlugin extends Plugin {
 				if (!this.lastFile || file.path !== this.lastFile.path) {
 					this.lastFile = file;
 					this.SelectedText = [];
-					this.getDefinerViewLeaf()?.handleSelection("", "");
+					this.getDefiner()?.handleSelection("", "");
 				}
 
 
@@ -223,6 +250,51 @@ export default class LangsoftPlugin extends Plugin {
 		}
 	}
 
+
+	/** Whether the Definer is shown at the bottom of the editor rather than in the sidebar. */
+	usesBottomPanel(): boolean {
+		return Platform.isPhone;
+	}
+
+	/** The CodeMirror view of the note being edited, if any. */
+	private activeEditorView(): EditorView | null {
+		const editor = this.app.workspace.activeEditor?.editor as unknown as { cm?: EditorView } | undefined;
+		return editor?.cm ?? null;
+	}
+
+	/** The Definer if it is open: the bottom panel on phones, the sidebar elsewhere. */
+	getDefiner(): DefinerPanel | null {
+		if (this.usesBottomPanel()) {
+			const view = this.activeEditorView();
+			return view ? this.bottomPanel.get(view) : null;
+		}
+		return this.getDefinerViewLeaf()?.panel ?? null;
+	}
+
+	/** Open the Definer if needed, and return it once it is ready. */
+	async openDefiner(): Promise<DefinerPanel | null> {
+		const view = this.usesBottomPanel() ? this.activeEditorView() : null;
+		// on a phone with no note open, the sidebar is the only place to show it
+		if (view) return this.bottomPanel.openIn(view);
+		return (await this.activateView())?.panel ?? null;
+	}
+
+	/**
+	 * Show the text selected in the note in the Definer. With `selectWord`,
+	 * select the word at the cursor if nothing is selected.
+	 */
+	async showEditorSelection(selectWord = false): Promise<DefinerPanel | null> {
+		const editor = this.app.workspace.activeEditor?.editor;
+		if (!editor) return null;
+		let selection = editor.getSelection().trim();
+		if (selection === "" && selectWord) selection = this.selectWordAtCursor(editor) ?? "";
+		// nothing to show, or a whole paragraph rather than a word or phrase
+		if (selection === "" || selection.length > 200) return null;
+		const context = this.getContextForSelection(editor);
+		const definer = await this.openDefiner();
+		definer?.handleSelection(selection, context);
+		return definer;
+	}
 
 	/** The open Definer sidebar, or null if it isn't open. */
 	getDefinerViewLeaf(): DefinerView | null {
@@ -391,7 +463,7 @@ export default class LangsoftPlugin extends Plugin {
 		this.storeCurrentUser(name);
 		this.SelectedText = [];
 		await this.dictManager.init();
-		this.getDefinerViewLeaf()?.handleSelection("", "");
+		this.getDefiner()?.handleSelection("", "");
 		this.updateStatusBar();
 	}
 
@@ -488,7 +560,8 @@ export default class LangsoftPlugin extends Plugin {
 
 
 	getContextForSelection(editor: Editor) {
-		const cursor = editor.getCursor();
+		// the end of the selection, whichever way it was made
+		const cursor = editor.getCursor("to");
 		return buildSelectionContext(editor.getLine(cursor.line), cursor.ch, editor.getSelection());
 	}
 

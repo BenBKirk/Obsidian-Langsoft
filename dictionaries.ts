@@ -52,6 +52,8 @@ export class DictionaryManager {
 	}
 
 	async init() {
+		// let saves of the dictionary that was loaded before finish first
+		await this.flush();
 		this.userDict = {};
 		this.userDictMtime = undefined;
 		this.otherDicts = {};
@@ -65,7 +67,7 @@ export class DictionaryManager {
 
 	/** Path of the current user's own dictionary. */
 	userDictPath(): string {
-		return normalizePath(`${this.dictFolder}/${this.plugin.settings.currentUser}.json`);
+		return normalizePath(`${this.dictFolder}/${this.plugin.currentUser}.json`);
 	}
 
 	/**
@@ -116,7 +118,7 @@ export class DictionaryManager {
 
 	/** Tell the user, once per file, about conflict copies of their own dictionary. */
 	private reportSyncConflicts() {
-		const user = this.plugin.settings.currentUser;
+		const user = this.plugin.currentUser;
 		for (const path of this.availableDictionaries.filter(isSyncConflict)) {
 			if (conflictOwner(path) !== user || this.reportedConflicts.has(path)) continue;
 			this.reportedConflicts.add(path);
@@ -166,7 +168,7 @@ export class DictionaryManager {
 	reloadUserDictIfChanged(): Promise<void> {
 		return this.queueUserDictTask(async () => {
 			const path = this.userDictPath();
-			if (!this.plugin.settings.currentUser || !(await this.plugin.app.vault.adapter.exists(path))) return;
+			if (!this.plugin.currentUser || !(await this.plugin.app.vault.adapter.exists(path))) return;
 			if (await this.mergeChangesFromDisk(path)) {
 				this.plugin.refreshHighlights();
 			}
@@ -194,6 +196,11 @@ export class DictionaryManager {
 		this.userDict = mergeDictionaries(onDisk, this.userDict);
 		this.userDictMtime = stat.mtime;
 		return true;
+	}
+
+	/** Wait until every read and save of the user's dictionary started so far has finished. */
+	flush(): Promise<void> {
+		return this.userDictQueue;
 	}
 
 	private queueUserDictTask(task: () => Promise<void>): Promise<void> {
@@ -308,8 +315,12 @@ export class DictionaryManager {
 		return this.queueUserDictTask(async () => {
 			const path = this.userDictPath();
 			// only write to a dictionary the user has set up, never create one under an empty or mistyped name
-			if (!this.plugin.settings.currentUser || !(await this.plugin.app.vault.adapter.exists(path))) {
-				new Notice("Langsoft: no dictionary is set up for you yet, so this change was not saved. See the README for how to set one up.");
+			if (!this.plugin.currentUser) {
+				new Notice('Langsoft: this change was not saved because no user is chosen. Run the command "Langsoft: Switch user" to choose one.');
+				return;
+			}
+			if (!(await this.plugin.app.vault.adapter.exists(path))) {
+				new Notice(`Langsoft: this change was not saved because ${path} doesn't exist. Run the command "Langsoft: Switch user" to choose or create your user.`);
 				return;
 			}
 			const merged = await this.mergeChangesFromDisk(path);

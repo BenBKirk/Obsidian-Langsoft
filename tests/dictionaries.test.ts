@@ -197,3 +197,24 @@ describe("coworkers' dictionaries", () => {
 		expect(Object.keys(manager.otherDicts)).toEqual(["peter"]);
 	});
 });
+
+describe("switching user", () => {
+	it("finishes saving the previous user's changes to their own file", async () => {
+		adapter.put(OWN, {});
+		adapter.put(`${FOLDER}/peter.json`, { katze: word("known", "cat") });
+		const { manager, plugin } = await makeManager(adapter);
+
+		manager.addNewDefinition("hund", "unknown", "dog", context());
+		manager.writeUserDictToJson(); // not awaited, like the sidebar's calls
+
+		// what LangsoftPlugin.switchUser does
+		await manager.flush();
+		plugin.currentUser = "peter";
+		await manager.init();
+
+		expect(Object.keys(adapter.json(OWN))).toEqual(["hund"]);
+		expect(Object.keys(adapter.json(`${FOLDER}/peter.json`))).toEqual(["katze"]);
+		expect(Object.keys(manager.userDict)).toEqual(["katze"]);
+		expect(Object.keys(manager.otherDicts)).toEqual(["maria"]);
+	});
+});

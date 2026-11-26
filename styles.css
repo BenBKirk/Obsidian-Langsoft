@@ -25,3 +25,9 @@ If your plugin does not need CSS, delete this file.
 
 
 
+
+/* message under the name field in the "Who are you?" window */
+.langsoft-user-error {
+    color: var(--text-error);
+    min-height: 1.5em;
+}

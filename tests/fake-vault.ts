@@ -46,7 +46,8 @@ export const FOLDER = ".langsoft_dictionaries";
 export async function makeManager(adapter: FakeAdapter, currentUser = "maria") {
 	adapter.folders.add(FOLDER);
 	const plugin = {
-		settings: { currentUser, dictionaryFolder: FOLDER },
+		settings: { dictionaryFolder: FOLDER },
+		currentUser,
 		app: { vault: { adapter } },
 		refreshHighlights: vi.fn(),
 		parseIntoWords,

@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-sample-plugin",
+	"name": "obsidian-langsoft",
 	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"description": "Highlight words by how well you know them, keep definitions with the sentence you found them in, and share dictionaries with coworkers.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
@@ -12,8 +12,12 @@
 		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
 	"keywords": [],
-	"author": "",
-	"license": "MIT",
+	"author": "Ben Kirk",
+	"license": "SEE LICENSE IN LICENSE",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/BenBKirk/Obsidian-Langsoft.git"
+	},
 	"devDependencies": {
 		"@codemirror/state": "^6.7.6",
 		"@codemirror/view": "^6.44.0",

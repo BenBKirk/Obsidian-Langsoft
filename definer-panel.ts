@@ -241,7 +241,15 @@ export class DefinerPanel {
 		} else {
 			contextCell.setText(String(context ?? ""));
 		}
-		addRow("File").setText(String(file ?? ""));
+		const fileCell = addRow("File");
+		fileCell.setText(String(file ?? ""));
+		if (file) {
+			const go = fileCell.createEl("a", { cls: "langsoft-go-to-sentence", text: "Go to sentence" });
+			go.addEventListener("click", (event) => {
+				event.preventDefault();
+				this.plugin.goToDefinitionContext({ file, sentence: String(context ?? "") });
+			});
+		}
 		addRow("Date").setText(String(date ?? ""));
 		return table;
 	}

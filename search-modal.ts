@@ -31,6 +31,18 @@ export class SearchModal extends SuggestModal<SearchResult> {
 		if (result.coworkers.length > 0) {
 			title.createSpan({ cls: "langsoft-search-coworkers", text: result.coworkers.join(", ") });
 		}
+		if (result.details?.file) {
+			const go = title.createEl("button", { cls: "langsoft-search-go", text: "Go to sentence" });
+			go.setAttribute("aria-label", `Open "${result.details.file}" where this was added`);
+			// handled here, not as choosing the result (which opens the word in the Definer)
+			go.addEventListener("mousedown", (event) => event.stopPropagation());
+			go.addEventListener("click", (event) => {
+				event.preventDefault();
+				event.stopPropagation();
+				this.close();
+				this.plugin.goToDefinitionContext(result.details);
+			});
+		}
 
 		const sentence = String(result.details?.sentence ?? "");
 		if (sentence.trim() !== "") {

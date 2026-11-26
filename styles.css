@@ -305,3 +305,17 @@ p.langsoft-progress-hint {
     color: var(--text-muted);
     font-size: var(--font-ui-smaller);
 }
+
+/* "Go to sentence", in search results and the Definer */
+.langsoft-search-go {
+    margin-left: auto;
+    height: auto;
+    padding: 1px 8px;
+    font-size: var(--font-ui-smaller);
+}
+.langsoft-go-to-sentence {
+    display: inline-block;
+    margin-left: 0.6em;
+    font-size: var(--font-ui-smaller);
+    cursor: pointer;
+}

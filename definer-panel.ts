@@ -3,6 +3,7 @@ import { App, MarkdownView, moment, Platform } from "obsidian";
 import type { Definition, WordEntry } from "dictionaries";
 import { SearchModal } from "search-modal";
 import { splitContext, termKey } from "words";
+import { nowTimestamp, parseTimestamp } from "time";
 
 type Level = "unknown" | "semiknown" | "known";
 export const LEVELS: Level[] = ["unknown", "semiknown", "known"];
@@ -100,7 +101,7 @@ export class DefinerPanel {
 	 * opened from search) has neither, rather than whatever note is open.
 	 */
 	getCurrentContext(): Definition {
-		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
+		const timestamp = nowTimestamp();
 		const fromNote = Boolean(this.selectionContext);
 		return {
 			deleted: false,
@@ -374,8 +375,8 @@ export class DefinerPanel {
 		const sentence = String(details.sentence ?? "");
 		if (sentence.trim()) parts.push(() => this.renderContext(meta, sentence));
 		if (details.file) parts.push(() => meta.appendText(noteName(details.file!)));
-		const date = moment(details.timestamp, "YYYY-MM-DD HH:mm:ss");
-		if (date.isValid()) parts.push(() => meta.appendText(date.format("D MMM YYYY")));
+		const date = parseTimestamp(details.timestamp);
+		if (date) parts.push(() => meta.appendText(moment(date).format("D MMM YYYY")));
 		parts.forEach((part, i) => {
 			if (i > 0) meta.appendText(" · ");
 			part();

@@ -1,5 +1,5 @@
 import type LangsoftPlugin from "main";
-import { moment, normalizePath, Notice } from "obsidian";
+import { normalizePath, Notice } from "obsidian";
 import {
 	classifyDictionaryPath,
 	DEFAULT_FOLDER,
@@ -11,6 +11,7 @@ import {
 } from "dictionary-files";
 import { mergeDictionaries, normalizeKeys } from "merge";
 import { termKey } from "words";
+import { nowTimestamp } from "time";
 
 
 export interface Definition {
@@ -379,7 +380,7 @@ export class DictionaryManager {
 	}
 
 	writeHighlightChangeToJson(term: string, level: string) {
-		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
+		const timestamp = nowTimestamp();
 		const entry = this.userDict[termKey(term)];
 		if (entry) {
 			entry.highlighthistory.push({ level: level, timestamp: timestamp })
@@ -392,7 +393,7 @@ export class DictionaryManager {
 
 
 	addNewDefinition(term: string, level: string, defText: string, context: Definition) {
-		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
+		const timestamp = nowTimestamp();
 		const sameTermFound = this.userDict[term];
 		if (sameTermFound) { // just update the existing word / phrase
 			// check if there is already a matching definition
@@ -457,7 +458,7 @@ export class DictionaryManager {
 			if (!otherDefinitionExists) {
 				this.userDict[term].highlight = "None";
 				// record when the word was removed, so progress statistics can place it in time
-				const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
+				const timestamp = nowTimestamp();
 				this.userDict[term].highlighthistory.push({ level: "None", timestamp });
 			}
 			this.writeUserDictToJson();
@@ -476,7 +477,7 @@ export class DictionaryManager {
 		const entry = this.userDict[term];
 		const details = entry?.definitions[definition];
 		if (!details) return;
-		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
+		const timestamp = nowTimestamp();
 		entry.definitions[definition] = { ...details, deleted: false, timestamp };
 		if (entry.highlight === "None") {
 			entry.highlight = level;
@@ -496,7 +497,7 @@ export class DictionaryManager {
 		const details = entry?.definitions[from];
 		const text = to.trim().toLowerCase();
 		if (!details || details.deleted || text === "" || text === from) return;
-		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
+		const timestamp = nowTimestamp();
 		const existing = entry.definitions[text];
 		if (!existing || existing.deleted) {
 			entry.definitions[text] = { ...details, deleted: false, timestamp };

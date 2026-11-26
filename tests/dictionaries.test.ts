@@ -444,3 +444,15 @@ describe("apostrophes", () => {
 		expect(Object.keys(manager.otherDicts.peter)).toEqual(["can't"]);
 	});
 });
+
+describe("timestamps", () => {
+	it("are saved in UTC", async () => {
+		putDevice(adapter, {});
+		const { manager } = await makeManager(adapter);
+		manager.addNewDefinition("hund", "unknown", "dog", { ...context(), timestamp: "2026-11-26T10:00:00Z" });
+		manager.writeHighlightChangeToJson("hund", "known");
+		await manager.flush();
+		const history = readDevice(adapter).hund.highlighthistory;
+		expect(history.every((h: { timestamp: string }) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(h.timestamp))).toBe(true);
+	});
+});

@@ -3,6 +3,7 @@
 // so it can be unit tested.
 import type { Definition, DictionaryData, HighlightHistoryEntry, WordEntry } from "dictionaries";
 import { termKey } from "words";
+import { compareTimestamps } from "time";
 
 /**
  * Merge two versions of one dictionary without losing anything either
@@ -16,8 +17,10 @@ import { termKey } from "words";
  * - current highlight: "None" if no definition is left, otherwise the
  *   latest level in the history
  *
- * Timestamps are compared as "YYYY-MM-DD HH:mm:ss" strings in each
- * device's local time, so devices should be in the same time zone.
+ * Timestamps are compared by the moment they mean: exactly for those saved
+ * in UTC (from version 1.8); older ones were saved in each device's local
+ * time without a time zone, so they are read in the local time of the
+ * device doing the merge.
  */
 export function mergeDictionaries(a: DictionaryData, b: DictionaryData): DictionaryData {
 	const merged: DictionaryData = {};
@@ -48,7 +51,7 @@ function mergeEntries(x: WordEntry, y: WordEntry): WordEntry {
 		highlighthistory.push({ ...entry });
 	}
 	// stable, so entries with the same timestamp keep their order
-	highlighthistory.sort((p, q) => compare(p.timestamp, q.timestamp));
+	highlighthistory.sort((p, q) => compareTimestamps(p.timestamp, q.timestamp));
 
 	const firstwordofphrase = [...new Set([...(x.firstwordofphrase ?? []), ...(y.firstwordofphrase ?? [])])];
 
@@ -61,7 +64,7 @@ function mergeEntries(x: WordEntry, y: WordEntry): WordEntry {
 }
 
 function pickDefinition(dx: Definition, dy: Definition): Definition {
-	const order = compare(dx.timestamp, dy.timestamp);
+	const order = compareTimestamps(dx.timestamp, dy.timestamp);
 	if (order !== 0) return order > 0 ? dx : dy;
 	if (dx.deleted !== dy.deleted) return dx.deleted ? dx : dy;
 	return dx;
@@ -78,12 +81,6 @@ function currentHighlight(
 		if (history[i].level !== "None") return history[i].level;
 	}
 	return x.highlight !== "None" ? x.highlight : y.highlight;
-}
-
-function compare(p: string | undefined, q: string | undefined): number {
-	const a = p ?? "";
-	const b = q ?? "";
-	return a < b ? -1 : a > b ? 1 : 0;
 }
 
 /**

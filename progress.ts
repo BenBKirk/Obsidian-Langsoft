@@ -2,6 +2,7 @@
 // dependency, so it can be unit tested. All dates are in local time, like
 // the timestamps they are computed from.
 import type { DictionaryData, WordEntry } from "dictionaries";
+import { parseTimestamp } from "time";
 
 export type PeriodKind = "week" | "month" | "year";
 export type Level = "unknown" | "semiknown" | "known";
@@ -21,14 +22,7 @@ export interface PeriodStats {
 	newWords: number;
 }
 
-/** "YYYY-MM-DD HH:mm:ss" in local time, as written by Langsoft; null if it isn't one. */
-export function parseTimestamp(text: string | undefined): Date | null {
-	const match = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(text ?? "");
-	if (!match) return null;
-	const [, y, mo, d, h = "0", mi = "0", s = "0"] = match;
-	const date = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s));
-	return Number.isNaN(date.getTime()) ? null : date;
-}
+export { parseTimestamp };
 
 /** The start of the week (Monday), month or year containing `date`. */
 export function periodStart(date: Date, kind: PeriodKind): Date {

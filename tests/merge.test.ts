@@ -122,6 +122,22 @@ describe("mergeDictionaries", () => {
 	});
 });
 
+describe("merging old and new timestamps", () => {
+	it("compares a local timestamp from before 1.8 with a UTC one by the moment they mean", () => {
+		// the laptop (1.8) marked the word known at 22:00 local time, saved in UTC;
+		// the phone (older) deleted it an hour later, at 23:00 local time.
+		// As text, "2026-01-01T…Z" sorts after "2026-01-01 23:00:00", which would wrongly keep the laptop's.
+		const earlier = new Date(2026, 0, 1, 22, 0, 0).toISOString().slice(0, 19) + "Z";
+		const laptop = { hund: entry("known", { dog: def(earlier) }, [["known", earlier]]) };
+		const phone = { hund: entry("None", { dog: def("2026-01-01 23:00:00", true) }, [["None", "2026-01-01 23:00:00"]]) };
+		for (const merged of [mergeDictionaries(phone, laptop), mergeDictionaries(laptop, phone)]) {
+			expect(merged.hund.definitions.dog.deleted).toBe(true);
+			expect(merged.hund.highlight).toBe("None");
+			expect(merged.hund.highlighthistory.map((h) => h.level)).toEqual(["known", "None"]);
+		}
+	});
+});
+
 describe("normalizeKeys", () => {
 	it("merges entries whose keys only differ in apostrophes, case or accents", () => {
 		const dict = {

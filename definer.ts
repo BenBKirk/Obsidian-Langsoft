@@ -1,6 +1,7 @@
 import LangsoftPlugin from "main";
 import { ItemView, WorkspaceLeaf, TextAreaComponent, ButtonComponent, MarkdownView, moment } from "obsidian";
 import { Definition } from "dictionaries";
+import { splitContext } from "words";
 
 
 export const VIEW_TYPE_DEFINER = "definer-view";
@@ -225,39 +226,34 @@ export class DefinerView extends ItemView {
 		details.appendChild(table);
 	}
 
-	createTable(context: string, file: string | undefined, date: string): HTMLTableElement {
-		const table = document.createElement("table");
-		table.createEl("tr");
-		const contextRow = document.createElement("tr");
-		const contextTitle = document.createElement("td");
-		const contextContent = document.createElement("td");
-		contextTitle.innerHTML = '<strong>Context: </strong>';
-		contextContent.innerHTML = context;
-		contextRow.appendChild(contextTitle);
-		contextRow.appendChild(contextContent);
-		const fileRow = document.createElement("tr");
-		const fileTitle = document.createElement("td");
-		const fileContent = document.createElement("td");
-		fileTitle.innerHTML = '<strong>File: </strong>';
-		fileContent.innerHTML = file ?? "";
-		fileRow.appendChild(fileTitle);
-		fileRow.appendChild(fileContent);
-		const dateRow = document.createElement("tr");
-		const dateTitle = document.createElement("td");
-		const dateContent = document.createElement("td");
-		dateTitle.innerHTML = '<strong>Date: </strong>';
-		dateContent.innerHTML = date;
-		dateRow.appendChild(dateTitle);
-		dateRow.appendChild(dateContent);
+	/**
+	 * Context, file and date of a definition. Everything is inserted as text,
+	 * never as HTML, because these values can come from other people's
+	 * dictionaries.
+	 */
+	createTable(context: string | undefined, file: string | undefined, date: string | undefined): HTMLTableElement {
+		const table = createEl("table");
+		const addRow = (title: string) => {
+			const row = table.createEl("tr");
+			row.createEl("td").createEl("strong", { text: `${title}: ` });
+			return row.createEl("td");
+		};
 
-		table.appendChild(contextRow);
-		table.appendChild(fileRow);
-		table.appendChild(dateRow);
-
+		const contextCell = addRow("Context");
+		const parts = splitContext(String(context ?? ""));
+		if (parts) {
+			contextCell.appendText(parts.before);
+			contextCell.createEl("u", { text: parts.selection });
+			contextCell.appendText(parts.after);
+		} else {
+			contextCell.setText(String(context ?? ""));
+		}
+		addRow("File").setText(String(file ?? ""));
+		addRow("Date").setText(String(date ?? ""));
 		return table;
 	}
 
-	getCurrentHighlightState() {
+		getCurrentHighlightState() {
 		let currentHighlight = "none";
 		if (this.unknownButton.buttonEl.style.backgroundColor !== "var(--interactive-normal)") {
 			currentHighlight = "unknown";

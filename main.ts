@@ -31,7 +31,8 @@ export default class LangsoftPlugin extends Plugin {
 		this.registerEditorExtension(this.mySelectionViewPlugin);
 		this.registerEditorExtension(TriggerField);
 
-		this.dictManager = new DictionaryManager(this)
+		this.dictManager = new DictionaryManager(this);
+		this.dictManager.init();
 		this.styleEl = document.head.createEl("style");
 		this.updateStyle()
 		this.registerEditorExtension(this.wordHover);
@@ -44,7 +45,7 @@ export default class LangsoftPlugin extends Plugin {
 
 
 
-		this.registerDomEvent(document.body, "mouseup", (event) => {
+		this.registerDomEvent(document.body, "mouseup", async (event) => {
 			this.SelectedText = [];
 			const editor = this.app.workspace.activeEditor?.editor;
 			if (!editor) return;
@@ -69,9 +70,8 @@ export default class LangsoftPlugin extends Plugin {
 					if (word) {
 						selectedText = word;
 					} else {
-						this.activateView();
-						const leaf = this.getDefinerViewLeaf();
-						leaf.handleSelection("", "");
+						const leaf = await this.activateView();
+						leaf?.handleSelection("", "");
 						return;
 					}
 				}
@@ -83,15 +83,17 @@ export default class LangsoftPlugin extends Plugin {
 				const end = editor.posToOffset(toCursor)
 				this.SelectedText = [start, end];
 				this.refreshHighlights()
-				this.activateView();
-				const leaf = this.getDefinerViewLeaf();
-				leaf.handleSelection(selectedText.trim(), this.getContextForSelection(editor));
-				leaf.getFocus();
+				// read the editor before awaiting, in case the selection changes meanwhile
+				const context = this.getContextForSelection(editor);
+				const leaf = await this.activateView();
+				leaf?.handleSelection(selectedText.trim(), context);
+				leaf?.getFocus();
 			} else {
 				this.refreshHighlights()
-				this.activateView();
-				const leaf = this.getDefinerViewLeaf();
-				leaf.handleSelection(editor.getSelection().trim(), this.getContextForSelection(editor));
+				const selection = editor.getSelection().trim();
+				const context = this.getContextForSelection(editor);
+				const leaf = await this.activateView();
+				leaf?.handleSelection(selection, context);
 			}
 
 
@@ -107,8 +109,7 @@ export default class LangsoftPlugin extends Plugin {
 				if (!this.lastFile || file.path !== this.lastFile.path) {
 					this.lastFile = file;
 					this.SelectedText = [];
-					const leaf = this.getDefinerViewLeaf();
-					leaf.handleSelection("", "");
+					this.getDefinerViewLeaf()?.handleSelection("", "");
 				}
 
 
@@ -186,8 +187,10 @@ export default class LangsoftPlugin extends Plugin {
 	}
 
 
-	getDefinerViewLeaf() {
-		return this.app.workspace.getLeavesOfType(VIEW_TYPE_DEFINER)[0].view as DefinerView;
+	/** The open Definer sidebar, or null if it isn't open. */
+	getDefinerViewLeaf(): DefinerView | null {
+		const view = this.app.workspace.getLeavesOfType(VIEW_TYPE_DEFINER)[0]?.view;
+		return view instanceof DefinerView ? view : null;
 
 	}
 
@@ -327,7 +330,8 @@ export default class LangsoftPlugin extends Plugin {
 	});
 
 
-	async activateView() {
+	/** Open the Definer sidebar if needed, and return it once it is ready. */
+	async activateView(): Promise<DefinerView | null> {
 		const { workspace } = this.app;
 
 		let leaf: WorkspaceLeaf | null = null;
@@ -340,12 +344,14 @@ export default class LangsoftPlugin extends Plugin {
 			// Our view could not be found in the workspace, create a new leaf
 			// in the right sidebar for it
 			leaf = workspace.getRightLeaf(false);
-			if (!leaf) return;
+			if (!leaf) return null;
 			await leaf.setViewState({ type: VIEW_TYPE_DEFINER, active: true });
 		}
 
 		// "Reveal" the leaf in case it is in a collapsed sidebar
-		workspace.revealLeaf(leaf);
+		// newer Obsidian versions return a promise here and only load the view once revealed
+		await workspace.revealLeaf(leaf);
+		return this.getDefinerViewLeaf();
 	}
 
 

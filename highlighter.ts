@@ -29,6 +29,11 @@ export const TriggerField = StateField.define<number>({
 	}
 });
 
+/** True if refreshHighlights() was called in this update. */
+function wasTriggered(update: ViewUpdate): boolean {
+	return update.startState.field(TriggerField) !== update.state.field(TriggerField);
+}
+
 
 
 export function createHighlightPlugin(plugin: LangsoftPlugin) {
@@ -43,7 +48,7 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 			}
 
 			update(update: ViewUpdate) {
-				if (update.docChanged || update.viewportChanged || update.state.field(TriggerField)) {
+				if (update.docChanged || update.viewportChanged || wasTriggered(update)) {
 					// if (update.docChanged || update.viewportChanged) {
 					this.decorations = this.buildDecorations(update.view);
 				}
@@ -186,7 +191,7 @@ export function createSelectionHighlightPlugin(plugin: LangsoftPlugin) {
 			}
 
 			update(update: ViewUpdate) {
-				if (update.docChanged || update.viewportChanged || update.state.field(TriggerField)) {
+				if (update.docChanged || update.viewportChanged || wasTriggered(update)) {
 					// if (update.docChanged || update.viewportChanged) {
 					this.decorations = this.buildDecorations(update.view);
 					// console.log(update.state.selection.ranges[0])

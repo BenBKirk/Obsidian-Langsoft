@@ -11,6 +11,7 @@ A language-learning plugin for [Obsidian](https://obsidian.md). Read and write i
   - see each definition with the sentence, note and date it was added in
   - delete definitions
 - **Hover definitions.** Hover over a word you have defined to see its definitions.
+- **Search by meaning.** Run the command **Langsoft: Search definitions** and type part of a meaning, e.g. `dog`, to find every word defined with it, yours and your coworkers', with the sentence each was added in. Matching is by the beginnings of words, so `do` finds `dog` too. Choosing a result opens the word in the sidebar.
 - **Shared dictionaries.** Dictionaries belonging to other people appear alongside yours. Words they have defined and you haven't are highlighted blue, and you can copy one of their definitions with a click.
 
 ## Setup
@@ -83,13 +84,14 @@ For quick testing, clone the repository into `<vault>/.obsidian/plugins/langsoft
 | `dictionaries.ts` | Loading, changing and saving dictionaries |
 | `definer.ts` | The Definer sidebar |
 | `settings.ts` | The settings tab |
+| `search.ts`, `search-modal.ts` | Searching definitions, and the search window |
 | `merge.ts` | Merging two versions of a dictionary |
 | `dictionary-files.ts` | Dictionary file layouts, the device file format, and conflict copies |
 | `user-modal.ts` | The "Who are you?" window |
 | `users.ts` | Listing users and checking new user names |
 | `words.ts` | Splitting text into words |
 
-`words.ts`, `users.ts`, `merge.ts` and `dictionary-files.ts` don't depend on Obsidian. The tests in `tests/` cover them, and run `DictionaryManager` against an in-memory vault (`tests/fake-vault.ts`) with a stand-in for the `obsidian` module (`tests/obsidian-stub.ts`).
+`words.ts`, `users.ts`, `search.ts`, `merge.ts` and `dictionary-files.ts` don't depend on Obsidian. The tests in `tests/` cover them, and run `DictionaryManager` against an in-memory vault (`tests/fake-vault.ts`) with a stand-in for the `obsidian` module (`tests/obsidian-stub.ts`).
 
 ## Releasing
 

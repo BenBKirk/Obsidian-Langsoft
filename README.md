@@ -15,7 +15,18 @@ A language-learning plugin for [Obsidian](https://obsidian.md). Read and write i
 
 ## Setup
 
-Dictionaries are JSON files in the folder `Langsoft` at the root of your vault, one per person: `<name>.json`. The folder is created automatically. Obsidian doesn't show JSON files in its file explorer, so the folder looks empty there; don't delete or rename it. Your own dictionary is the one matching your user name. Everyone else's are read-only.
+Dictionaries are kept in the folder `Langsoft` at the root of your vault, which is created automatically. Each person has a folder of their own, and each of their devices writes its own file in it:
+
+```
+Langsoft/
+  maria/
+    desktop-1a2b3c4d.json
+    mobile-5e6f7a8b.json
+  peter/
+    desktop-9c0d1e2f.json
+```
+
+Your dictionary is all the files in your folder, merged together. A device only ever writes its own file, so two devices never write the same file and can't overwrite each other. Everyone else's dictionaries are read the same way, and are read-only. Obsidian doesn't show JSON files in its file explorer, so the folders look empty there; don't delete or rename them.
 
 The first time Langsoft runs on a device, it asks **who you are**. Choose your name if your dictionary is already there, for example synced from another device, or create a new user. To change user later, use the user setting in Langsoft's settings, the command **Langsoft: Switch user**, or click your name in the status bar.
 
@@ -27,24 +38,26 @@ To keep dictionaries in a different folder, change `dictionaryFolder` in `.obsid
 
 ### Sharing with coworkers
 
-Share the `Langsoft` folder between everyone's vaults, e.g. with Syncthing or Obsidian Sync. Each person only ever writes to their own file, so people never overwrite each other. Coworkers' dictionaries are reloaded when you switch notes, including ones added while Obsidian is open.
+Share the `Langsoft` folder between everyone's vaults, e.g. with Syncthing or Obsidian Sync. Each device only ever writes its own file, so nobody's changes overwrite anyone else's. Coworkers' dictionaries are reloaded when you switch notes, including ones added while Obsidian is open.
 
-### Updating from version 1.1 or earlier
+### Updating from an older version
 
-Older versions kept dictionaries in a hidden folder, `.langsoft_dictionaries`. Some sync tools, including Obsidian Sync, skip hidden folders, so from version 1.2 they're kept in `Langsoft` instead. Nothing needs doing in Obsidian:
+Older versions kept one file per person: `Langsoft/<name>.json` in 1.2, and `.langsoft_dictionaries/<name>.json`, a hidden folder, in 1.1 and earlier. Nothing needs doing in Obsidian:
 
-- The first time 1.2 runs, it copies your dictionary from the old folder into `Langsoft`.
-- Coworkers' dictionaries are read from both folders, so teammates who haven't updated yet are still shown.
-- If one of your devices is still on an older version, words it adds to the old file keep being merged into the new one.
-- The old folder is never changed. Once everyone has updated, you can delete it.
+- The first time the new version runs on a device, your old files are merged into that device's file.
+- Coworkers' old files are read too, so teammates who haven't updated yet are still shown.
+- If one of your devices is still on an older version, words it adds to an old file keep being merged in.
+- Old files are never changed. **Keep them for now:** the dictionaries of people who haven't updated are only there.
 
-**If you share only the dictionary folder through Syncthing** (rather than the whole vault), add `Langsoft` as a new Syncthing folder on every device, shared with the same people. Until then, new changes won't reach your coworkers. Don't rename or move the old folder in Syncthing: Syncthing would see its files as deleted and delete them on everyone's devices.
+**The whole team should update around the same time.** Versions before 1.3 don't look inside the per-person folders, so they only see the old files of people who've updated, which stop changing.
+
+**If you share only the dictionary folder through Syncthing** (rather than the whole vault) and are coming from 1.1 or earlier, add `Langsoft` as a new Syncthing folder on every device, shared with the same people. Don't rename or move the old folder in Syncthing: Syncthing would see its files as deleted and delete them on everyone's devices.
 
 ### Using several devices
 
-You can use the same dictionary on more than one device. Before saving, Langsoft checks whether another device changed the file since it was last read, and merges those changes in rather than overwriting them. Keep the devices in the same time zone: the most recent change to a definition or level wins, judged by its timestamp.
+Use the same user on as many devices as you like. Each device has its own file, and changes from your other devices are merged in when you switch notes. Keep the devices in the same time zone: when the same definition or level was changed on two devices, the most recent change wins, judged by its timestamp.
 
-If two devices save before either has synced, Syncthing keeps one version and saves the other as `<name>.sync-conflict-....json`. Langsoft shows a notice when this happens to your dictionary and otherwise ignores the copy. Words added on the losing side are only in the copy for now.
+If Syncthing ever made conflict copies of your dictionary (`...sync-conflict-....json`), for example with an older version, Langsoft merges their words in and shows a notice. Once you've checked nothing is missing, you can delete the copies.
 
 ## Installing
 
@@ -71,7 +84,7 @@ For quick testing, clone the repository into `<vault>/.obsidian/plugins/langsoft
 | `definer.ts` | The Definer sidebar |
 | `settings.ts` | The settings tab |
 | `merge.ts` | Merging two versions of a dictionary |
-| `dictionary-files.ts` | Dictionary file names and Syncthing conflict copies |
+| `dictionary-files.ts` | Dictionary file layouts, the device file format, and conflict copies |
 | `user-modal.ts` | The "Who are you?" window |
 | `users.ts` | Listing users and checking new user names |
 | `words.ts` | Splitting text into words |

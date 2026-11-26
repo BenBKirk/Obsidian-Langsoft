@@ -106,9 +106,11 @@ export class ProgressView extends ItemView {
 		}
 
 		this.renderSummary(el, periods[index], index === periods.length - 1);
-		this.renderPeriodWords(el, periods[index]);
-		this.renderChart(el, periods, index);
 		this.renderGrowth(el);
+		this.renderChart(el, periods, index);
+		// word lists last: their length changes with what is clicked, and nothing below them moves
+		this.renderDayWords(el);
+		this.renderPeriodWords(el, periods[index]);
 	}
 
 	private colour(level: Level): string {
@@ -165,6 +167,19 @@ export class ProgressView extends ItemView {
 		}
 	}
 
+	/** The words added or changed on the day selected in the calendar. */
+	private renderDayWords(el: HTMLElement) {
+		if (!this.selectedDay) return;
+		const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+		const changes = dayChanges(this.plugin.dictManager.userDict, this.selectedDay);
+		const section = el.createDiv({ cls: "langsoft-day-words" });
+		section.createDiv({
+			cls: "langsoft-word-heading",
+			text: `Added or changed on ${this.selectedDay.toDateString()}: ${changes.length === 0 ? "nothing" : plural(changes.length, "word")}`,
+		});
+		this.renderWords(section, `day:${dayKey(this.selectedDay)}`, changes);
+	}
+
 	/** The words behind the selected period's "reached" numbers. */
 	private renderPeriodWords(el: HTMLElement, period: PeriodStats) {
 		const words = periodWords(this.plugin.dictManager.userDict, period);
@@ -175,7 +190,7 @@ export class ProgressView extends ItemView {
 			if (terms.length === 0) continue;
 			const heading = section.createDiv({ cls: "langsoft-word-heading" });
 			heading.createSpan({ cls: "langsoft-progress-swatch" }).style.backgroundColor = this.colour(level);
-			heading.appendText(`Reached ${LEVEL_NAMES[level].toLowerCase()} (${terms.length})`);
+			heading.appendText(`Reached ${LEVEL_NAMES[level].toLowerCase()} in ${period.label} (${terms.length})`);
 			this.renderWords(
 				section,
 				`${period.label}:${level}`,
@@ -361,16 +376,6 @@ export class ProgressView extends ItemView {
 		legend.createSpan({ text: "Less" });
 		for (let shade = 0; shade <= 4; shade++) legend.createSpan({ cls: `langsoft-activity-day langsoft-activity-${shade}` });
 		legend.createSpan({ text: "More" });
-
-		if (this.selectedDay) {
-			const changes = dayChanges(this.plugin.dictManager.userDict, this.selectedDay);
-			const section = el.createDiv({ cls: "langsoft-day-words" });
-			section.createDiv({
-				cls: "langsoft-word-heading",
-				text: `${this.selectedDay.toDateString()}: ${changes.length === 0 ? "nothing added or changed" : plural(changes.length, "word")}`,
-			});
-			this.renderWords(section, `day:${dayKey(this.selectedDay)}`, changes);
-		}
 
 		// start at today; after a redraw, stay where the reader scrolled to
 		scroller.addEventListener("scroll", () => {

@@ -254,40 +254,6 @@ If your plugin does not need CSS, delete this file.
     color: var(--text-normal);
 }
 
-/* headline numbers at the top of the progress page */
-.langsoft-headline {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-    gap: var(--size-4-3);
-    margin-bottom: var(--size-4-4);
-}
-.langsoft-headline-tile {
-    padding: var(--size-4-3);
-    border: 1px solid var(--background-modifier-border);
-    border-radius: var(--radius-m);
-}
-.langsoft-headline-number {
-    font-size: 2em;
-    font-weight: var(--font-bold);
-    line-height: 1.1;
-    font-variant-numeric: tabular-nums;
-    display: flex;
-    align-items: center;
-    gap: 0.3em;
-}
-.langsoft-headline-number .langsoft-progress-swatch {
-    width: 0.4em;
-    height: 0.4em;
-    margin: 0;
-}
-.langsoft-headline-label {
-    color: var(--text-normal);
-}
-.langsoft-headline-detail {
-    color: var(--text-muted);
-    font-size: var(--font-ui-smaller);
-}
-
 /* the selected period on the progress page: ‹ heading › */
 .langsoft-progress-period {
     display: flex;

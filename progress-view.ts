@@ -61,10 +61,8 @@ export class ProgressView extends ItemView {
 		}
 
 		const dict = this.plugin.dictManager.userDict;
-		const calendar = activityCalendar(dict);
-		this.renderHeadline(el, calendar);
 		// before the period buttons: it covers the whole last year, whatever period is chosen
-		this.renderActivity(el, calendar);
+		this.renderActivity(el, activityCalendar(dict));
 
 		const switcher = el.createDiv({ cls: "langsoft-progress-kinds" });
 		for (const kind of Object.keys(KIND_NAMES) as PeriodKind[]) {
@@ -97,32 +95,6 @@ export class ProgressView extends ItemView {
 	private select(index: number) {
 		this.selected = index;
 		this.render();
-	}
-
-	/** Three numbers to answer "how am I doing?" at a glance. */
-	private renderHeadline(el: HTMLElement, calendar: ActivityCalendar) {
-		const dict = this.plugin.dictManager.userDict;
-		const thisWeek = computeProgress(dict, "week").pop()!;
-		const tiles = el.createDiv({ cls: "langsoft-headline" });
-		const tile = (value: number, label: string, detail: string, colour?: string) => {
-			const t = tiles.createDiv({ cls: "langsoft-headline-tile" });
-			const number = t.createDiv({ cls: "langsoft-headline-number", text: String(value) });
-			if (colour) number.createSpan({ cls: "langsoft-progress-swatch" }).style.backgroundColor = colour;
-			t.createDiv({ cls: "langsoft-headline-label", text: label });
-			t.createDiv({ cls: "langsoft-headline-detail", text: detail });
-		};
-		tile(
-			thisWeek.totals.known,
-			"known words",
-			thisWeek.reached.known > 0 ? `+${thisWeek.reached.known} this week` : "none new this week",
-			this.colour("known")
-		);
-		tile(thisWeek.newWords, "new this week", `${thisWeek.totals.unknown + thisWeek.totals.semiknown + thisWeek.totals.known} words in all`);
-		tile(
-			calendar.currentStreak,
-			calendar.currentStreak === 1 ? "day in a row" : "days in a row",
-			`longest: ${calendar.longestStreak}`
-		);
 	}
 
 	/** The selected period's numbers, with buttons to step to the previous or next period. */
@@ -262,7 +234,10 @@ export class ProgressView extends ItemView {
 		const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 		el.createEl("p", {
 			cls: "langsoft-activity-summary",
-			text: `Active on ${calendar.activeDays} of the last ${calendar.days.length} days.`,
+			text:
+				`Current streak: ${plural(calendar.currentStreak, "day")} · ` +
+				`Longest streak: ${plural(calendar.longestStreak, "day")} · ` +
+				`Active on ${calendar.activeDays} of the last ${calendar.days.length} days`,
 		});
 
 		const scroller = el.createDiv({ cls: "langsoft-activity-scroller" });

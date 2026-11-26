@@ -97,3 +97,92 @@ If your plugin does not need CSS, delete this file.
     font-weight: var(--font-semibold);
     color: var(--text-muted);
 }
+
+/* "Langsoft: Show progress" */
+.langsoft-progress {
+    max-width: 720px;
+    margin: 0 auto;
+}
+.langsoft-progress-kinds {
+    display: flex;
+    gap: var(--size-4-2);
+    margin-bottom: var(--size-4-4);
+}
+.langsoft-progress-kinds button.is-active {
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+}
+.langsoft-progress-summary table {
+    border-collapse: collapse;
+    margin-bottom: var(--size-4-6);
+}
+.langsoft-progress-summary th,
+.langsoft-progress-summary td {
+    padding: var(--size-4-1) var(--size-4-3);
+    text-align: left;
+}
+.langsoft-progress-summary th {
+    color: var(--text-muted);
+    font-weight: var(--font-normal);
+    font-size: var(--font-ui-smaller);
+}
+.langsoft-progress-number {
+    text-align: right !important;
+    font-variant-numeric: tabular-nums;
+}
+.langsoft-progress-total td {
+    border-top: 1px solid var(--background-modifier-border);
+    font-weight: var(--font-semibold);
+}
+.langsoft-progress-swatch {
+    display: inline-block;
+    width: 0.8em;
+    height: 0.8em;
+    border-radius: 2px;
+    margin-right: 0.5em;
+}
+.langsoft-progress-chart {
+    display: flex;
+    align-items: stretch;
+    gap: var(--size-4-1);
+    height: 220px;
+}
+.langsoft-progress-column {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: var(--size-4-1) 0 0;
+    background: none;
+    box-shadow: none;
+    border-radius: var(--radius-s);
+}
+.langsoft-progress-column.is-selected {
+    background-color: var(--background-modifier-hover);
+}
+.langsoft-progress-area {
+    flex: 1;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+.langsoft-progress-bar {
+    width: 70%;
+    max-width: 48px;
+    display: flex;
+    flex-direction: column;
+    border-radius: 3px 3px 0 0;
+    overflow: hidden;
+}
+.langsoft-progress-segment {
+    min-height: 1px;
+}
+.langsoft-progress-label {
+    font-size: var(--font-ui-smallest);
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: var(--size-4-1) 0;
+}

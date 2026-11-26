@@ -13,7 +13,7 @@ A language-learning plugin for [Obsidian](https://obsidian.md). Read and write i
 - **Phones and tablets.** Long-press a word to select it, and it opens in the Definer: on phones in a panel at the bottom of the note, on tablets in the sidebar. The command **Langsoft: Define selection** does the same for the selection or the word at the cursor, and can be added to the mobile toolbar.
 - **Hover definitions.** Hover over a word you have defined to see its definitions.
 - **Search by meaning.** Run the command **Langsoft: Search definitions** and type part of a meaning, e.g. `dog`, to find every word defined with it, yours and your coworkers', with the sentence each was added in. Matching is by the beginnings of words, so `do` finds `dog` too. Choosing a result opens the word in the sidebar.
-- **Progress.** Run the command **Langsoft: Show progress** to see how many of your words are known, semi-known and unknown, week by week, month by month or year by year, and how many reached each level or were added in each period. It also shows a growth curve, and a calendar of the days you worked on your words with your current and longest streak.
+- **Progress.** Run the command **Langsoft: Show progress** to see how many of your words are known, semi-known and unknown, week by week, month by month or year by year, and how many reached each level or were added in each period. It also shows a growth curve, and a calendar of the days you worked on your words with your current and longest streak. With at least three people sharing dictionaries, a Team section shows figures about everyone together, never about one person: the team's combined vocabulary and how it has grown, how many words your teammates have defined that you haven't, and the words most of the team has defined.
 - **How much of a note you know.** A bar at the bottom of each note shows how many different words it has, and what share of them you know, half know or don't know, in your highlight colours, and what share only your coworkers have defined, in blue. It can be switched off in the settings.
 - **Shared dictionaries.** Dictionaries belonging to other people appear alongside yours. Words they have defined and you haven't are highlighted blue, and you can copy one of their definitions with a click.
 
@@ -89,7 +89,7 @@ For quick testing, clone the repository into `<vault>/.obsidian/plugins/langsoft
 | `definer.ts`, `definer-bottom-panel.ts` | Where the Definer is shown: the sidebar, or the bottom of the editor on phones |
 | `settings.ts` | The settings tab |
 | `search.ts`, `search-modal.ts` | Searching definitions, and the search window |
-| `progress.ts`, `progress-view.ts` | Progress statistics, and the progress page |
+| `progress.ts`, `team.ts`, `progress-view.ts` | Progress and team statistics, and the progress page |
 | `coverage.ts`, `coverage-panel.ts` | How much of a note you know, and the bar showing it |
 | `merge.ts` | Merging two versions of a dictionary |
 | `dictionary-files.ts` | Dictionary file layouts, the device file format, and conflict copies |
@@ -97,7 +97,7 @@ For quick testing, clone the repository into `<vault>/.obsidian/plugins/langsoft
 | `users.ts` | Listing users and checking new user names |
 | `words.ts` | Splitting text into words |
 
-`words.ts`, `users.ts`, `search.ts`, `progress.ts`, `coverage.ts`, `merge.ts` and `dictionary-files.ts` don't depend on Obsidian. The tests in `tests/` cover them, and run `DictionaryManager` against an in-memory vault (`tests/fake-vault.ts`) with a stand-in for the `obsidian` module (`tests/obsidian-stub.ts`).
+`words.ts`, `users.ts`, `search.ts`, `progress.ts`, `team.ts`, `coverage.ts`, `merge.ts` and `dictionary-files.ts` don't depend on Obsidian. The tests in `tests/` cover them, and run `DictionaryManager` against an in-memory vault (`tests/fake-vault.ts`) with a stand-in for the `obsidian` module (`tests/obsidian-stub.ts`).
 
 ## Releasing
 

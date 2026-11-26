@@ -54,7 +54,7 @@ function label(start: Date, kind: PeriodKind): string {
 }
 
 /** A word's level changes in time order, with "None" for "removed". */
-type Timeline = { time: number; level: string }[];
+export type Timeline = { time: number; level: string }[];
 
 /**
  * The level changes of each word that has a definition now. Words with no
@@ -66,7 +66,7 @@ function timelines(dict: DictionaryData): Timeline[] {
 	return [...timelinesByTerm(dict).values()];
 }
 
-function timelinesByTerm(dict: DictionaryData): Map<string, Timeline> {
+export function timelinesByTerm(dict: DictionaryData): Map<string, Timeline> {
 	const result = new Map<string, Timeline>();
 	for (const [term, entry] of Object.entries(dict ?? {}) as [string, WordEntry | undefined][]) {
 		if (!entry) continue;
@@ -91,7 +91,7 @@ function isLevel(level: unknown): level is Level {
 }
 
 /** The level a word was at, at a moment (just before `time`); null if it had none. */
-function levelAt(timeline: Timeline, time: number): Level | null {
+export function levelAt(timeline: Timeline, time: number): Level | null {
 	let level: string | null = null;
 	for (const change of timeline) {
 		if (change.time >= time) break;
@@ -110,15 +110,7 @@ const zero = (): Record<Level, number> => ({ unknown: 0, semiknown: 0, known: 0 
 export function computeProgress(dict: DictionaryData, kind: PeriodKind, now = new Date()): PeriodStats[] {
 	const words = timelines(dict);
 	const current = periodStart(now, kind);
-
-	let count = 12;
-	if (kind === "year") {
-		const firstTime = Math.min(...words.map((t) => t[0].time));
-		const firstYear = Number.isFinite(firstTime) ? new Date(firstTime).getFullYear() : now.getFullYear();
-		// from the first year with a change up to now, at most 50 years (in case of a wrong date)
-		const from = Math.max(Math.min(firstYear, now.getFullYear()), now.getFullYear() - 49);
-		count = now.getFullYear() - from + 1;
-	}
+	const count = periodCount(Math.min(...words.map((t) => t[0].time)), kind, now);
 
 	const periods: PeriodStats[] = [];
 	for (let i = count - 1; i >= 0; i--) {
@@ -140,6 +132,35 @@ export function computeProgress(dict: DictionaryData, kind: PeriodKind, now = ne
 	return periods;
 }
 
+/**
+ * How many periods the statistics cover: 12 weeks, 12 months, or every
+ * year from the year of `firstTime` (the earliest change) up to now.
+ */
+export function periodCount(firstTime: number, kind: PeriodKind, now: Date): number {
+	if (kind !== "year") return 12;
+	const firstYear = Number.isFinite(firstTime) ? new Date(firstTime).getFullYear() : now.getFullYear();
+	// from the first year with a change up to now, at most 50 years (in case of a wrong date)
+	const from = Math.max(Math.min(firstYear, now.getFullYear()), now.getFullYear() - 49);
+	return now.getFullYear() - from + 1;
+}
+
+/**
+ * The moments a growth curve is drawn at, from `from` to now: daily for
+ * weeks, weekly for months, monthly for years. The last one is now.
+ */
+export function seriesTimes(from: Date, kind: PeriodKind, now: Date): Date[] {
+	const step = (date: Date): Date =>
+		kind === "week"
+			? new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)
+			: kind === "month"
+				? new Date(date.getFullYear(), date.getMonth(), date.getDate() + 7)
+				: new Date(date.getFullYear(), date.getMonth() + 1, 1);
+	const times: Date[] = [];
+	for (let t = from; t.getTime() < now.getTime(); t = step(t)) times.push(t);
+	times.push(now);
+	return times;
+}
+
 export interface GrowthPoint {
 	time: Date;
 	/** Words at each level just before `time`. */
@@ -153,18 +174,7 @@ export interface GrowthPoint {
 export function growthSeries(dict: DictionaryData, kind: PeriodKind, now = new Date()): GrowthPoint[] {
 	const words = timelines(dict);
 	const from = computeProgress(dict, kind, now)[0].start;
-	const step = (date: Date): Date =>
-		kind === "week"
-			? new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)
-			: kind === "month"
-				? new Date(date.getFullYear(), date.getMonth(), date.getDate() + 7)
-				: new Date(date.getFullYear(), date.getMonth() + 1, 1);
-
-	const times: Date[] = [];
-	for (let t = from; t.getTime() < now.getTime(); t = step(t)) times.push(t);
-	times.push(now);
-
-	return times.map((time) => {
+	return seriesTimes(from, kind, now).map((time) => {
 		const totals = zero();
 		const until = time === now ? now.getTime() + 1 : time.getTime();
 		for (const timeline of words) {

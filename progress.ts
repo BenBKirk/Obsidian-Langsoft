@@ -1,0 +1,137 @@
+// Progress statistics from the level history of each word. No Obsidian
+// dependency, so it can be unit tested. All dates are in local time, like
+// the timestamps they are computed from.
+import type { DictionaryData, WordEntry } from "dictionaries";
+
+export type PeriodKind = "week" | "month" | "year";
+export type Level = "unknown" | "semiknown" | "known";
+export const LEVELS: Level[] = ["unknown", "semiknown", "known"];
+
+export interface PeriodStats {
+	/** E.g. "24 Nov", "Nov 2026", "2026". */
+	label: string;
+	start: Date;
+	/** The start of the next period. */
+	end: Date;
+	/** Words at each level at the end of the period (or now, for the current period). */
+	totals: Record<Level, number>;
+	/** Words that reached each level during the period, i.e. weren't at it at the start. */
+	reached: Record<Level, number>;
+	/** Words that had no level at the start and one at the end. */
+	newWords: number;
+}
+
+/** "YYYY-MM-DD HH:mm:ss" in local time, as written by Langsoft; null if it isn't one. */
+export function parseTimestamp(text: string | undefined): Date | null {
+	const match = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(text ?? "");
+	if (!match) return null;
+	const [, y, mo, d, h = "0", mi = "0", s = "0"] = match;
+	const date = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s));
+	return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** The start of the week (Monday), month or year containing `date`. */
+export function periodStart(date: Date, kind: PeriodKind): Date {
+	if (kind === "year") return new Date(date.getFullYear(), 0, 1);
+	if (kind === "month") return new Date(date.getFullYear(), date.getMonth(), 1);
+	const daysSinceMonday = (date.getDay() + 6) % 7;
+	return new Date(date.getFullYear(), date.getMonth(), date.getDate() - daysSinceMonday);
+}
+
+/** The start of the period `steps` periods after the one starting at `start`. */
+export function addPeriods(start: Date, kind: PeriodKind, steps: number): Date {
+	if (kind === "year") return new Date(start.getFullYear() + steps, 0, 1);
+	if (kind === "month") return new Date(start.getFullYear(), start.getMonth() + steps, 1);
+	return new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7 * steps);
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function label(start: Date, kind: PeriodKind): string {
+	if (kind === "year") return String(start.getFullYear());
+	if (kind === "month") return `${MONTHS[start.getMonth()]} ${start.getFullYear()}`;
+	return `${start.getDate()} ${MONTHS[start.getMonth()]}`;
+}
+
+/** A word's level changes in time order, with "None" for "removed". */
+type Timeline = { time: number; level: string }[];
+
+/**
+ * The level changes of each word that has a definition now. Words with no
+ * definition left are not counted at all: when the last definition was
+ * deleted wasn't recorded before version 1.5, so they can't be placed in
+ * time. Words with no usable history fall back to their oldest definition.
+ */
+function timelines(dict: DictionaryData): Timeline[] {
+	const result: Timeline[] = [];
+	for (const entry of Object.values(dict ?? {}) as (WordEntry | undefined)[]) {
+		if (!entry) continue;
+		const definitions = Object.values(entry.definitions ?? {});
+		if (!definitions.some((d) => d && !d.deleted)) continue;
+
+		let timeline: Timeline = (entry.highlighthistory ?? [])
+			.map((h) => ({ time: parseTimestamp(h?.timestamp)?.getTime() ?? NaN, level: h?.level }))
+			.filter((h) => !Number.isNaN(h.time) && typeof h.level === "string");
+		if (!timeline.some((h) => isLevel(h.level)) && isLevel(entry.highlight)) {
+			const first = Math.min(...definitions.map((d) => parseTimestamp(d?.timestamp)?.getTime() ?? Infinity));
+			timeline = Number.isFinite(first) ? [{ time: first, level: entry.highlight }] : [];
+		}
+		timeline.sort((a, b) => a.time - b.time);
+		if (timeline.length > 0) result.push(timeline);
+	}
+	return result;
+}
+
+function isLevel(level: unknown): level is Level {
+	return level === "unknown" || level === "semiknown" || level === "known";
+}
+
+/** The level a word was at, at a moment (just before `time`); null if it had none. */
+function levelAt(timeline: Timeline, time: number): Level | null {
+	let level: string | null = null;
+	for (const change of timeline) {
+		if (change.time >= time) break;
+		level = change.level;
+	}
+	return isLevel(level) ? level : null;
+}
+
+const zero = (): Record<Level, number> => ({ unknown: 0, semiknown: 0, known: 0 });
+
+/**
+ * Statistics for consecutive periods, oldest first, ending with the one
+ * containing `now`: 12 weeks, 12 months, or every year since the first
+ * recorded change (at least one).
+ */
+export function computeProgress(dict: DictionaryData, kind: PeriodKind, now = new Date()): PeriodStats[] {
+	const words = timelines(dict);
+	const current = periodStart(now, kind);
+
+	let count = 12;
+	if (kind === "year") {
+		const firstTime = Math.min(...words.map((t) => t[0].time));
+		const firstYear = Number.isFinite(firstTime) ? new Date(firstTime).getFullYear() : now.getFullYear();
+		// from the first year with a change up to now, at most 50 years (in case of a wrong date)
+		const from = Math.max(Math.min(firstYear, now.getFullYear()), now.getFullYear() - 49);
+		count = now.getFullYear() - from + 1;
+	}
+
+	const periods: PeriodStats[] = [];
+	for (let i = count - 1; i >= 0; i--) {
+		const start = addPeriods(current, kind, -i);
+		const end = addPeriods(start, kind, 1);
+		// the current period counts up to now; later changes (e.g. a clock set wrong) are left out
+		const until = Math.min(end.getTime(), now.getTime() + 1);
+		const stats: PeriodStats = { label: label(start, kind), start, end, totals: zero(), reached: zero(), newWords: 0 };
+		for (const timeline of words) {
+			const before = levelAt(timeline, start.getTime());
+			const after = levelAt(timeline, until);
+			if (after === null) continue;
+			stats.totals[after]++;
+			if (after !== before) stats.reached[after]++;
+			if (before === null) stats.newWords++;
+		}
+		periods.push(stats);
+	}
+	return periods;
+}

@@ -6,10 +6,12 @@ A language-learning plugin for [Obsidian](https://obsidian.md). Read and write i
 
 - **Highlighting by familiarity.** Words are tinted *unknown* (red), *semi-known* (yellow) or *known* (green). Phrases of several words are underlined in the same colours. Colours can be changed or switched off in the settings.
 - **Definer sidebar.** Select text, or Ctrl+click a word, to open it in the sidebar. There you can:
-  - set how well you know it with the three buttons: plane taking off = unknown, plane = semi-known, rocket = known
+  - set how well you know it: Unknown, Semi-known or Known (keys 1, 2, 3 while the sidebar has focus, or the commands **Mark as unknown / semi-known / known**, which can be given hotkeys)
   - add definitions (type one and press Enter)
-  - see each definition with the sentence, note and date it was added in
-  - delete definitions
+  - see each definition with the sentence, note and date it was added in, and go to that sentence
+  - edit definitions, or delete them (with Undo)
+  - add a coworker's definition to yours with **+ Add**
+  - open phrases you've defined that start with the word
 - **Phones and tablets.** Long-press a word to select it, and it opens in the Definer: on phones in a panel at the bottom of the note, on tablets in the sidebar. The command **Langsoft: Define selection** does the same for the selection or the word at the cursor, and can be added to the mobile toolbar.
 - **Hover definitions.** Hover over a word you have defined to see its definitions.
 - **Search words.** Run the command **Langsoft: Search words** and type a word, or the start of one, to find your words and phrases with it and their definitions. Paste a whole sentence to see every word and phrase from your dictionaries in it. Words only your coworkers have defined are included, with their definitions. In either search window, Tab switches between searching words and searching by meaning.

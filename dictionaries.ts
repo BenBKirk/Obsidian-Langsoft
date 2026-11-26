@@ -1,36 +1,31 @@
 import LangsoftPlugin from "main";
-// import * as path from 'path';
-import { MarkdownView, Notice, Tfile, normalizePath } from "obsidian";
-import { EditorView } from "@codemirror/view";
-import { TriggerEffect } from "highlighter";
-import { ExampleModal } from "settings";
-import { start } from "repl";
+import { moment, normalizePath } from "obsidian";
 
 
-interface Definition {
+export interface Definition {
 	deleted: boolean;
 	timestamp: string; // Could use Date if you plan to parse it
-	file: string;
-	surroundingtext: string;
+	file?: string; // name of the note the definition was added in (missing if no note was open)
+	sentence: string; // the surrounding text, with the selection wrapped in <u></u>
 }
 
-interface HighlightHistoryEntry {
+export interface HighlightHistoryEntry {
 	level: string; // Could also be an enum like 'unknown' | 'semi-known' | 'known'
 	timestamp: string;
 }
 
-interface WordEntry {
+export interface WordEntry {
 	highlight: string; // Could be 'known' | 'unknown' | etc.
 	definitions: Record<string, Definition>; // Key is the definition name (e.g., "husband")
 	highlighthistory: HighlightHistoryEntry[];
 	firstwordofphrase: string[];
 }
 
-interface BookShelf {
+export interface BookShelf {
 	[key: string]: DictionaryData;
 }
 
-type DictionaryData = Record<string, WordEntry>;
+export type DictionaryData = Record<string, WordEntry>;
 
 
 export class DictionaryManager {
@@ -40,7 +35,7 @@ export class DictionaryManager {
 	dictFolder: string;
 	availableDictionaries: string[];
 	wordnet: string;
-	lastLoadedModifiedDate: number[];
+	lastLoadedModifiedDate: (number | undefined)[];
 
 	constructor(plugin: LangsoftPlugin) {
 		this.plugin = plugin;
@@ -82,7 +77,7 @@ export class DictionaryManager {
 					console.log("reloading ", path.slice(23, -5))
 					this.otherDicts[path.slice(23, -5)] = parsedDict;
 					//update the last seen modified date
-					this.lastLoadedModifiedDate[count] = stat.mtime;
+					this.lastLoadedModifiedDate[count] = stat?.mtime;
 
 				}
 				count += 1
@@ -158,20 +153,6 @@ export class DictionaryManager {
 		}
 		// console.log(this.lastModifiedDate)
 
-	}
-
-
-	findMostRecentHighlightLevel(entry: Entry) {
-		let latestLevel = "unknown";
-		let latestTimestamp = null;
-		for (const hl of entry.highlights) {
-			const currentTimestamp = moment(hl.timestamp, "YYYY-MM-DD HH:mm:ss");
-			if (!latestTimestamp || currentTimestamp.isAfter(latestTimestamp)) {
-				latestTimestamp = currentTimestamp;
-				latestLevel = hl.level;
-			}
-		}
-		return latestLevel;
 	}
 
 

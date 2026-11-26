@@ -1,5 +1,5 @@
-import { Editor, MarkdownView, Plugin, WorkspaceLeaf, Notice } from "obsidian";
-import { EditorView, hoverTooltip, ViewPlugin, ViewUpdate } from "@codemirror/view";
+import { Editor, MarkdownView, Plugin, TFile, WorkspaceLeaf } from "obsidian";
+import { EditorView, hoverTooltip } from "@codemirror/view";
 import { createSelectionHighlightPlugin, createHighlightPlugin, TriggerEffect, TriggerField } from "highlighter";
 import { DEFAULT_SETTINGS, LangsoftPluginSettings, LangsoftSettingsTab } from "settings";
 import { DictionaryManager } from "dictionaries";
@@ -7,8 +7,8 @@ import { VIEW_TYPE_DEFINER, DefinerView } from "definer";
 
 
 export default class LangsoftPlugin extends Plugin {
-	myViewPlugin: ViewPlugin;
-	mySelectionViewPlugin: ViewPlugin;
+	myViewPlugin: ReturnType<typeof createHighlightPlugin>;
+	mySelectionViewPlugin: ReturnType<typeof createSelectionHighlightPlugin>;
 	settings: LangsoftPluginSettings;
 	settingsTab: LangsoftSettingsTab;
 	dictManager: DictionaryManager;
@@ -50,7 +50,8 @@ export default class LangsoftPlugin extends Plugin {
 
 			try {
 				const tab = this.app.workspace.getMostRecentLeaf();  // active tab
-				const parent = tab.parent;                            // the pane that holds the tabs
+				// the pane that holds the tabs (`parent` exists at runtime but is missing from the typings)
+				const parent = (tab as unknown as { parent: { children: (WorkspaceLeaf | null)[] } }).parent;
 				const tabIndex = parent.children.indexOf(tab);           // 0-based index
 				this.lastTabIndex = tabIndex
 			} catch (e) {
@@ -364,6 +365,7 @@ export default class LangsoftPlugin extends Plugin {
 			// Our view could not be found in the workspace, create a new leaf
 			// in the right sidebar for it
 			leaf = workspace.getRightLeaf(false);
+			if (!leaf) return;
 			await leaf.setViewState({ type: VIEW_TYPE_DEFINER, active: true });
 		}
 

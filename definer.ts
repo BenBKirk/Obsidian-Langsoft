@@ -1,6 +1,6 @@
 import LangsoftPlugin from "main";
-import { ItemView, WorkspaceLeaf, Setting, TextAreaComponent, TextComponent, CheckboxComponent, SliderComponent, ToggleComponent, ColorComponent, ButtonComponent, Menu, MenuItem, SearchComponent, Notice, MarkdownView } from "obsidian";
-import { Definition, highlightHistoryEntry, WordEntry } from "dictionaries";
+import { ItemView, WorkspaceLeaf, TextAreaComponent, ButtonComponent, MarkdownView, moment } from "obsidian";
+import { Definition } from "dictionaries";
 
 
 export const VIEW_TYPE_DEFINER = "definer-view";
@@ -39,7 +39,7 @@ export class DefinerView extends ItemView {
 	async onOpen() {
 
 
-		const container = this.containerEl.children[1];
+		const container = this.containerEl.children[1] as HTMLElement;
 		container.empty();
 
 		container.createEl("h1", { text: "Langsoft 📖" });
@@ -201,7 +201,7 @@ export class DefinerView extends ItemView {
 			// check if definiton is unique or if the same one already exists
 			let seen = false;
 			for (const item of this.listContainer.children) {
-				if (item.children.item(0).textContent === defText) {
+				if (item.children.item(0)?.textContent === defText) {
 					seen = true
 				}
 			}
@@ -225,7 +225,7 @@ export class DefinerView extends ItemView {
 		details.appendChild(table);
 	}
 
-	createTable(context: string, file: string, date: string): HTMLTableElement {
+	createTable(context: string, file: string | undefined, date: string): HTMLTableElement {
 		const table = document.createElement("table");
 		table.createEl("tr");
 		const contextRow = document.createElement("tr");
@@ -239,7 +239,7 @@ export class DefinerView extends ItemView {
 		const fileTitle = document.createElement("td");
 		const fileContent = document.createElement("td");
 		fileTitle.innerHTML = '<strong>File: </strong>';
-		fileContent.innerHTML = file;
+		fileContent.innerHTML = file ?? "";
 		fileRow.appendChild(fileTitle);
 		fileRow.appendChild(fileContent);
 		const dateRow = document.createElement("tr");

@@ -10,6 +10,7 @@ import { UserModal } from "user-modal";
 import { SearchModal } from "search-modal";
 import { ProgressView, VIEW_TYPE_PROGRESS } from "progress-view";
 import { createCoveragePanel } from "coverage-panel";
+import { highlightElement } from "reading-view";
 import { createDefinerBottomPanel } from "definer-bottom-panel";
 import type { DefinerPanel } from "definer-panel";
 import type { Definition } from "dictionaries";
@@ -53,6 +54,7 @@ export default class LangsoftPlugin extends Plugin {
 		this.registerEditorExtension(TriggerField);
 		this.registerEditorExtension(this.bottomPanel.extension);
 		this.registerEditorExtension(createCoveragePanel(this));
+		this.registerReadingView();
 
 		// On phones and tablets, show what is selected in the note: long-pressing
 		// a word selects it. Waits until the selection has stopped changing.
@@ -147,6 +149,14 @@ export default class LangsoftPlugin extends Plugin {
 			// desktop only: touch screens send mouse events for every tap; see showEditorSelection
 			if (Platform.isMobile) return;
 			this.SelectedText = [];
+			// in Reading view the editor is hidden: use the page's own selection
+			const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+			if (markdownView?.getMode() === "preview") {
+				// Ctrl+click on a highlighted word is handled as a click; see registerReadingView
+				if (!event.ctrlKey && !event.metaKey) this.showReadingSelection();
+				return;
+			}
+
 			const editor = this.app.workspace.activeEditor?.editor;
 			if (!editor) return;
 
@@ -182,14 +192,14 @@ export default class LangsoftPlugin extends Plugin {
 				const start = editor.posToOffset(fromCursor)
 				const end = editor.posToOffset(toCursor)
 				this.SelectedText = [start, end];
-				this.refreshHighlights()
+				this.refreshHighlights(false)
 				// read the editor before awaiting, in case the selection changes meanwhile
 				const context = this.getContextForSelection(editor);
 				const leaf = await this.activateView();
 				leaf?.handleSelection(selectedText.trim(), context);
 				leaf?.getFocus();
 			} else {
-				this.refreshHighlights()
+				this.refreshHighlights(false)
 				const selection = editor.getSelection().trim();
 				const context = this.getContextForSelection(editor);
 				const leaf = await this.activateView();
@@ -276,6 +286,74 @@ export default class LangsoftPlugin extends Plugin {
 	// 	return null;
 	// }
 
+	/** Redraw notes open in Reading view, after the dictionary changed, at most every half second. */
+	private refreshReadingViews = debounce(() => {
+		for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
+			if (leaf.view instanceof MarkdownView && leaf.view.getMode() === "preview") {
+				leaf.view.previewMode.rerender(true);
+			}
+		}
+	}, 500, true);
+
+	/**
+	 * Highlight words in Reading view, and open them in the Definer: by
+	 * selecting text, by Ctrl+clicking a highlighted word, or on phones and
+	 * tablets by tapping it or long-pressing to select.
+	 */
+	private registerReadingView() {
+		this.registerMarkdownPostProcessor((el) => {
+			if (!this.settings.highlightReadingView || !this.currentUser) return;
+			highlightElement(el, this.dictManager.userDict, this.dictManager.otherDicts);
+		});
+
+		this.registerDomEvent(document, "click", async (event: MouseEvent) => {
+			const target = event.target as HTMLElement | null;
+			const span = target?.closest<HTMLElement>(".markdown-reading-view .langsoft-rv[data-langsoft-term]");
+			// not inside links, which keep working as links
+			if (!span || span.closest("a")) return;
+			if (!Platform.isMobile && !event.ctrlKey && !event.metaKey) return;
+			event.preventDefault();
+			const range = document.createRange();
+			range.selectNodeContents(span);
+			const context = this.readingContext(range, span.textContent ?? "");
+			const definer = await this.openDefiner();
+			definer?.handleSelection(span.textContent ?? "", context);
+		});
+
+		// on phones and tablets, long-pressing selects a word in Reading view too
+		if (Platform.isMobile) {
+			const show = debounce(() => this.showReadingSelection(), 600, true);
+			this.registerDomEvent(document, "selectionchange", () => {
+				if (this.app.workspace.getActiveViewOfType(MarkdownView)?.getMode() === "preview") show();
+			});
+		}
+	}
+
+	/** Show what is selected in a note in Reading view in the Definer. */
+	private async showReadingSelection() {
+		const selection = window.getSelection();
+		const text = selection?.toString() ?? "";
+		if (!selection || selection.rangeCount === 0 || text.trim() === "" || text.length > 200) return;
+		const range = selection.getRangeAt(0);
+		const start = range.startContainer instanceof Element ? range.startContainer : range.startContainer.parentElement;
+		if (!start?.closest(".markdown-reading-view")) return;
+		const context = this.readingContext(range, text);
+		const definer = await this.openDefiner();
+		definer?.handleSelection(text.trim(), context);
+	}
+
+	/** The text around a selection in Reading view, as saved with definitions. */
+	private readingContext(range: Range, selected: string): string {
+		const end = range.endContainer instanceof Element ? range.endContainer : range.endContainer.parentElement;
+		const block = end?.closest("p, li, h1, h2, h3, h4, h5, h6, td, th, blockquote, dd, dt") ?? end;
+		if (!block) return "";
+		const before = document.createRange();
+		before.setStart(block, 0);
+		before.setEnd(range.endContainer, range.endOffset);
+		const text = block.textContent ?? "";
+		return buildSelectionContext(text.replace(/\n/g, " "), before.toString().length, selected);
+	}
+
 	/** Open the progress page, or switch to it if it is already open. */
 	/**
 	 * Open the note a definition was added in, with the word selected, if
@@ -320,7 +398,7 @@ export default class LangsoftPlugin extends Plugin {
 			// the outline a Ctrl+click gives, and focus back in the note
 			// (on phones and tablets, focusing would open the keyboard)
 			this.SelectedText = [best.match.from, best.match.to];
-			this.refreshHighlights();
+			this.refreshHighlights(false);
 			editor.focus();
 		}
 		if (!best.match.exact) {
@@ -342,8 +420,15 @@ export default class LangsoftPlugin extends Plugin {
 		}
 	}, 1000, true);
 
-	refreshHighlights() {
-		this.refreshProgress();
+	/**
+	 * Redraw highlights. `dictionaryChanged` is false when only the selection
+	 * outline changed, so Reading view and the progress page aren't redrawn.
+	 */
+	refreshHighlights(dictionaryChanged = true) {
+		if (dictionaryChanged) {
+			this.refreshProgress();
+			this.refreshReadingViews();
+		}
 		for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
 			const mdView = leaf.view instanceof MarkdownView ? leaf.view : null;
 			if (mdView) {

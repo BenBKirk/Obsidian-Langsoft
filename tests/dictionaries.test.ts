@@ -85,14 +85,17 @@ describe("saving your own dictionary", () => {
 		expect(Object.keys(adapter.json(OWN)).sort()).toEqual(["a", "b"]);
 	});
 
-	it("overwrites a file that isn't valid JSON instead of failing", async () => {
+	it("does not overwrite a file that became unreadable after loading", async () => {
 		adapter.put(OWN, { hund: word("unknown", "dog") });
 		const { manager } = await makeManager(adapter);
 		adapter.put(OWN, "{ broken");
 
+		manager.addNewDefinition("katze", "unknown", "cat", context());
 		await manager.writeUserDictToJson();
 
-		expect(adapter.json(OWN).hund.highlight).toBe("unknown");
+		expect(adapter.files.get(OWN)!.data).toBe("{ broken");
+		expect(Notice.shown.join("\n")).toMatch(/can't be read/);
+		expect(Notice.shown.join("\n")).toMatch(/not saved/);
 	});
 
 	it("does not create a dictionary that wasn't set up, and says so", async () => {
@@ -216,5 +219,77 @@ describe("switching user", () => {
 		expect(Object.keys(adapter.json(`${FOLDER}/peter.json`))).toEqual(["katze"]);
 		expect(Object.keys(manager.userDict)).toEqual(["katze"]);
 		expect(Object.keys(manager.otherDicts)).toEqual(["maria"]);
+	});
+});
+
+describe("a dictionary file that can't be read", () => {
+	// e.g. after editing it by hand and leaving a trailing comma
+	const broken = '{ "hund": { "highlight": "known", }';
+
+	it("is reported, and everything else still loads", async () => {
+		adapter.put(OWN, broken);
+		adapter.put(`${FOLDER}/peter.json`, { katze: word("known", "cat") });
+		const { manager } = await makeManager(adapter);
+
+		expect(manager.unreadableReason).not.toBeNull();
+		expect(Notice.shown).toHaveLength(1);
+		expect(Notice.shown[0]).toMatch(/maria\.json can't be read/);
+		expect(Object.keys(manager.otherDicts)).toEqual(["peter"]);
+	});
+
+	it("is never overwritten", async () => {
+		adapter.put(OWN, broken);
+		const { manager } = await makeManager(adapter);
+
+		manager.addNewDefinition("katze", "unknown", "cat", context());
+		await manager.writeUserDictToJson();
+		await manager.writeUserDictToJson();
+
+		expect(adapter.files.get(OWN)!.data).toBe(broken);
+		expect(Notice.shown.filter((n) => /not saved/.test(n))).toHaveLength(2);
+		// the "can't be read" notice is only shown once
+		expect(Notice.shown.filter((n) => /can't be read \(/.test(n))).toHaveLength(1);
+	});
+
+	it("is picked up once it is fixed, keeping changes made meanwhile", async () => {
+		adapter.put(OWN, broken);
+		const { manager } = await makeManager(adapter);
+		manager.addNewDefinition("katze", "unknown", "cat", context());
+		await manager.writeUserDictToJson();
+
+		adapter.put(OWN, { hund: word("known", "dog") }); // fixed by hand
+		await manager.writeUserDictToJson();
+
+		expect(manager.unreadableReason).toBeNull();
+		expect(Object.keys(adapter.json(OWN)).sort()).toEqual(["hund", "katze"]);
+		expect(Notice.shown.join("\n")).toMatch(/can be read again/);
+	});
+
+	it("is noticed when fixed while switching notes", async () => {
+		adapter.put(OWN, broken);
+		const { manager, plugin } = await makeManager(adapter);
+		plugin.refreshHighlights.mockClear();
+
+		const file = adapter.files.get(OWN)!;
+		file.data = JSON.stringify({ hund: word("known", "dog") }); // fixed, even with the same modification time
+		await manager.reloadUserDictIfChanged();
+
+		expect(manager.userDict.hund.highlight).toBe("known");
+		expect(plugin.refreshHighlights).toHaveBeenCalled();
+	});
+
+	it("counts JSON that isn't an object as unreadable", async () => {
+		adapter.put(OWN, "[]");
+		const { manager } = await makeManager(adapter);
+		await manager.writeUserDictToJson();
+		expect(adapter.files.get(OWN)!.data).toBe("[]");
+	});
+
+	it("treats an empty file as an empty dictionary", async () => {
+		adapter.put(OWN, "");
+		const { manager } = await makeManager(adapter);
+		manager.addNewDefinition("katze", "unknown", "cat", context());
+		await manager.writeUserDictToJson();
+		expect(Object.keys(adapter.json(OWN))).toEqual(["katze"]);
 	});
 });

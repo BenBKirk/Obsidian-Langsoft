@@ -31,3 +31,25 @@ If your plugin does not need CSS, delete this file.
     color: var(--text-error);
     min-height: 1.5em;
 }
+
+/* "Langsoft: Search definitions" results */
+.langsoft-search-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5em;
+}
+.langsoft-search-term {
+    font-weight: var(--font-semibold);
+    padding: 0 0.2em;
+    border-radius: var(--radius-s);
+}
+.langsoft-search-coworkers {
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+}
+.langsoft-search-context {
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+    margin-top: 0.2em;
+}

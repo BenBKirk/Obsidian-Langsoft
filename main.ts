@@ -7,6 +7,7 @@ import { VIEW_TYPE_DEFINER, DefinerView } from "definer";
 import { buildSelectionContext, findWordAt, parseIntoWords as splitIntoWords } from "words";
 import { DEFAULT_FOLDER, LEGACY_FOLDER } from "dictionary-files";
 import { UserModal } from "user-modal";
+import { SearchModal } from "search-modal";
 
 
 export default class LangsoftPlugin extends Plugin {
@@ -54,6 +55,12 @@ export default class LangsoftPlugin extends Plugin {
 			VIEW_TYPE_DEFINER,
 			(leaf) => new DefinerView(leaf, this)
 		);
+
+		this.addCommand({
+			id: "search-definitions",
+			name: "Search definitions",
+			callback: () => new SearchModal(this.app, this).open(),
+		});
 
 		this.addCommand({
 			id: "switch-user",

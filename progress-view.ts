@@ -7,6 +7,8 @@ export const VIEW_TYPE_PROGRESS = "langsoft-progress";
 const LEVEL_NAMES: Record<Level, string> = { known: "Known", semiknown: "Semi-known", unknown: "Unknown" };
 /** Top to bottom in the summary; bottom to top in the bars. */
 const LEVEL_ORDER: Level[] = ["known", "semiknown", "unknown"];
+/** Height in pixels of the tallest possible bar. */
+const BAR_AREA_HEIGHT = 180;
 const KIND_NAMES: Record<PeriodKind, string> = { week: "Week", month: "Month", year: "Year" };
 const CURRENT_NAMES: Record<PeriodKind, string> = { week: "This week", month: "This month", year: "This year" };
 
@@ -127,13 +129,14 @@ export class ProgressView extends ItemView {
 			});
 
 			const area = column.createDiv({ cls: "langsoft-progress-area" });
+			// sizes in pixels rather than percentages: the column is a button, and themes
+			// size buttons in ways that keep percentage heights from working
 			const bar = area.createDiv({ cls: "langsoft-progress-bar" });
-			bar.style.height = `${(totalOf(period) / max) * 100}%`;
 			// top to bottom: unknown, semi-known, known, so known words build up from the bottom
 			for (const level of [...LEVEL_ORDER].reverse()) {
 				if (period.totals[level] === 0) continue;
 				const segment = bar.createDiv({ cls: "langsoft-progress-segment" });
-				segment.style.flexGrow = String(period.totals[level]);
+				segment.style.height = `${Math.max(1, (period.totals[level] / max) * BAR_AREA_HEIGHT)}px`;
 				segment.style.backgroundColor = this.colour(level);
 			}
 			column.createDiv({ cls: "langsoft-progress-label", text: period.label });

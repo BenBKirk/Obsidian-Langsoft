@@ -143,16 +143,16 @@ If your plugin does not need CSS, delete this file.
 }
 .langsoft-progress-chart {
     display: flex;
-    align-items: stretch;
+    align-items: flex-end;
     gap: var(--size-4-1);
-    height: 220px;
 }
 .langsoft-progress-column {
     flex: 1 1 0;
     min-width: 0;
-    height: 100%;
+    height: auto;
     display: flex;
     flex-direction: column;
+    align-items: stretch;
     padding: var(--size-4-1) 0 0;
     background: none;
     box-shadow: none;
@@ -162,7 +162,7 @@ If your plugin does not need CSS, delete this file.
     background-color: var(--background-modifier-hover);
 }
 .langsoft-progress-area {
-    flex: 1;
+    height: 180px; /* BAR_AREA_HEIGHT in progress-view.ts */
     display: flex;
     align-items: flex-end;
     justify-content: center;
@@ -174,6 +174,9 @@ If your plugin does not need CSS, delete this file.
     flex-direction: column;
     border-radius: 3px 3px 0 0;
     overflow: hidden;
+}
+.langsoft-progress-segment {
+    flex: none;
 }
 .langsoft-progress-segment {
     min-height: 1px;
@@ -276,6 +279,10 @@ If your plugin does not need CSS, delete this file.
     overflow: hidden;
     margin-bottom: var(--size-4-1);
     background: var(--background-modifier-border);
+}
+.langsoft-coverage-segment {
+    flex: none;
+    height: 100%;
 }
 .langsoft-coverage-new {
     background-color: var(--background-modifier-border);

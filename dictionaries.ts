@@ -465,6 +465,45 @@ export class DictionaryManager {
 		}
 	}
 
+	/**
+	 * Undo deleting a definition. It gets the current time, so the undo is
+	 * the newest change when devices are merged (a deletion otherwise wins a
+	 * tie). A word left with no level gets `level` back.
+	 */
+	restoreDefinition(term: string, definition: string, level: string) {
+		const entry = this.userDict[term];
+		const details = entry?.definitions[definition];
+		if (!details) return;
+		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
+		entry.definitions[definition] = { ...details, deleted: false, timestamp };
+		if (entry.highlight === "None") {
+			entry.highlight = level;
+			entry.highlighthistory.push({ level, timestamp });
+		}
+		this.writeUserDictToJson();
+		this.plugin.refreshHighlights();
+	}
+
+	/**
+	 * Change a definition's text, keeping where it was added. The new text
+	 * gets the current time, so it wins when devices are merged; the old one
+	 * is marked deleted. Does nothing if the new text is empty or unchanged.
+	 */
+	renameDefinition(term: string, from: string, to: string) {
+		const entry = this.userDict[term];
+		const details = entry?.definitions[from];
+		const text = to.trim().toLowerCase();
+		if (!details || details.deleted || text === "" || text === from) return;
+		const timestamp = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
+		const existing = entry.definitions[text];
+		if (!existing || existing.deleted) {
+			entry.definitions[text] = { ...details, deleted: false, timestamp };
+		}
+		entry.definitions[from] = { ...details, deleted: true, timestamp };
+		this.writeUserDictToJson();
+		this.plugin.refreshHighlights();
+	}
+
 	/** Save the user's dictionary to this device's file. */
 	writeUserDictToJson(): Promise<void> {
 		return this.queueUserDictTask(() => this.saveNow());

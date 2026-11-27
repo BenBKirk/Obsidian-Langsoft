@@ -39,7 +39,8 @@ export class UserModal extends Modal {
 
 		new Setting(contentEl).setName("New user").setHeading();
 		let input = "";
-		let errorEl: HTMLElement;
+		// created here, shown below the field further down
+		const errorEl = createDiv({ cls: "langsoft-user-error" });
 		const create = async () => {
 			// check against a fresh list, in case a dictionary synced in while this was open
 			const result = checkNewUserName(input, await this.plugin.listUsers());
@@ -72,7 +73,7 @@ export class UserModal extends Modal {
 				}
 			})
 			.addButton((button) => button.setButtonText("Create").onClick(create));
-		errorEl = contentEl.createDiv({ cls: "langsoft-user-error" });
+		contentEl.appendChild(errorEl);
 	}
 
 	private async choose(user: string) {

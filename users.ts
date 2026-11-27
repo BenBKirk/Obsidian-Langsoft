@@ -1,6 +1,8 @@
 // Rules for user names, with no Obsidian dependency so they can be unit tested.
 
 /** Characters that can't be used in file names on some systems, or that Obsidian treats specially. */
+// control characters are deliberately forbidden too
+// eslint-disable-next-line no-control-regex
 const FORBIDDEN_CHARACTERS = /[\\/:*?"<>|#^[\]\u0000-\u001f]/;
 /** File names Windows reserves. */
 const RESERVED_NAMES = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])$/i;

@@ -1,4 +1,4 @@
-import { debounce, Editor, MarkdownView, Notice, Platform, Plugin, TFile, WorkspaceLeaf } from "obsidian";
+import { debounce, Editor, MarkdownView, normalizePath, Notice, Platform, Plugin, TFile, WorkspaceLeaf } from "obsidian";
 import { EditorView, hoverTooltip } from "@codemirror/view";
 import { createSelectionHighlightPlugin, createHighlightPlugin, TriggerEffect, TriggerField } from "highlighter";
 import { DEFAULT_SETTINGS, LangsoftPluginSettings, LangsoftSettingsTab } from "settings";
@@ -163,9 +163,9 @@ export default class LangsoftPlugin extends Plugin {
 
 		// first run on this device
 		this.app.workspace.onLayoutReady(() => {
+			this.turnOffOldCopy();
 			if (!this.currentUser) this.openUserPicker();
 		});
-
 
 
 		this.registerDomEvent(document.body, "mouseup", async (event) => {
@@ -194,9 +194,6 @@ export default class LangsoftPlugin extends Plugin {
 			}
 
 			if (event.ctrlKey) {
-				// console.log("After: ", editor?.posToOffset(editor.getCursor()));
-				// let selectedText = "";
-				// let context = "";
 				let selectedText = editor.getSelection().trim();
 				if (selectedText == "") {
 					const word = this.selectWordAtCursor(editor);
@@ -211,7 +208,6 @@ export default class LangsoftPlugin extends Plugin {
 
 				const fromCursor = editor.getCursor("from")
 				const toCursor = editor.getCursor("to")
-				// const cursor = editor.getCursor();
 				const start = editor.posToOffset(fromCursor)
 				const end = editor.posToOffset(toCursor)
 				this.SelectedText = [start, end];
@@ -228,7 +224,6 @@ export default class LangsoftPlugin extends Plugin {
 				const leaf = await this.activateView();
 				leaf?.handleSelection(selection, context);
 			}
-
 
 
 		}
@@ -265,25 +260,9 @@ export default class LangsoftPlugin extends Plugin {
 		);
 
 
-		// this.registerDomEvent(document, "dblclick", () => {
 		//
-		// 	const editor = this.app.workspace.activeEditor?.editor;
-		// 	if (!editor) return;
 		//
-		// 	// const result = this.getWordAtCursor(editor);
-		// 	// if (result) {
-		// 	// 	new Notice(`Double-clicked word: ${result.word}`);
-		// 	// 	editor.setSelection(result.from, result.to);
 		// 	// }
-		// 	const word = this.selectWordAtCursor(editor);
-		// 	if (word) {
-		// 		const context = this.getContextForSelection(editor)
-		// 		// new Notice(`Selected word: ${word} context: ${context}`);
-		// 		this.activateView();
-		// 		const leaf = this.getDefinerViewLeaf();
-		// 		leaf.handleSelection(word.trim(), context);
-		// 	}
-		// });
 
 	}
 
@@ -302,25 +281,10 @@ export default class LangsoftPlugin extends Plugin {
 		return word.text;
 	}
 
-	// getWordAtCursor(editor: Editor): { word: string; from: number; to: number } | null {
-	// 	const cursor = editor.getCursor();
-	// 	const lineText = editor.getLine(cursor.line);
-	// 	const pos = cursor.ch;
 	//
-	// 	const regex = /[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu;
 	//
-	// 	let match;
-	// 	while ((match = regex.exec(lineText)) !== null) {
-	// 		const start = match.index;
-	// 		const end = start + match[0].length;
 	//
-	// 		if (pos >= start && pos <= end) {
-	// 			return { word: match[0], from: start, to: end };
-	// 		}
-	// 	}
 	//
-	// 	return null;
-	// }
 
 	/** Redraw notes open in Reading view, after the dictionary changed, at most every half second. */
 	private refreshReadingViews = debounce(() => {
@@ -486,6 +450,50 @@ export default class LangsoftPlugin extends Plugin {
 
 	async openProgress() {
 		await this.openPage(VIEW_TYPE_PROGRESS);
+	}
+
+	/** Langsoft's ID before version 1.12, when it moved to "langsoft" for the community plugin list. */
+	private static readonly OLD_ID = "langsoft-plugin";
+
+	/** The settings of a copy of Langsoft installed under its old ID, if there is one. */
+	private async importOldSettings(): Promise<Record<string, unknown> | null> {
+		const adapter = this.app.vault.adapter;
+		const pluginsFolder = normalizePath(`${this.app.vault.configDir}/plugins`);
+		try {
+			for (const folder of (await adapter.list(pluginsFolder)).folders) {
+				if (folder === this.manifest.dir) continue;
+				const manifestPath = normalizePath(`${folder}/manifest.json`);
+				const dataPath = normalizePath(`${folder}/data.json`);
+				if (!(await adapter.exists(manifestPath)) || !(await adapter.exists(dataPath))) continue;
+				const manifest = JSON.parse(await adapter.read(manifestPath));
+				if (manifest?.id !== LangsoftPlugin.OLD_ID) continue;
+				const data = JSON.parse(await adapter.read(dataPath));
+				if (data && typeof data === "object") {
+					new Notice(`Langsoft: brought over your settings from the old copy of Langsoft in “${folder}”.`);
+					return data;
+				}
+			}
+		} catch (e) {
+			console.warn("Langsoft: could not look for settings from an older copy", e);
+		}
+		return null;
+	}
+
+	/**
+	 * Two copies of Langsoft running at once would both save your dictionary.
+	 * If the copy under the old ID is still switched on, switch it off; its
+	 * folder is left for you to delete.
+	 */
+	private async turnOffOldCopy() {
+		// Obsidian's list of plugins isn't in its public API, so check carefully
+		const plugins = (this.app as unknown as { plugins?: { enabledPlugins?: Set<string>; disablePluginAndSave?: (id: string) => Promise<void>; manifests?: Record<string, { dir?: string }> } }).plugins;
+		if (!plugins?.enabledPlugins?.has(LangsoftPlugin.OLD_ID) || typeof plugins.disablePluginAndSave !== "function") return;
+		const folder = plugins.manifests?.[LangsoftPlugin.OLD_ID]?.dir ?? `${this.app.vault.configDir}/plugins/${LangsoftPlugin.OLD_ID}`;
+		await plugins.disablePluginAndSave(LangsoftPlugin.OLD_ID);
+		new Notice(
+			`Langsoft: switched off the old copy of Langsoft, so only this one runs. Your dictionaries and settings are kept. You can delete its folder: “${folder}”.`,
+			0
+		);
 	}
 
 	/** The day a backup was last made or found on this device, so the folder isn't listed on every save. */
@@ -668,37 +676,24 @@ export default class LangsoftPlugin extends Plugin {
 		}
 		`;
 
-		// transform: translateY(-2px);
 		return style;
 	}
 
 
-	// settingsToStyle() {
-	// 	let style = "";
 	//
 	// 	const highlightTypes = ["unknown", "semiknown", "known", "coworker"]
 	// 	const highlightTypesUnderline = ["unknownunderline", "semiknownunderline", "knownunderline", "coworkerunderline"]
 	// 	const enabled = [this.settings.unknownEnabled, this.settings.semiknownEnabled, this.settings.knownEnabled, this.settings.coworkerEnabled]
 	// 	const colors = [this.settings.unknownColor, this.settings.semiknownColor, this.settings.knownColor, this.settings.coworkerColor]
-	// 	for (let i = 0; i < highlightTypes.length; i++) {
-	// 		if (enabled[i]) {
-	// 			// style = style.concat(`.${highlightTypes[i]} { color: ${colors[i]};} \n`);
-	// 			style = style.concat(`.${highlightTypes[i]} { background-color: ${this.hexToRGB(colors[i], 0.2)}; } \n`);
-	// 		}
-	// 	}
-	// 	for (let i = 0; i < highlightTypesUnderline.length; i++) {
-	// 		if (enabled[i]) {
-	// 			// style = style.concat(`.${highlightTypesUnderline[i]} {text-decoration: underline; text-decoration-color: ${this.hexToRGB(colors[i], 0.2)}; text-decoration-thickness: 3px;} \n`);
-	// 			// style = style.concat(`.${highlightTypesUnderline[i]} { background-color: ${this.hexToRGB(colors[i], 0.2)}; } \n`);
-	// 			style = style.concat(`.${highlightTypesUnderline[i]} {text-decoration: underline; text-decoration-color: ${this.hexToRGB(colors[i], 0.5)}; text-decoration-thickness: 5px;} \n`);
-	// 			// style = style.concat(`.${highlightTypesUnderline[i]} {display: inline-blocks; padding: 5px; border-bottom: 2px solid ${this.hexToRGB(colors[i], 0.2)}; border-left: 2px solid ${this.hexToRGB(colors[i], 0.2)}; border-right: 2px solid ${this.hexToRGB(colors[i], 0.2)};} \n`);
-	// 		}
-	// 	}
-	// 	return style;
-	// }
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		let data = await this.loadData();
+		// first run under the "langsoft" ID: bring over the settings of a copy installed under the old ID
+		if (data === null) {
+			data = await this.importOldSettings();
+			if (data) await this.saveData(data);
+		}
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
 		// versions before 1.2 used a hidden folder by default; their data.json still names it
 		if (this.settings.dictionaryFolder === LEGACY_FOLDER) {
 			this.settings.dictionaryFolder = DEFAULT_FOLDER;

@@ -2,6 +2,16 @@
 
 A language-learning plugin for [Obsidian](https://obsidian.md). Read and write in the language you are learning, and Langsoft highlights each word by how well you know it, keeps your definitions together with the sentence you found them in, and shows you what your coworkers have already learned.
 
+## Getting started
+
+1. Install and enable Langsoft (see [Installing](#installing)).
+2. Langsoft asks **who you are**. Create your user, or choose yours if your dictionary has already synced from another device.
+3. Open a note in the language you're learning. Select a word, or Ctrl+click it (on a phone, long-press it), to open it in the **Definer** sidebar.
+4. Type a definition and press Enter. The word is now highlighted everywhere, in its level's colour.
+5. Change its level as you learn it: Unknown, Semi-known or Known.
+
+To share dictionaries with coworkers, sync the `Langsoft` folder between your vaults (see [Sharing with coworkers](#sharing-with-coworkers)).
+
 ## Features
 
 - **Highlighting by familiarity.** Words are tinted *unknown* (red), *semi-known* (yellow) or *known* (green). Phrases of several words are underlined in the same colours. Colours can be changed or switched off in the settings. Highlights appear in Reading view too, where selecting a word, or Ctrl+clicking (on a phone, tapping) a highlighted one, opens it in the sidebar.
@@ -43,7 +53,7 @@ Who you are is remembered on each device separately, not in the plugin's setting
 
 On a new device, wait until your dictionaries have synced, then choose your name. Creating the same user again makes a second, empty dictionary that conflicts with the real one when it arrives.
 
-To keep dictionaries in a different folder, change `dictionaryFolder` in `.obsidian/plugins/langsoft-plugin/data.json`.
+To keep dictionaries in a different folder, change `dictionaryFolder` in `.obsidian/plugins/langsoft/data.json`.
 
 ### Sharing with coworkers
 
@@ -78,7 +88,17 @@ If Syncthing ever made conflict copies of your dictionary (`...sync-conflict-...
 
 ## Installing
 
-The plugin isn't in the community plugin list. To install it by hand, copy `main.js`, `manifest.json` and `styles.css` into `<vault>/.obsidian/plugins/langsoft-plugin/`, then enable **Langsoft** under *Settings → Community plugins*.
+Install **Langsoft** from *Settings → Community plugins → Browse* once it is listed there, or with the [BRAT](https://github.com/TfTHacker/obsidian42-brat) plugin, giving it `BenBKirk/Obsidian-Langsoft`.
+
+To install it by hand, copy `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/BenBKirk/Obsidian-Langsoft/releases/latest) into `<vault>/.obsidian/plugins/langsoft/`, then enable **Langsoft** under *Settings → Community plugins*.
+
+Langsoft needs Obsidian 1.15 or later, on desktop or mobile.
+
+### Updating from version 1.11 or earlier
+
+Until version 1.11, Langsoft's plugin ID was `langsoft-plugin`; it is now `langsoft`, as the community plugin list requires. When you install the new version, Langsoft brings over your settings from the old copy and switches the old copy off. Your dictionaries, backups and who you are on each device are not affected. Afterwards you can delete the old folder, `<vault>/.obsidian/plugins/langsoft-plugin/` (or wherever the notice says it is).
+
+If you update by copying files into the old folder instead, Langsoft appears switched off afterwards: switch it on again under *Settings → Community plugins*. Your settings are kept.
 
 ## Development
 
@@ -91,7 +111,7 @@ npm run build      # type check and production build
 npm test           # run the tests (npm run test:watch to keep them running)
 ```
 
-For quick testing, clone the repository into `<vault>/.obsidian/plugins/langsoft-plugin/` (or symlink the built files there), run `npm run dev`, and reload Obsidian after changes.
+For quick testing, clone the repository into `<vault>/.obsidian/plugins/langsoft/` (or symlink the built files there), run `npm run dev`, and reload Obsidian after changes.
 
 | File | Contents |
 |---|---|

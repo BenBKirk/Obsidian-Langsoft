@@ -235,7 +235,7 @@ export class DictionaryManager {
 			try {
 				await this.plugin.app.vault.adapter.mkdir(dictName);
 			} catch (e) {
-				console.log(e);
+				console.warn(`Langsoft: could not create the folder ${dictName}`, e);
 			}
 		}
 		this.dictFolder = dictName;
@@ -406,8 +406,6 @@ export class DictionaryManager {
 			// add the new definition
 			sameTermFound.definitions[defText] = context;
 			// make sure the definerViewLeaf gets updated
-			// const leaf = this.plugin.getDefinerViewLeaf()
-			// leaf.addListItem(defText, context);
 			// if the highlight was none (for example it was the undefined first word of a phrase) when we need to add 
 			sameTermFound.highlight = level;
 			sameTermFound.highlighthistory.push({ level: level, timestamp: timestamp });
@@ -450,7 +448,7 @@ export class DictionaryManager {
 		try {
 			this.userDict[term].definitions[definition].deleted = true;
 			let otherDefinitionExists = false;
-			for (const [key, val] of Object.entries(this.userDict[term].definitions)) {
+			for (const val of Object.values(this.userDict[term].definitions)) {
 				if (!val.deleted) {
 					otherDefinitionExists = true;
 				}

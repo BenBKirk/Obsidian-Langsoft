@@ -46,7 +46,6 @@ export const DEFAULT_SETTINGS: LangsoftPluginSettings = {
 }
 
 
-
 export class LangsoftSettingsTab extends PluginSettingTab {
 	plugin: LangsoftPlugin;
 
@@ -134,7 +133,6 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 				.setTooltip("Enable / Disable")
 				.onChange(async (value) => {
 					this.plugin.settings.unknownEnabled = value;
-					// await this.plugin.saveSettings();
 					this.plugin.updateStyle();
 				})
 
@@ -146,7 +144,6 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 			.setValue(this.plugin.settings.unknownColor)
 			.onChange(async (value) => {
 				this.plugin.settings.unknownColor = value;
-				// await this.plugin.saveSettings();
 				this.plugin.updateStyle();
 			}));
 
@@ -162,7 +159,6 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 				.setTooltip("Enable / Disable")
 				.onChange(async (value) => {
 					this.plugin.settings.semiknownEnabled = value;
-					// await this.plugin.saveSettings();
 					this.plugin.updateStyle();
 				})
 		}
@@ -172,10 +168,8 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 			.setValue(this.plugin.settings.semiknownColor)
 			.onChange(async (value) => {
 				this.plugin.settings.semiknownColor = value;
-				// await this.plugin.saveSettings();
 				this.plugin.updateStyle();
 			}));
-
 
 
 		const knowns = new Setting(containerEl).setName("Known");
@@ -189,7 +183,6 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 				.setTooltip("Enable / Disable")
 				.onChange(async (value) => {
 					this.plugin.settings.knownEnabled = value;
-					// await this.plugin.saveSettings();
 					this.plugin.updateStyle();
 				})
 		}
@@ -199,7 +192,6 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 			.setValue(this.plugin.settings.knownColor)
 			.onChange(async (value) => {
 				this.plugin.settings.knownColor = value;
-				// await this.plugin.saveSettings();
 				this.plugin.updateStyle();
 			}));
 
@@ -214,7 +206,6 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 				.setTooltip("Enable / Disable")
 				.onChange(async (value) => {
 					this.plugin.settings.coworkerEnabled = value;
-					// await this.plugin.saveSettings();
 					this.plugin.updateStyle();
 				})
 		}
@@ -224,33 +215,8 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 			.setValue(this.plugin.settings.coworkerColor)
 			.onChange(async (value) => {
 				this.plugin.settings.coworkerColor = value;
-				// await this.plugin.saveSettings();
 				this.plugin.updateStyle();
 			}));
-
-
-		// let tac: TextComponent;
-		// new Setting(containerEl)
-		// 	.setName("Dictionaries Folder")
-		// 	.setDesc('This is the name of the folder used to store dictionaries in JSON format. If the folder does not exist yet it will be automatically created. If the name starts with a "." that means it is a hidden folder. ')
-		// 	.addExtraButton((b) => {
-		// 		b.setIcon("reset")
-		// 			.setTooltip("Reset to default")
-		// 			.onClick(async () => {
-		// 				this.plugin.settings.dictionaryFolder = DEFAULT_SETTINGS.dictionaryFolder;
-		// 				// await this.plugin.saveSettings();
-		// 				tac.setValue(this.plugin.settings.dictionaryFolder)
-		// 			});
-		// 	})
-		// 	.addText((c: TextComponent) => {
-		// 		tac = c;
-		// 		c.setValue(this.plugin.settings.dictionaryFolder);
-		// 		c.onChange(async (value: string) => {
-		// 			const newValue = value.trim().length === 0 ? DEFAULT_SETTINGS.dictionaryFolder : value.trim();
-		// 			this.plugin.settings.dictionaryFolder = newValue;
-		// 			// await this.plugin.saveSettings();
-		// 		})
-		// 	});
 
 
 	}

@@ -1,6 +1,7 @@
 // How much of a note's text you know. No Obsidian dependency, so it can be unit tested.
 import type { BookShelf, DictionaryData } from "dictionaries";
 import { parseIntoWords, termKey } from "words";
+import { maskNonProse } from "prose";
 
 /**
  * Like the highlighting: your level if the word is in your dictionary;
@@ -15,8 +16,6 @@ export interface Coverage {
 	counts: Record<CoverageLevel, number>;
 }
 
-/** Text that isn't prose: front matter, code blocks, inline code and web addresses. */
-const NOT_PROSE = [/^---\n[\s\S]*?\n---(?:\n|$)/, /```[\s\S]*?(?:```|$)/g, /`[^`\n]*`/g, /\b(?:https?|ftp):\/\/\S+/g];
 
 /**
  * How many of the distinct words in `text` you know, half know or don't
@@ -25,8 +24,8 @@ const NOT_PROSE = [/^---\n[\s\S]*?\n---(?:\n|$)/, /```[\s\S]*?(?:```|$)/g, /`[^`
  * Phrases aren't counted.
  */
 export function noteCoverage(text: string, dict: DictionaryData, coworkers: BookShelf = {}): Coverage {
-	let prose = text;
-	for (const pattern of NOT_PROSE) prose = prose.replace(pattern, " ");
+	// not links' targets, embedded recordings, tags, code, front matter…
+	const prose = maskNonProse(text, true);
 
 	const distinct = new Set<string>();
 	for (const word of parseIntoWords(prose)) {

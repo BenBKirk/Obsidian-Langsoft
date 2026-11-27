@@ -107,7 +107,17 @@ export function segmentText(text: string, own: DictionaryData, coworkers: BookSh
 }
 
 /** Elements whose text isn't prose: code, maths, front matter and properties. */
-const SKIP = "code, pre, .math, mjx-container, .frontmatter, .frontmatter-container, .metadata-container, .langsoft-rv";
+const SKIP =
+	"code, pre, .math, mjx-container, .frontmatter, .frontmatter-container, .metadata-container, .langsoft-rv, a.tag, .internal-embed, .media-embed, audio, video";
+
+/** A link to a note shown by its name rather than other text: its words are a name, not text to read. */
+function isNoteNameLink(element: Element | null): boolean {
+	const link = element?.closest("a.internal-link");
+	if (!link) return false;
+	const target = (link.getAttribute("data-href") ?? "").replace(/\.md$/, "");
+	const shown = (link.textContent ?? "").trim();
+	return shown === target || shown === target.slice(target.lastIndexOf("/") + 1);
+}
 
 /**
  * Highlight the words in a rendered piece of a note, in place. Only text
@@ -116,7 +126,9 @@ const SKIP = "code, pre, .math, mjx-container, .frontmatter, .frontmatter-contai
 export function highlightElement(root: HTMLElement, own: DictionaryData, coworkers: BookShelf) {
 	const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
 		acceptNode: (node) =>
-			node.parentElement?.closest(SKIP) || !node.nodeValue?.trim() ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+			node.parentElement?.closest(SKIP) || isNoteNameLink(node.parentElement) || !node.nodeValue?.trim()
+				? NodeFilter.FILTER_REJECT
+				: NodeFilter.FILTER_ACCEPT,
 	});
 	const nodes: Text[] = [];
 	for (let node = walker.nextNode(); node; node = walker.nextNode()) nodes.push(node as Text);

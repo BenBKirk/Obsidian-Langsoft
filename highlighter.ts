@@ -11,6 +11,7 @@ import {
 import LangsoftPlugin from "main";
 import type { DictionaryData } from "dictionaries";
 import { termKey } from "words";
+import { maskNonProse } from "prose";
 import { StateField, StateEffect } from "@codemirror/state";
 
 // Define an effect to signal updates
@@ -58,7 +59,8 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 			buildDecorations(view: EditorView): DecorationSet {
 				const builder = new RangeSetBuilder<Decoration>();
 				for (const { from, to } of view.visibleRanges) {
-					const text = view.state.doc.sliceString(from, to);
+					// not links' targets, embedded recordings, tags… (positions stay the same)
+					const text = maskNonProse(view.state.doc.sliceString(from, to));
 					const words = this.plugin.parseIntoWords(text, from);
 					for (const [index, word] of words.entries()) {
 						this.highlightWord(builder, word, words, index);

@@ -136,20 +136,20 @@ export function highlightElement(root: HTMLElement, own: DictionaryData, coworke
 	for (const node of nodes) {
 		const groups = segmentText(node.nodeValue ?? "", own, coworkers);
 		if (!groups.some((g) => g.underline || g.segments.some((s) => s.level))) continue;
-		const fragment = root.ownerDocument.createDocumentFragment();
+		const fragment = createFragment();
 		for (const group of groups) {
-			const parent = group.underline
-				? fragment.appendChild(Object.assign(root.ownerDocument.createElement("span"), { className: `langsoft-rv ${group.underline}` }))
-				: fragment;
-			if (group.phrase && parent instanceof HTMLElement) parent.dataset.langsoftTerm = group.phrase;
+			let parent: HTMLElement | DocumentFragment = fragment;
+			if (group.underline) {
+				const phrase = createSpan({ cls: ["langsoft-rv", group.underline] });
+				if (group.phrase) phrase.dataset.langsoftTerm = group.phrase;
+				parent = fragment.appendChild(phrase);
+			}
 			for (const segment of group.segments) {
 				if (!segment.level) {
-					parent.appendChild(root.ownerDocument.createTextNode(segment.text));
+					parent.appendText(segment.text);
 					continue;
 				}
-				const span = root.ownerDocument.createElement("span");
-				span.className = `langsoft-rv ${segment.level}`;
-				span.textContent = segment.text;
+				const span = createSpan({ cls: ["langsoft-rv", segment.level], text: segment.text });
 				if (segment.term) span.dataset.langsoftTerm = segment.term;
 				parent.appendChild(span);
 			}

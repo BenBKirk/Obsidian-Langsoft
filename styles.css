@@ -4,16 +4,17 @@
 .known { background-color: var(--langsoft-known-background, transparent); }
 .coworker { background-color: var(--langsoft-coworker-background, transparent); }
 
+/* phrase underlines: a bottom border, which every Obsidian version draws the same */
 .unknownunderline,
 .semiknownunderline,
 .knownunderline,
 .coworkerunderline {
-    text-decoration-thickness: 5px;
+    border-bottom: 5px solid transparent;
 }
-.unknownunderline { text-decoration-line: var(--langsoft-unknown-underline-line, none); text-decoration-color: var(--langsoft-unknown-underline); }
-.semiknownunderline { text-decoration-line: var(--langsoft-semiknown-underline-line, none); text-decoration-color: var(--langsoft-semiknown-underline); }
-.knownunderline { text-decoration-line: var(--langsoft-known-underline-line, none); text-decoration-color: var(--langsoft-known-underline); }
-.coworkerunderline { text-decoration-line: var(--langsoft-coworker-underline-line, none); text-decoration-color: var(--langsoft-coworker-underline); }
+.unknownunderline { border-bottom-color: var(--langsoft-unknown-underline, transparent); }
+.semiknownunderline { border-bottom-color: var(--langsoft-semiknown-underline, transparent); }
+.knownunderline { border-bottom-color: var(--langsoft-known-underline, transparent); }
+.coworkerunderline { border-bottom-color: var(--langsoft-coworker-underline, transparent); }
 
 /* hover definitions */
 .tooltip.tooltip-adjusted {
@@ -132,7 +133,6 @@ If your plugin does not need CSS, delete this file.
 .langsoft-definer-sentence u,
 .langsoft-definer-meta u {
     color: var(--text-normal);
-    text-decoration-thickness: 2px;
 }
 
 /* the three levels */
@@ -376,8 +376,8 @@ If your plugin does not need CSS, delete this file.
     font-weight: var(--font-normal);
     font-size: var(--font-ui-smaller);
 }
-.langsoft-progress-number {
-    text-align: right !important;
+.langsoft-progress-summary .langsoft-progress-number {
+    text-align: right;
     font-variant-numeric: tabular-nums;
 }
 .langsoft-progress-total td {
@@ -901,7 +901,6 @@ p.langsoft-progress-hint {
 }
 .langsoft-definer-example u {
     font-weight: var(--font-semibold);
-    text-decoration-thickness: 2px;
 }
 .langsoft-definer-more {
     display: inline-block;

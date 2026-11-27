@@ -848,3 +848,26 @@ p.langsoft-progress-hint {
     font-size: var(--font-ui-small);
     line-height: 1.7;
 }
+
+/* other places the word appears, at the bottom of the Definer */
+.langsoft-definer-example {
+    padding: var(--size-4-2);
+    border-radius: var(--radius-s);
+    font-size: var(--font-ui-small);
+    cursor: pointer;
+}
+.langsoft-definer-example + .langsoft-definer-example {
+    border-top: 1px solid var(--background-modifier-border);
+}
+.langsoft-definer-example:hover {
+    background: var(--background-modifier-hover);
+}
+.langsoft-definer-example u {
+    font-weight: var(--font-semibold);
+    text-decoration-thickness: 2px;
+}
+.langsoft-definer-more {
+    display: inline-block;
+    margin-top: var(--size-4-1);
+    font-size: var(--font-ui-smaller);
+}

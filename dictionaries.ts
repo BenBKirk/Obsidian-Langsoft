@@ -630,6 +630,47 @@ export class DictionaryManager {
 		this.savedBulkChange();
 	}
 
+	/**
+	 * Bring back what a backup had (see planRestore). Definitions get the
+	 * current time, so they win when devices merge; whole words get their
+	 * level back. Saves once.
+	 */
+	applyRestore(items: { term: string; wholeWord: boolean; level: string; definitions: { definition: string; details: Definition }[] }[]) {
+		const timestamp = nowTimestamp();
+		for (const item of items) {
+			for (const { definition, details } of item.definitions) {
+				const restored = { ...details, deleted: false, timestamp };
+				if (this.userDict[item.term]) this.userDict[item.term].definitions[definition] = restored;
+				// a new entry, linked from its first word if it is a phrase
+				else this.addNewDefinition(item.term, item.level, definition, restored);
+			}
+			const entry = this.userDict[item.term];
+			if (item.wholeWord && entry && entry.highlight !== item.level) {
+				entry.highlight = item.level;
+				entry.highlighthistory.push({ level: item.level, timestamp });
+			}
+		}
+		if (items.length > 0) this.savedBulkChange();
+	}
+
+	/** Undo applyRestore: delete the definitions it brought back. */
+	undoRestore(items: { term: string; definitions: { definition: string }[] }[]) {
+		const timestamp = nowTimestamp();
+		for (const item of items) {
+			const entry = this.userDict[item.term];
+			if (!entry) continue;
+			for (const { definition } of item.definitions) {
+				const details = entry.definitions[definition];
+				if (details && !details.deleted) entry.definitions[definition] = { ...details, deleted: true, timestamp };
+			}
+			if (!Object.values(entry.definitions).some((d) => d && !d.deleted) && entry.highlight !== "None") {
+				entry.highlight = "None";
+				entry.highlighthistory.push({ level: "None", timestamp });
+			}
+		}
+		if (items.length > 0) this.savedBulkChange();
+	}
+
 	private savedBulkChange() {
 		this.writeUserDictToJson();
 		this.plugin.refreshHighlights();

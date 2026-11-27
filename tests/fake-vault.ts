@@ -7,6 +7,7 @@ import type LangsoftPlugin from "../main";
 
 export class FakeAdapter {
 	files = new Map<string, { data: string; mtime: number }>();
+	binaries = new Map<string, { data: Uint8Array; mtime: number }>();
 	folders = new Set<string>();
 	private clock = 1000;
 
@@ -20,7 +21,7 @@ export class FakeAdapter {
 	}
 
 	async exists(path: string) {
-		return this.files.has(path) || this.folders.has(path);
+		return this.files.has(path) || this.binaries.has(path) || this.folders.has(path);
 	}
 	async mkdir(path: string) {
 		this.folders.add(path);
@@ -28,9 +29,9 @@ export class FakeAdapter {
 	/** Like Obsidian's adapter: the files and folders directly inside `folder`. */
 	async list(folder: string) {
 		const parent = (path: string) => (path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "");
-		const files = [...this.files.keys()].filter((path) => parent(path) === folder);
+		const files = [...this.files.keys(), ...this.binaries.keys()].filter((path) => parent(path) === folder);
 		const folders = new Set([...this.folders].filter((path) => parent(path) === folder));
-		for (const path of this.files.keys()) {
+		for (const path of [...this.files.keys(), ...this.binaries.keys()]) {
 			// folders that exist because files are in them
 			let dir = parent(path);
 			while (dir !== "" && parent(dir) !== folder && dir.startsWith(`${folder}/`)) dir = parent(dir);
@@ -48,7 +49,20 @@ export class FakeAdapter {
 	}
 	async stat(path: string) {
 		const file = this.files.get(path);
-		return file ? { type: "file", mtime: file.mtime, ctime: file.mtime, size: file.data.length } : null;
+		if (file) return { type: "file", mtime: file.mtime, ctime: file.mtime, size: file.data.length };
+		const binary = this.binaries.get(path);
+		return binary ? { type: "file", mtime: binary.mtime, ctime: binary.mtime, size: binary.data.byteLength } : null;
+	}
+	async readBinary(path: string): Promise<ArrayBuffer> {
+		const file = this.binaries.get(path);
+		if (!file) throw new Error(`no such file: ${path}`);
+		return file.data.slice().buffer;
+	}
+	async writeBinary(path: string, data: ArrayBuffer) {
+		this.binaries.set(path, { data: new Uint8Array(data.slice(0)), mtime: ++this.clock });
+	}
+	async remove(path: string) {
+		if (!this.files.delete(path) && !this.binaries.delete(path)) throw new Error(`no such file: ${path}`);
 	}
 }
 

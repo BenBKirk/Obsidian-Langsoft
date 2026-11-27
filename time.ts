@@ -42,3 +42,32 @@ export function compareTimestamps(a: string | undefined, b: string | undefined):
 	if (y === undefined) return 1;
 	return x < y ? -1 : x > y ? 1 : 0;
 }
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** "27 Nov 2026", or "27 Nov 26" with `shortYear`, in local time. */
+export function formatDay(date: Date, shortYear = false): string {
+	const year = String(date.getFullYear());
+	return `${date.getDate()} ${MONTHS[date.getMonth()]} ${shortYear ? year.slice(2) : year}`;
+}
+
+/** "14:30" in local time. */
+export function formatClock(date: Date): string {
+	return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** "2026-11-27 1430" in local time, for file names. */
+export function formatFileStamp(date: Date): string {
+	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}${pad(date.getMinutes())}`;
+}
+
+/** "Today, 14:30", "Yesterday, 09:05" or "Fri 27 Nov 2026, 14:30", relative to `now`. */
+export function formatRecent(date: Date, now = new Date()): string {
+	const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+	const days = Math.round((day(now) - day(date)) / (24 * 3600 * 1000));
+	if (days === 0) return `Today, ${formatClock(date)}`;
+	if (days === 1) return `Yesterday, ${formatClock(date)}`;
+	return `${WEEKDAYS[date.getDay()]} ${formatDay(date)}, ${formatClock(date)}`;
+}

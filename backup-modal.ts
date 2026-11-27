@@ -1,4 +1,5 @@
-import { App, Modal, moment, Notice, Setting, SuggestModal } from "obsidian";
+import { App, Modal, Notice, Setting, SuggestModal } from "obsidian";
+import { formatRecent } from "time";
 import type LangsoftPlugin from "main";
 import { BackupInfo, decodeBackup, listBackups, makeBackup, planRestore, RestoreItem } from "backup";
 
@@ -10,11 +11,7 @@ export function formatSize(bytes: number): string {
 }
 
 export function formatBackupDate(date: Date): string {
-	const day = moment(date);
-	const today = moment().startOf("day");
-	if (day.isSame(today, "day")) return `Today, ${day.format("HH:mm")}`;
-	if (day.isSame(today.clone().subtract(1, "day"), "day")) return `Yesterday, ${day.format("HH:mm")}`;
-	return day.format("ddd D MMM YYYY, HH:mm");
+	return formatRecent(date);
 }
 
 /** Save a backup now, and say so. */

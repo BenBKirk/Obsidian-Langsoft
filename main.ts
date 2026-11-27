@@ -608,7 +608,7 @@ export default class LangsoftPlugin extends Plugin {
 
 	/** The highlight colours as CSS variables on the page; styles.css uses them. */
 	private static readonly COLOUR_VARIABLES = ["unknown", "semiknown", "known", "coworker"]
-		.map((level) => [`--langsoft-${level}-background`, `--langsoft-${level}-underline`, `--langsoft-${level}-underline-line`])
+		.map((level) => [`--langsoft-${level}-background`, `--langsoft-${level}-underline`])
 		.reduce((all, names) => all.concat(names), []);
 
 	hexToRGB(hex: string, alpha: number) {
@@ -635,7 +635,6 @@ export default class LangsoftPlugin extends Plugin {
 		for (const [level, enabled, colour] of levels) {
 			props[`--langsoft-${level}-background`] = enabled ? this.hexToRGB(colour, 0.2) : "transparent";
 			props[`--langsoft-${level}-underline`] = enabled ? this.hexToRGB(colour, 0.5) : "transparent";
-			props[`--langsoft-${level}-underline-line`] = enabled ? "underline" : "none";
 		}
 		this.colourProps = props;
 		// every window: the main one, popouts, and wherever the settings are open

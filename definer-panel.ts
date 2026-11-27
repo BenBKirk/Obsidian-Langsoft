@@ -1,11 +1,11 @@
 import type LangsoftPlugin from "main";
-import { App, MarkdownView, moment, Platform, TFile } from "obsidian";
+import { App, MarkdownView, Platform, TFile } from "obsidian";
 import type { Definition, WordEntry } from "dictionaries";
 import { SearchModal } from "search-modal";
 import { splitContext, termKey } from "words";
 import { findContext } from "locate";
 import type { Example } from "examples";
-import { nowTimestamp, parseTimestamp } from "time";
+import { formatDay, nowTimestamp, parseTimestamp } from "time";
 
 type Level = "unknown" | "semiknown" | "known";
 export const LEVELS: Level[] = ["unknown", "semiknown", "known"];
@@ -391,7 +391,7 @@ export class DefinerPanel {
 		if (sentence.trim()) parts.push(() => this.renderContext(meta, sentence));
 		if (details.file) parts.push(() => meta.appendText(noteName(details.file!)));
 		const date = parseTimestamp(details.timestamp);
-		if (date) parts.push(() => meta.appendText(moment(date).format("D MMM YYYY")));
+		if (date) parts.push(() => meta.appendText(formatDay(date)));
 		parts.forEach((part, i) => {
 			if (i > 0) meta.appendText(" · ");
 			part();

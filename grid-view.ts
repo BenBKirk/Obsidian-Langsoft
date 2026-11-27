@@ -1,4 +1,4 @@
-import { App, debounce, ItemView, Menu, Modal, moment, normalizePath, Notice, Platform, Setting, ViewStateResult, WorkspaceLeaf } from "obsidian";
+import { App, debounce, ItemView, Menu, Modal, normalizePath, Notice, Platform, Setting, ViewStateResult, WorkspaceLeaf } from "obsidian";
 import type LangsoftPlugin from "main";
 import {
 	buildRows,
@@ -17,6 +17,7 @@ import {
 	viewCounts,
 	VIEWS,
 } from "dictionary-grid";
+import { formatDay, formatFileStamp } from "time";
 import { listBackups } from "backup";
 import { backupNow, formatBackupDate, openRestore } from "backup-modal";
 import { splitContext } from "words";
@@ -715,7 +716,7 @@ export class GridView extends ItemView {
 	/** Save rows as a CSV file at the top of the vault, and say where. */
 	private async exportCsv(rows: GridRow[]) {
 		if (rows.length === 0) return;
-		const name = `Langsoft ${this.plugin.currentUser || "export"} ${moment().format("YYYY-MM-DD HHmm")}.csv`.replace(/[\\/:*?"<>|]/g, "-");
+		const name = `Langsoft ${this.plugin.currentUser || "export"} ${formatFileStamp(new Date())}.csv`.replace(/[\\/:*?"<>|]/g, "-");
 		const path = normalizePath(name);
 		try {
 			await this.app.vault.adapter.write(path, toCsv(rows));
@@ -756,7 +757,7 @@ export class GridView extends ItemView {
 	}
 
 	private date(time: number | null): string {
-		return time === null ? "" : moment(time).format("D MMM YY");
+		return time === null ? "" : formatDay(new Date(time), true);
 	}
 
 	private colour(level: string): string {

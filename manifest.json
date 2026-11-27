@@ -1,7 +1,7 @@
 {
 	"id": "langsoft",
 	"name": "Langsoft",
-	"version": "1.11.0",
+	"version": "1.12.0",
 	"minAppVersion": "1.15.0",
 	"description": "Highlight words by how well you know them, keep definitions with the sentence you found them in, and share dictionaries with coworkers.",
 	"author": "Ben Kirk",

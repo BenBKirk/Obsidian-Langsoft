@@ -12,6 +12,7 @@ A language-learning plugin for [Obsidian](https://obsidian.md). Read and write i
   - edit definitions, or delete them (with Undo)
   - add a coworker's definition to yours with **+ Add**
   - open phrases you've defined that start with the word
+  - see every other place the word appears in your notes, each in its sentence, and go there with a click
 - **Phones and tablets.** Long-press a word to select it, and it opens in the Definer: on phones in a panel at the bottom of the note, on tablets in the sidebar. The command **Langsoft: Define selection** does the same for the selection or the word at the cursor, and can be added to the mobile toolbar.
 - **Hover definitions.** Hover over a word you have defined to see its definitions.
 - **Search words.** Run the command **Langsoft: Search words** and type a word, or the start of one, to find your words and phrases with it and their definitions. Paste a whole sentence to see every word and phrase from your dictionaries in it. Words only your coworkers have defined are included, with their definitions. In either search window, Tab switches between searching words and searching by meaning.
@@ -108,6 +109,7 @@ For quick testing, clone the repository into `<vault>/.obsidian/plugins/langsoft
 | `reading-view.ts` | Highlighting in Reading view |
 | `dictionary-grid.ts`, `grid-view.ts` | The dictionary page: its rows, views and filters, and the grid |
 | `backup.ts`, `backup-modal.ts` | Backups, and restoring from them |
+| `examples.ts`, `prose.ts` | Other places a word appears; what in a note counts as text |
 | `merge.ts` | Merging two versions of a dictionary |
 | `dictionary-files.ts` | Dictionary file layouts, the device file format, and conflict copies |
 | `user-modal.ts` | The "Who are you?" window |

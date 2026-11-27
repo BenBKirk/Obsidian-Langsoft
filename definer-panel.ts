@@ -1,14 +1,20 @@
 import type LangsoftPlugin from "main";
-import { App, MarkdownView, moment, Platform } from "obsidian";
+import { App, MarkdownView, moment, Platform, TFile } from "obsidian";
 import type { Definition, WordEntry } from "dictionaries";
 import { SearchModal } from "search-modal";
 import { splitContext, termKey } from "words";
+import { findContext } from "locate";
+import type { Example } from "examples";
 import { nowTimestamp, parseTimestamp } from "time";
 
 type Level = "unknown" | "semiknown" | "known";
 export const LEVELS: Level[] = ["unknown", "semiknown", "known"];
 const LEVEL_NAMES: Record<Level, string> = { unknown: "Unknown", semiknown: "Semi-known", known: "Known" };
 const SHORT_NAMES: Record<Level, string> = { unknown: "Unknown", semiknown: "Semi", known: "Known" };
+
+/** Examples shown before "Show more". */
+const EXAMPLES_SHOWN = 5;
+const EXAMPLES_SHOWN_COMPACT = 3;
 
 /** How long "Deleted … Undo" stays, in milliseconds. */
 const UNDO_TIME = 10000;
@@ -40,6 +46,10 @@ export class DefinerPanel {
 	private deleted: { definition: string; level: string } | null = null;
 	private deletedTimer: number | undefined;
 	private addInput: HTMLInputElement | null = null;
+	/** The path of the note the word was selected in, for finding other places it appears. */
+	private selectionPath: string | undefined;
+	/** Other places the word appears in the vault, for the word, note and sentence they were looked up for. */
+	private examples: { key: string; results: { file: TFile; example: Example }[] | null; showAll: boolean } | null = null;
 
 	constructor(container: HTMLElement, plugin: LangsoftPlugin, options: { compact?: boolean } = {}) {
 		this.plugin = plugin;
@@ -70,7 +80,11 @@ export class DefinerPanel {
 		this.term = term;
 		this.selectionContext = context;
 		// the note it was selected in, now, before another note can become the active one
-		if (!same) this.selectionFile = context ? this.app.workspace.getActiveFile()?.name : undefined;
+		if (!same) {
+			const active = context ? this.app.workspace.getActiveFile() : null;
+			this.selectionFile = active?.name;
+			this.selectionPath = active?.path;
+		}
 		if (!same) {
 			this.editing = null;
 			this.deleted = null;
@@ -217,6 +231,7 @@ export class DefinerPanel {
 		this.renderOwn(el);
 		this.renderCoworkers(el);
 		this.renderPhrases(el);
+		this.renderExamples(el);
 	}
 
 	private renderEmpty(el: HTMLElement) {
@@ -413,6 +428,73 @@ export class DefinerPanel {
 				text: `${item.names.join(", ")} also ${item.names.length === 1 ? "has" : "have"}: ${item.definition}`,
 			});
 		}
+	}
+
+	/** Other places in your notes the word appears, each in its sentence; click one to go there. */
+	private renderExamples(el: HTMLElement) {
+		const key = `${this.term}\u0000${this.selectionPath ?? ""}\u0000${this.selectionContext}`;
+		if (this.examples?.key !== key) {
+			this.examples = { key, results: null, showAll: false };
+			this.searchExamples(key);
+		}
+		const { results, showAll } = this.examples;
+
+		const heading = el.createDiv({ cls: "langsoft-definer-section" });
+		heading.createSpan({ text: "Elsewhere in your notes" });
+		if (results === null) {
+			el.createDiv({ cls: "langsoft-definer-faint", text: "Searching…" });
+			return;
+		}
+		heading.createSpan({ text: results.length >= 200 ? "200+" : String(results.length) });
+		if (results.length === 0) {
+			el.createDiv({ cls: "langsoft-definer-faint", text: "Not found anywhere else." });
+			return;
+		}
+
+		const shown = showAll ? results : results.slice(0, this.compact ? EXAMPLES_SHOWN_COMPACT : EXAMPLES_SHOWN);
+		const list = el.createDiv({ cls: "langsoft-definer-examples" });
+		for (const { file, example } of shown) {
+			const item = list.createDiv({ cls: "langsoft-definer-example" });
+			const sentence = item.createDiv();
+			if (example.before) sentence.appendText(`${example.before} `);
+			sentence.createEl("u", { text: example.match });
+			if (example.after) sentence.appendText(`${/^[.,;:!?…]/.test(example.after) ? "" : " "}${example.after}`);
+			item.createDiv({ cls: "langsoft-definer-meta", text: file.basename });
+			item.setAttribute("aria-label", `Go to “${file.basename}”`);
+			item.addEventListener("click", () => this.plugin.openNoteAt(file, example.from, example.to));
+		}
+		if (shown.length < results.length) {
+			const more = el.createEl("a", { cls: "langsoft-definer-more", text: `Show ${results.length - shown.length} more`, href: "#" });
+			more.addEventListener("click", (event) => {
+				event.preventDefault();
+				if (this.examples) this.examples.showAll = true;
+				this.render();
+			});
+		}
+	}
+
+	private async searchExamples(key: string) {
+		const term = this.term;
+		let skip: { file: string; from: number } | undefined;
+		try {
+			// leave out the place the word was selected: find its sentence in that note again
+			const found = this.selectionPath ? this.app.vault.getAbstractFileByPath(this.selectionPath) : null;
+			const selected = found instanceof TFile ? found : null;
+			if (selected && this.selectionContext) {
+				const match = findContext(await this.app.vault.cachedRead(selected), this.selectionContext);
+				if (match) skip = { file: selected.path, from: match.from };
+			}
+			const results = await this.plugin.findExamplesInVault(term, this.selectionPath, skip);
+			// still the same word and sentence?
+			if (this.examples?.key !== key) return;
+			this.examples.results = results;
+		} catch (e) {
+			console.error("Langsoft: could not search the notes", e);
+			if (this.examples?.key === key) this.examples.results = [];
+		}
+		// not while something is being typed in the Definer
+		if (!this.container.contains(document.activeElement) || !(document.activeElement instanceof HTMLInputElement)) this.render();
+		else window.setTimeout(() => this.examples?.key === key && this.render(), 1500);
 	}
 
 	/** Phrases you've defined that start with this word; tap one to open it. */

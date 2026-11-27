@@ -18,6 +18,7 @@ import { createDefinerBottomPanel } from "definer-bottom-panel";
 import type { DefinerPanel } from "definer-panel";
 import type { Definition } from "dictionaries";
 import { ContextMatch, findContext } from "locate";
+import { Example, findExamples } from "examples";
 
 
 export default class LangsoftPlugin extends Plugin {
@@ -389,6 +390,54 @@ export default class LangsoftPlugin extends Plugin {
 		return buildSelectionContext(text.replace(/\n/g, " "), before.toString().length, selected);
 	}
 
+	/**
+	 * Open a note with the text from `from` to `to` selected, and show it in
+	 * the Definer, as if it had been selected by hand.
+	 */
+	async openNoteAt(file: TFile, from: number, to: number) {
+		const leaf = this.app.workspace.getLeaf(false);
+		// in editing mode, where the word can be selected
+		await leaf.openFile(file, { active: true, state: { mode: "source" } });
+		if (!(leaf.view instanceof MarkdownView)) return;
+		const editor = leaf.view.editor;
+		const start = editor.offsetToPos(from);
+		const end = editor.offsetToPos(to);
+		editor.setSelection(start, end);
+		editor.scrollIntoView({ from: start, to: end }, true);
+
+		const definer = await this.openDefiner();
+		definer?.handleSelection(editor.getSelection().trim(), this.getContextForSelection(editor));
+		if (!Platform.isMobile) {
+			// the outline a Ctrl+click gives, and focus back in the note
+			// (on phones and tablets, focusing would open the keyboard)
+			this.SelectedText = [from, to];
+			this.refreshHighlights(false);
+			editor.focus();
+		}
+	}
+
+	/**
+	 * Every place a word or phrase appears in the vault's notes, at most
+	 * `limit`: the given note first, then the most recently changed notes.
+	 * `skip` leaves out one place (where the word was selected). Gives way to
+	 * the interface every few notes, so large vaults don't freeze it.
+	 */
+	async findExamplesInVault(term: string, first?: string, skip?: { file: string; from: number }, limit = 200) {
+		const files = this.app.vault
+			.getMarkdownFiles()
+			.sort((a, b) => Number(b.path === first) - Number(a.path === first) || b.stat.mtime - a.stat.mtime);
+		const results: { file: TFile; example: Example }[] = [];
+		for (const [i, file] of files.entries()) {
+			if (i % 50 === 49) await new Promise((resolve) => window.setTimeout(resolve, 0));
+			for (const example of findExamples(await this.app.vault.cachedRead(file), term)) {
+				if (skip && skip.file === file.path && skip.from === example.from) continue;
+				results.push({ file, example });
+				if (results.length >= limit) return results;
+			}
+		}
+		return results;
+	}
+
 	/** Open the progress page, or switch to it if it is already open. */
 	/**
 	 * Open the note a definition was added in, with the word selected, if
@@ -426,26 +475,7 @@ export default class LangsoftPlugin extends Plugin {
 			return;
 		}
 
-		const leaf = this.app.workspace.getLeaf(false);
-		// in editing mode, where the word can be selected
-		await leaf.openFile(best.file, { active: true, state: { mode: "source" } });
-		if (!(leaf.view instanceof MarkdownView)) return;
-		const editor = leaf.view.editor;
-		const from = editor.offsetToPos(best.match.from);
-		const to = editor.offsetToPos(best.match.to);
-		editor.setSelection(from, to);
-		editor.scrollIntoView({ from, to }, true);
-
-		// show the word in the Definer too, as if it had been selected by hand
-		const definer = await this.openDefiner();
-		definer?.handleSelection(editor.getSelection().trim(), this.getContextForSelection(editor));
-		if (!Platform.isMobile) {
-			// the outline a Ctrl+click gives, and focus back in the note
-			// (on phones and tablets, focusing would open the keyboard)
-			this.SelectedText = [best.match.from, best.match.to];
-			this.refreshHighlights(false);
-			editor.focus();
-		}
+		await this.openNoteAt(best.file, best.match.from, best.match.to);
 		if (elsewhere > 0) {
 			const others = elsewhere > 1 ? ` (it is also in ${elsewhere - 1} other note${elsewhere > 2 ? "s" : ""})` : "";
 			new Notice(`Langsoft: this was added in "${name}", but its sentence is now in "${best.file.name}"${others}. The note may have been renamed or moved.`, 8000);

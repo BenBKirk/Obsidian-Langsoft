@@ -643,17 +643,16 @@ p.langsoft-progress-hint {
 .langsoft-grid-scroller {
     flex: 1;
     overflow: auto;
-    --langsoft-grid-columns: minmax(150px, 1.2fr) 82px minmax(160px, 1.6fr) minmax(200px, 2fr) minmax(120px, 1fr) 82px 82px 64px minmax(90px, 0.8fr);
 }
 .langsoft-grid-row {
     display: grid;
     grid-template-columns: var(--langsoft-grid-columns);
-    min-width: 1100px;
+    min-width: 1140px;
     font-size: var(--font-ui-small);
 }
 .langsoft-grid-body {
     position: relative;
-    min-width: 1100px;
+    min-width: 1140px;
 }
 .langsoft-grid-body > * {
     position: absolute;
@@ -773,4 +772,63 @@ p.langsoft-progress-hint {
     text-overflow: ellipsis;
     font-size: var(--font-ui-small);
     margin-top: 2px;
+}
+
+/* dictionary page: selecting and editing */
+.langsoft-grid-scroller {
+    /* checkbox, word, level, definitions, sentence, note, added, last change, changes, teammates */
+    --langsoft-grid-columns: 34px minmax(150px, 1.2fr) 82px minmax(160px, 1.6fr) minmax(200px, 2fr) minmax(120px, 1fr) 82px 82px 64px minmax(90px, 0.8fr);
+}
+.langsoft-grid-check {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.langsoft-grid-body .langsoft-grid-row.is-selected,
+.langsoft-grid-card.is-selected {
+    background: var(--background-modifier-active-hover);
+}
+.langsoft-grid-pill.is-clickable {
+    cursor: pointer;
+}
+.langsoft-grid-definitions.is-editable {
+    cursor: text;
+}
+.langsoft-grid-edit {
+    width: 100%;
+    height: 26px;
+}
+.langsoft-grid-card-top input[type="checkbox"] {
+    flex: none;
+}
+.langsoft-grid-actions {
+    border-top: 1px solid var(--background-modifier-border);
+    background: var(--background-secondary);
+}
+.langsoft-grid-bulk,
+.langsoft-grid-undo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--size-4-2);
+    padding: var(--size-4-2) var(--size-4-3);
+    font-size: var(--font-ui-small);
+}
+.langsoft-grid-undo a {
+    font-weight: var(--font-semibold);
+}
+.langsoft-grid-bulk a {
+    margin-left: auto;
+}
+.langsoft-grid-remove {
+    visibility: hidden;
+    color: var(--text-faint);
+    padding: 0 4px;
+}
+.langsoft-grid-view-item:hover .langsoft-grid-remove {
+    visibility: visible;
+}
+.langsoft-grid-save {
+    color: var(--text-accent);
 }

@@ -393,6 +393,45 @@ describe("editing and undoing", () => {
 		expect(manager.userDict.hund.definitions.dog).toEqual(context());
 	});
 
+	it("points definitions at a renamed note, keeping when they were added", async () => {
+		putDevice(adapter, {
+			hund: word("known", "dog"),
+			katze: { ...word("known", "cat"), definitions: { cat: { ...context(), file: "other.md" } } },
+		});
+		const { manager } = await makeManager(adapter);
+
+		expect(manager.renameNote("note.md", "renamed.md")).toBe(1);
+		await manager.flush();
+
+		const words = readDevice(adapter);
+		expect(words.hund.definitions.dog).toEqual({ ...context(), file: "renamed.md" });
+		expect(words.katze.definitions.cat.file).toBe("other.md");
+	});
+
+	it("doesn't save when no definition was added in a renamed note", async () => {
+		putDevice(adapter, { hund: word("known", "dog") });
+		const { manager } = await makeManager(adapter);
+		const before = adapter.files.get(MINE)?.mtime;
+
+		expect(manager.renameNote("unrelated.md", "renamed.md")).toBe(0);
+		await manager.flush();
+		expect(adapter.files.get(MINE)?.mtime).toBe(before);
+	});
+
+	it("keeps a renamed note's new name when another device's older copy is merged in", async () => {
+		putDevice(adapter, { hund: word("known", "dog") });
+		const { manager } = await makeManager(adapter);
+		manager.renameNote("note.md", "renamed.md");
+		await manager.flush();
+
+		// the other device still has the definition with the old name, and changes something else
+		putDevice(adapter, { hund: word("known", "dog"), katze: word("known", "cat") }, "maria", PHONE);
+		await manager.reloadOtherDictsIfChanged();
+		await manager.flush();
+		expect(manager.userDict.hund.definitions.dog.file).toBe("renamed.md");
+		expect(manager.userDict.katze).toBeDefined();
+	});
+
 	it("ignores an empty or unchanged new text", async () => {
 		putDevice(adapter, { hund: word("known", "dog") });
 		const { manager } = await makeManager(adapter);

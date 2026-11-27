@@ -211,6 +211,19 @@ export default class LangsoftPlugin extends Plugin {
 		}
 		);
 
+		// keep definitions pointing at their note when it is renamed in Obsidian
+		this.registerEvent(
+			this.app.vault.on("rename", (file, oldPath) => {
+				if (!(file instanceof TFile) || file.extension !== "md") return;
+				const oldName = oldPath.slice(oldPath.lastIndexOf("/") + 1);
+				if (oldName === file.name) return; // only moved to another folder
+				// only the name is saved, so if another note still has the old name,
+				// the definitions may be from that one: leave them
+				if (this.app.vault.getMarkdownFiles().some((note) => note.name === oldName)) return;
+				this.dictManager.renameNote(oldName, file.name);
+			})
+		);
+
 		this.registerEvent(
 			this.app.workspace.on("active-leaf-change", (leaf) => {
 				const file = this.app.workspace.getActiveFile()

@@ -10,6 +10,8 @@ import { UserModal } from "user-modal";
 import { SearchModal } from "search-modal";
 import { ProgressView, VIEW_TYPE_PROGRESS } from "progress-view";
 import { GridView, VIEW_TYPE_GRID } from "grid-view";
+import { backupNow, openRestore } from "backup-modal";
+import { backedUpToday, listBackups, makeBackup } from "backup";
 import { createCoveragePanel } from "coverage-panel";
 import { highlightElement } from "reading-view";
 import { createDefinerBottomPanel } from "definer-bottom-panel";
@@ -95,6 +97,18 @@ export default class LangsoftPlugin extends Plugin {
 			id: "show-progress",
 			name: "Show progress",
 			callback: () => this.openProgress(),
+		});
+
+		this.addCommand({
+			id: "backup-now",
+			name: "Back up dictionary now",
+			callback: () => backupNow(this),
+		});
+
+		this.addCommand({
+			id: "restore-backup",
+			name: "Restore from a backup",
+			callback: () => openRestore(this),
 		});
 
 		this.addCommand({
@@ -442,6 +456,27 @@ export default class LangsoftPlugin extends Plugin {
 
 	async openProgress() {
 		await this.openPage(VIEW_TYPE_PROGRESS);
+	}
+
+	/** The day a backup was last made or found on this device, so the folder isn't listed on every save. */
+	private lastBackupDay = "";
+
+	/** After your dictionary was saved: the daily backup, if due. Waits a few seconds so a burst of saves makes one check. */
+	dictionarySaved = debounce(() => this.dailyBackup(), 5000, true);
+
+	private async dailyBackup() {
+		const user = this.currentUser;
+		const today = new Date().toDateString();
+		if (!this.settings.autoBackup || !user || this.lastBackupDay === `${user} ${today}`) return;
+		try {
+			const adapter = this.app.vault.adapter;
+			if (!backedUpToday(await listBackups(adapter, user))) {
+				await makeBackup(adapter, user, this.dictManager.userDict);
+			}
+			this.lastBackupDay = `${user} ${today}`;
+		} catch (e) {
+			console.error("Langsoft: daily backup failed", e);
+		}
 	}
 
 	/** Open a page (progress, dictionary) in a tab, or switch to it if it is already open. */

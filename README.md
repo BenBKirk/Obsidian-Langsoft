@@ -61,6 +61,14 @@ Older versions kept one file per person: `Langsoft/<name>.json` in 1.2, and `.la
 
 **If you share only the dictionary folder through Syncthing** (rather than the whole vault) and are coming from 1.1 or earlier, add `Langsoft` as a new Syncthing folder on every device, shared with the same people. Don't rename or move the old folder in Syncthing: Syncthing would see its files as deleted and delete them on everyone's devices.
 
+### Backups
+
+Once a day, the first time your dictionary changes, Langsoft saves a compressed copy in `Langsoft backups/<your name>/`, for example `2026-11-27 1430.json.gz`. About 30 are kept: one a day for two weeks, one a week for three months and one a month for a year, at most 60 MB in all. At 30,000 words a backup is about 1.3 MB. You can switch daily backups off in the settings, or back up any time with **Langsoft: Back up dictionary now**.
+
+**Langsoft: Restore from a backup** brings back what a backup has that your dictionary is missing now: words you've deleted since, and deleted definitions of words you still have. It shows what it would bring back first, and leaves everything you've added or changed since alone. A backup of your dictionary as it is now is made first, and you can undo the restore straight afterwards. To restore from another file, such as a backup from another vault or an old dictionary file, copy it into your backup folder first.
+
+With Obsidian Sync, backups are only synced if *Sync all other types* is on in its settings, because they are `.gz` files. Syncthing syncs them like any other file.
+
 ### Using several devices
 
 Use the same user on as many devices as you like. Each device has its own file, and changes from your other devices are merged in when you switch notes. When the same definition or level was changed on two devices, the most recent change wins. From version 1.8, changes are timestamped in UTC, so this works across time zones; changes saved by older versions have no time zone and are read in the local time of the device doing the merge.
@@ -99,13 +107,14 @@ For quick testing, clone the repository into `<vault>/.obsidian/plugins/langsoft
 | `time.ts` | Saving and comparing timestamps |
 | `reading-view.ts` | Highlighting in Reading view |
 | `dictionary-grid.ts`, `grid-view.ts` | The dictionary page: its rows, views and filters, and the grid |
+| `backup.ts`, `backup-modal.ts` | Backups, and restoring from them |
 | `merge.ts` | Merging two versions of a dictionary |
 | `dictionary-files.ts` | Dictionary file layouts, the device file format, and conflict copies |
 | `user-modal.ts` | The "Who are you?" window |
 | `users.ts` | Listing users and checking new user names |
 | `words.ts` | Splitting text into words |
 
-`words.ts`, `users.ts`, `search.ts`, `locate.ts`, `progress.ts`, `team.ts`, `coverage.ts`, `dictionary-grid.ts`, `time.ts`, `merge.ts` and `dictionary-files.ts` don't depend on Obsidian, nor does `segmentText` in `reading-view.ts`. The tests in `tests/` cover them, and run `DictionaryManager` against an in-memory vault (`tests/fake-vault.ts`) with a stand-in for the `obsidian` module (`tests/obsidian-stub.ts`).
+`words.ts`, `users.ts`, `search.ts`, `locate.ts`, `progress.ts`, `team.ts`, `coverage.ts`, `dictionary-grid.ts`, `backup.ts`, `time.ts`, `merge.ts` and `dictionary-files.ts` don't depend on Obsidian, nor does `segmentText` in `reading-view.ts`. The tests in `tests/` cover them, and run `DictionaryManager` against an in-memory vault (`tests/fake-vault.ts`) with a stand-in for the `obsidian` module (`tests/obsidian-stub.ts`).
 
 ## Releasing
 

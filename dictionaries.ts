@@ -527,6 +527,114 @@ export class DictionaryManager {
 		return changed;
 	}
 
+	// --- several words at once (the dictionary page): change in memory, save once -----------
+
+	/**
+	 * Give several of your words a level. Words without a live definition,
+	 * or already at that level, are left alone. Returns each changed word
+	 * with its level before, for undo.
+	 */
+	setLevels(terms: string[], level: string): { term: string; previous: string }[] {
+		const timestamp = nowTimestamp();
+		const changed: { term: string; previous: string }[] = [];
+		for (const term of terms) {
+			const entry = this.userDict[term];
+			if (!entry || entry.highlight === level || !Object.values(entry.definitions ?? {}).some((d) => d && !d.deleted)) continue;
+			changed.push({ term, previous: entry.highlight });
+			entry.highlight = level;
+			entry.highlighthistory.push({ level, timestamp });
+		}
+		if (changed.length > 0) this.savedBulkChange();
+		return changed;
+	}
+
+	/** Put several words back to the levels they had (undo of setLevels). */
+	restoreLevels(changes: { term: string; previous: string }[]) {
+		const timestamp = nowTimestamp();
+		for (const { term, previous } of changes) {
+			const entry = this.userDict[term];
+			if (!entry || entry.highlight === previous) continue;
+			entry.highlight = previous;
+			entry.highlighthistory.push({ level: previous, timestamp });
+		}
+		this.savedBulkChange();
+	}
+
+	/**
+	 * Delete several words: all their definitions, as deleting them one by
+	 * one would. Returns what was deleted, for undo.
+	 */
+	deleteWords(terms: string[]): { term: string; level: string; definitions: string[] }[] {
+		const timestamp = nowTimestamp();
+		const deleted: { term: string; level: string; definitions: string[] }[] = [];
+		for (const term of terms) {
+			const entry = this.userDict[term];
+			const definitions = Object.entries(entry?.definitions ?? {})
+				.filter(([, d]) => d && !d.deleted)
+				.map(([definition]) => definition);
+			if (!entry || definitions.length === 0) continue;
+			deleted.push({ term, level: entry.highlight, definitions });
+			for (const definition of definitions) entry.definitions[definition].deleted = true;
+			entry.highlight = "None";
+			entry.highlighthistory.push({ level: "None", timestamp });
+		}
+		if (deleted.length > 0) this.savedBulkChange();
+		return deleted;
+	}
+
+	/** Undo deleteWords. Restored definitions get the current time, so the undo wins when devices merge. */
+	restoreWords(deleted: { term: string; level: string; definitions: string[] }[]) {
+		const timestamp = nowTimestamp();
+		for (const { term, level, definitions } of deleted) {
+			const entry = this.userDict[term];
+			if (!entry) continue;
+			for (const definition of definitions) {
+				const details = entry.definitions[definition];
+				if (details) entry.definitions[definition] = { ...details, deleted: false, timestamp };
+			}
+			if (entry.highlight === "None") {
+				entry.highlight = level;
+				entry.highlighthistory.push({ level, timestamp });
+			}
+		}
+		this.savedBulkChange();
+	}
+
+	/**
+	 * Change a word's definitions from the dictionary page: rename, add and
+	 * delete as planned. Added definitions have no note or sentence. Does
+	 * nothing if the plan would leave the word with no definition.
+	 */
+	editDefinitions(term: string, plan: { renames: [string, string][]; adds: string[]; deletes: string[] }) {
+		const entry = this.userDict[term];
+		if (!entry) return;
+		const remaining = Object.entries(entry.definitions).filter(([d, v]) => v && !v.deleted && !plan.deletes.includes(d)).length;
+		if (remaining + plan.adds.length === 0) return;
+		const timestamp = nowTimestamp();
+		for (const [from, to] of plan.renames) {
+			const details = entry.definitions[from];
+			if (!details || details.deleted) continue;
+			const existing = entry.definitions[to];
+			if (!existing || existing.deleted) entry.definitions[to] = { ...details, deleted: false, timestamp };
+			entry.definitions[from] = { ...details, deleted: true, timestamp };
+		}
+		for (const definition of plan.adds) {
+			const existing = entry.definitions[definition];
+			if (existing && !existing.deleted) continue;
+			entry.definitions[definition] = { deleted: false, timestamp, sentence: "" };
+		}
+		for (const definition of plan.deletes) {
+			const details = entry.definitions[definition];
+			if (details && !details.deleted) entry.definitions[definition] = { ...details, deleted: true, timestamp };
+		}
+		this.savedBulkChange();
+	}
+
+	private savedBulkChange() {
+		this.writeUserDictToJson();
+		this.plugin.refreshHighlights();
+	}
+
 	/** Save the user's dictionary to this device's file. */
 	writeUserDictToJson(): Promise<void> {
 		return this.queueUserDictTask(() => this.saveNow());

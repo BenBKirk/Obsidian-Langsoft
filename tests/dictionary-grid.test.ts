@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRows, filterRows, GridFilter, groupRows, sortRows, viewCounts } from "../dictionary-grid";
+import { buildRows, filterRows, GridFilter, groupRows, planDefinitionEdit, sortRows, toCsv, viewCounts } from "../dictionary-grid";
 import type { DictionaryData, WordEntry } from "../dictionaries";
 
 const entry = (
@@ -129,5 +129,33 @@ describe("sortRows and groupRows", () => {
 		]);
 		expect(show(groupRows(sorted, "letter"))).toEqual(["A: auf jeden fall", "H: hund", "K: katze", "V: vogel"]);
 		expect(groupRows(sorted, "none")).toEqual([{ key: "", label: "", rows: sorted }]);
+	});
+});
+
+describe("planDefinitionEdit", () => {
+	it("renames a changed definition, keeping its place", () => {
+		expect(planDefinitionEdit(["dgo"], "Dog")).toEqual({ renames: [["dgo", "dog"]], adds: [], deletes: [] });
+	});
+
+	it("adds and deletes", () => {
+		expect(planDefinitionEdit(["dog", "hound"], "dog / puppy / cur")).toEqual({ renames: [["hound", "puppy"]], adds: ["cur"], deletes: [] });
+		expect(planDefinitionEdit(["dog", "hound"], "hound")).toEqual({ renames: [], adds: [], deletes: ["dog"] });
+	});
+
+	it("does nothing when unchanged, reordered or emptied", () => {
+		expect(planDefinitionEdit(["dog", "hound"], " dog /hound ")).toBeNull();
+		expect(planDefinitionEdit(["dog", "hound"], "hound / dog")).toBeNull();
+		expect(planDefinitionEdit(["dog"], " / ")).toBeNull();
+	});
+});
+
+describe("toCsv", () => {
+	it("writes one line per row, quoting where needed", () => {
+		const csv = toCsv(sortRows(filterRows(rows, filter({ includeTeam: true })), "term"));
+		const lines = csv.replace("\uFEFF", "").trim().split("\r\n");
+		expect(lines[0]).toBe("word,level,definitions,sentence,note,added,last change,changes,teammates");
+		expect(lines).toContain("hund,known,dog,ein hund bellt,Tiere,2026-01-05,2026-03-01,2,dave");
+		expect(lines).toContain('wolf,teammates only,wolf / wild dog,,,2026-04-01,2026-05-01,,"dave, tabea"');
+		expect(csv.startsWith("\uFEFF")).toBe(true);
 	});
 });

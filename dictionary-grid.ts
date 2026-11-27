@@ -248,3 +248,69 @@ export function groupRows(rows: GridRow[], by: GroupBy): RowGroup[] {
 	sorted.sort((a, b) => (by === "month" ? b.key.localeCompare(a.key) : a.key.localeCompare(b.key)));
 	return sorted;
 }
+
+// --- editing and exporting -----------------------------------------------------------
+
+export interface DefinitionEdit {
+	/** [old, new] for definitions whose text changed, matched by position. */
+	renames: [string, string][];
+	adds: string[];
+	deletes: string[];
+}
+
+/**
+ * What to change when the definitions cell, shown as "dog / hound", is
+ * edited to `text`. Definitions are matched by position: changed text is
+ * a rename, extra ones are added, missing ones are deleted. Definitions
+ * are lower-cased and trimmed, as in the Definer. Null if nothing changes,
+ * or if it would leave no definition (deleting a word is its own action).
+ */
+export function planDefinitionEdit(current: string[], text: string): DefinitionEdit | null {
+	const next = [...new Set(text.split("/").map((d) => d.trim().toLowerCase()).filter(Boolean))];
+	if (next.length === 0) return null;
+	const plan: DefinitionEdit = { renames: [], adds: [], deletes: [] };
+	const kept = new Set(next.filter((d) => current.includes(d)));
+	const freeOld = current.filter((d) => !kept.has(d));
+	const freeNew = next.filter((d) => !current.includes(d));
+	// new text in the place of an old definition is a rename, keeping where it was added
+	for (const definition of freeNew) {
+		const old = freeOld.shift();
+		if (old !== undefined) plan.renames.push([old, definition]);
+		else plan.adds.push(definition);
+	}
+	plan.deletes.push(...freeOld);
+	return plan.renames.length || plan.adds.length || plan.deletes.length ? plan : null;
+}
+
+const CSV_LEVELS: Record<GridLevel, string> = { unknown: "unknown", semiknown: "semi-known", known: "known", coworker: "teammates only" };
+
+/** The rows as CSV, for spreadsheets: one line per word, dates as YYYY-MM-DD. */
+export function toCsv(rows: GridRow[]): string {
+	const cell = (value: string | number) => {
+		const text = String(value);
+		return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+	};
+	const date = (time: number | null) => {
+		if (time === null) return "";
+		const d = new Date(time);
+		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+	};
+	const header = ["word", "level", "definitions", "sentence", "note", "added", "last change", "changes", "teammates"];
+	const lines = rows.map((row) =>
+		[
+			row.term,
+			CSV_LEVELS[row.level],
+			row.definitions.join(" / "),
+			stripMarks(String(row.details.sentence ?? "")).replace(/\s+/g, " ").trim(),
+			(row.details.file ?? "").replace(/\.md$/, ""),
+			date(row.added),
+			date(row.changed),
+			row.level === "coworker" ? "" : row.changes,
+			row.teammates.join(", "),
+		]
+			.map(cell)
+			.join(",")
+	);
+	// a byte order mark, so spreadsheet programs read the file as UTF-8
+	return `﻿${[header.join(","), ...lines].join("\r\n")}\r\n`;
+}

@@ -13,7 +13,11 @@ export class UserModal extends Modal {
 		this.onDone = onDone;
 	}
 
-	async onOpen() {
+	onOpen() {
+		void this.render();
+	}
+
+	private async render() {
 		const { contentEl, titleEl } = this;
 		titleEl.setText("Who are you?");
 		contentEl.createEl("p", {
@@ -65,7 +69,7 @@ export class UserModal extends Modal {
 				text.inputEl.addEventListener("keydown", (event) => {
 					if (event.key === "Enter") {
 						event.preventDefault();
-						create();
+						void create();
 					}
 				});
 				if (users.length === 0) {

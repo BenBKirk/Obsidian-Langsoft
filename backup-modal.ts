@@ -62,7 +62,11 @@ class BackupPicker extends SuggestModal<BackupInfo> {
 		el.createDiv({ cls: "langsoft-search-context", text: `${backup.path.slice(backup.path.lastIndexOf("/") + 1)} · ${formatSize(backup.size)}` });
 	}
 
-	async onChooseSuggestion(backup: BackupInfo) {
+	onChooseSuggestion(backup: BackupInfo) {
+		void this.choose(backup);
+	}
+
+	private async choose(backup: BackupInfo) {
 		const decoded = await decodeBackup(await this.plugin.app.vault.adapter.readBinary(backup.path));
 		if ("error" in decoded) {
 			new Notice(`Langsoft: this backup can't be read: ${decoded.error}.`);
@@ -135,7 +139,7 @@ async function restore(plugin: LangsoftPlugin, plan: RestoreItem[]) {
 	}
 	manager.applyRestore(plan);
 
-	const fragment = document.createDocumentFragment();
+	const fragment = createFragment();
 	const count = plan.length;
 	fragment.appendText(`Langsoft: brought back ${count} ${count === 1 ? "word" : "words"}. `);
 	const undo = fragment.createEl("a", { text: "Undo", href: "#" });

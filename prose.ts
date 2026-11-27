@@ -40,7 +40,7 @@ export function maskNonProse(text: string, wholeNote = false): string {
 	let result = text;
 	if (wholeNote) for (const pattern of BLOCKS) result = result.replace(pattern, blank);
 	for (const [pattern, replace] of INLINE) {
-		result = result.replace(pattern, replace as (substring: string, ...args: string[]) => string);
+		result = result.replace(pattern, replace);
 	}
 	return result;
 }

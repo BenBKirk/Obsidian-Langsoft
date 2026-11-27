@@ -76,7 +76,7 @@ export class DefinerPanel {
 		const term = termKey(selection);
 		const same = term === this.term && context === this.selectionContext;
 		// the same word again while working in the Definer (e.g. after clicking in it): keep what is being typed
-		if (same && this.container.contains(document.activeElement)) return;
+		if (same && this.container.contains(activeDocument.activeElement)) return;
 		this.term = term;
 		this.selectionContext = context;
 		// the note it was selected in, now, before another note can become the active one
@@ -159,7 +159,7 @@ export class DefinerPanel {
 		if (!this.term || definition === "") return;
 		const manager = this.plugin.dictManager;
 		manager.addNewDefinition(this.term, this.level, definition, context);
-		manager.writeUserDictToJson();
+		void manager.writeUserDictToJson();
 		this.plugin.refreshHighlights();
 		this.deleted = null;
 		this.render();
@@ -280,12 +280,12 @@ export class DefinerPanel {
 		for (const [i, level] of LEVELS.entries()) {
 			const button = levels.createEl("button", { cls: "langsoft-definer-level" });
 			const colour = this.colour(level);
-			button.createSpan({ cls: "langsoft-definer-dot" }).style.backgroundColor = colour;
+			button.createSpan({ cls: "langsoft-definer-dot" }).setCssStyles({ backgroundColor: colour });
 			button.appendText(this.compact ? SHORT_NAMES[level] : LEVEL_NAMES[level]);
 			if (!Platform.isMobile) button.createSpan({ cls: "langsoft-definer-key", text: String(i + 1) });
 			const active = level === this.level;
 			button.toggleClass("is-active", active);
-			if (active) button.style.backgroundColor = colour;
+			if (active) button.setCssStyles({ backgroundColor: colour });
 			button.setAttribute("aria-pressed", String(active));
 			button.addEventListener("click", () => this.setLevel(level));
 		}
@@ -401,7 +401,7 @@ export class DefinerPanel {
 			const go = meta.createEl("a", { text: "Go to sentence", href: "#" });
 			go.addEventListener("click", (event) => {
 				event.preventDefault();
-				this.plugin.goToDefinitionContext({ file: details.file, sentence });
+				void this.plugin.goToDefinitionContext({ file: details.file, sentence });
 			});
 		}
 	}
@@ -413,7 +413,7 @@ export class DefinerPanel {
 
 		for (const item of coworkers.filter((c) => !c.yours)) {
 			const block = el.createDiv({ cls: "langsoft-definer-coworker" });
-			block.style.borderLeftColor = this.plugin.settings.coworkerColor;
+			block.setCssStyles({ borderLeftColor: this.plugin.settings.coworkerColor });
 			const row = block.createDiv({ cls: "langsoft-definer-def-line" });
 			row.createSpan({ cls: "langsoft-definer-def-text", text: item.definition });
 			row.createSpan({ cls: "langsoft-definer-faint", text: item.names.join(", ") });
@@ -435,7 +435,7 @@ export class DefinerPanel {
 		const key = `${this.term}\u0000${this.selectionPath ?? ""}\u0000${this.selectionContext}`;
 		if (this.examples?.key !== key) {
 			this.examples = { key, results: null, showAll: false };
-			this.searchExamples(key);
+			void this.searchExamples(key);
 		}
 		const { results, showAll } = this.examples;
 
@@ -461,7 +461,7 @@ export class DefinerPanel {
 			if (example.after) sentence.appendText(`${/^[.,;:!?…]/.test(example.after) ? "" : " "}${example.after}`);
 			item.createDiv({ cls: "langsoft-definer-meta", text: file.basename });
 			item.setAttribute("aria-label", `Go to “${file.basename}”`);
-			item.addEventListener("click", () => this.plugin.openNoteAt(file, example.from, example.to));
+			item.addEventListener("click", () => void this.plugin.openNoteAt(file, example.from, example.to));
 		}
 		if (shown.length < results.length) {
 			const more = el.createEl("a", { cls: "langsoft-definer-more", text: `Show ${results.length - shown.length} more`, href: "#" });
@@ -493,7 +493,8 @@ export class DefinerPanel {
 			if (this.examples?.key === key) this.examples.results = [];
 		}
 		// not while something is being typed in the Definer
-		if (!this.container.contains(document.activeElement) || !(document.activeElement instanceof HTMLInputElement)) this.render();
+		const focused = activeDocument.activeElement;
+		if (!focused || !this.container.contains(focused) || !focused.instanceOf(HTMLInputElement)) this.render();
 		else window.setTimeout(() => this.examples?.key === key && this.render(), 1500);
 	}
 

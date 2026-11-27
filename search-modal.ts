@@ -111,12 +111,11 @@ export class SearchModal extends SuggestModal<Item> {
 			event.preventDefault();
 			event.stopPropagation();
 			this.close();
-			this.plugin.goToDefinitionContext(details);
+			void this.plugin.goToDefinitionContext(details);
 		});
 	}
 
-	async onChooseSuggestion(item: Item) {
-		const definer = await this.plugin.openDefiner();
-		definer?.handleSelection(item.result.term, "");
+	onChooseSuggestion(item: Item) {
+		void this.plugin.openDefiner().then((definer) => definer?.handleSelection(item.result.term, ""));
 	}
 }

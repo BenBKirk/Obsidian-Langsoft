@@ -161,7 +161,7 @@ export class DictionaryManager {
 	async reloadOtherDictsIfChanged() {
 		await this.scanSources();
 		this.reportSyncConflicts();
-		this.reloadUserDictIfChanged();
+		void this.reloadUserDictIfChanged();
 		const adapter = this.plugin.app.vault.adapter;
 		let changed = false;
 
@@ -374,7 +374,7 @@ export class DictionaryManager {
 		const jsonPath = "dict-WordNet.json";
 		if (await this.plugin.app.vault.adapter.exists(jsonPath)) {
 			const wordnetFile = await this.plugin.app.vault.adapter.read(jsonPath)
-			this.wordnet = JSON.parse(wordnetFile)
+			this.wordnet = JSON.parse(wordnetFile) as string;
 
 		}
 	}
@@ -385,7 +385,7 @@ export class DictionaryManager {
 		if (entry) {
 			entry.highlighthistory.push({ level: level, timestamp: timestamp })
 			entry.highlight = level;
-			this.writeUserDictToJson();
+			void this.writeUserDictToJson();
 			this.plugin.refreshHighlights();
 		}
 
@@ -459,7 +459,7 @@ export class DictionaryManager {
 				const timestamp = nowTimestamp();
 				this.userDict[term].highlighthistory.push({ level: "None", timestamp });
 			}
-			this.writeUserDictToJson();
+			void this.writeUserDictToJson();
 			this.plugin.refreshHighlights()
 		} catch {
 			return;
@@ -481,7 +481,7 @@ export class DictionaryManager {
 			entry.highlight = level;
 			entry.highlighthistory.push({ level, timestamp });
 		}
-		this.writeUserDictToJson();
+		void this.writeUserDictToJson();
 		this.plugin.refreshHighlights();
 	}
 
@@ -501,7 +501,7 @@ export class DictionaryManager {
 			entry.definitions[text] = { ...details, deleted: false, timestamp };
 		}
 		entry.definitions[from] = { ...details, deleted: true, timestamp };
-		this.writeUserDictToJson();
+		void this.writeUserDictToJson();
 		this.plugin.refreshHighlights();
 	}
 
@@ -521,7 +521,7 @@ export class DictionaryManager {
 				}
 			}
 		}
-		if (changed > 0) this.writeUserDictToJson();
+		if (changed > 0) void this.writeUserDictToJson();
 		return changed;
 	}
 
@@ -670,7 +670,7 @@ export class DictionaryManager {
 	}
 
 	private savedBulkChange() {
-		this.writeUserDictToJson();
+		void this.writeUserDictToJson();
 		this.plugin.refreshHighlights();
 	}
 

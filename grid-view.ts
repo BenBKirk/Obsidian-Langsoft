@@ -235,8 +235,8 @@ export class GridView extends ItemView {
 				const value = select.value;
 				select.value = this.state.view;
 				if (value === "save") this.saveCurrentView();
-				else if (value === "backup") backupNow(this.plugin);
-				else if (value === "restore") openRestore(this.plugin);
+				else if (value === "backup") void backupNow(this.plugin);
+				else if (value === "restore") void openRestore(this.plugin);
 				else if (value.startsWith("saved:")) this.applySaved(this.savedViews()[Number(value.slice(6))]?.state ?? {});
 				else this.setView(value);
 			});
@@ -260,16 +260,15 @@ export class GridView extends ItemView {
 	private renderBackups(el: HTMLElement) {
 		el.createDiv({ cls: "langsoft-grid-views-heading", text: "Backups" });
 		const last = el.createDiv({ cls: "langsoft-grid-backup-info", text: "…" });
-		listBackups(this.app.vault.adapter, this.plugin.currentUser).then((backups) => {
+		void listBackups(this.app.vault.adapter, this.plugin.currentUser).then((backups) => {
 			last.setText(backups.length ? `Last: ${formatBackupDate(backups[0].date)} · ${backups.length} kept` : "None yet");
 		});
 		const backup = el.createDiv({ cls: "langsoft-grid-view-item", text: "Back up now" });
-		backup.addEventListener("click", async () => {
-			await backupNow(this.plugin);
-			this.renderViews();
+		backup.addEventListener("click", () => {
+			void backupNow(this.plugin).then(() => this.renderViews());
 		});
 		const restore = el.createDiv({ cls: "langsoft-grid-view-item", text: "Restore from a backup…" });
-		restore.addEventListener("click", () => openRestore(this.plugin));
+		restore.addEventListener("click", () => void openRestore(this.plugin));
 	}
 
 	private savedViews() {
@@ -294,7 +293,7 @@ export class GridView extends ItemView {
 			remove.setAttribute("aria-label", "Remove this saved view");
 			remove.addEventListener("click", (event) => {
 				event.stopPropagation();
-				this.storeSavedViews(views.filter((_, j) => j !== i));
+				void this.storeSavedViews(views.filter((_, j) => j !== i));
 			});
 			item.addEventListener("click", () => this.applySaved(saved.state));
 		}
@@ -305,7 +304,7 @@ export class GridView extends ItemView {
 	private saveCurrentView() {
 		new NameModal(this.app, "Save view", "Name", "", (name) => {
 			const views = this.savedViews().filter((v) => v.name !== name);
-			this.storeSavedViews([...views, { name, state: { ...this.state, query: this.query } }]);
+			void this.storeSavedViews([...views, { name, state: { ...this.state, query: this.query } }]);
 		}).open();
 	}
 
@@ -367,7 +366,7 @@ export class GridView extends ItemView {
 
 		const exportAll = el.createEl("button", { text: "Export CSV" });
 		exportAll.setAttribute("aria-label", "Save the words shown as a CSV file in your vault");
-		exportAll.addEventListener("click", () => this.exportCsv(this.shown));
+		exportAll.addEventListener("click", () => void this.exportCsv(this.shown));
 
 		const group = el.createEl("select", { cls: "dropdown" });
 		for (const [value, text] of GROUPS) group.createEl("option", { value, text });
@@ -391,7 +390,7 @@ export class GridView extends ItemView {
 
 	private chip(el: HTMLElement, label: string, colour: string, on: boolean, disabled: boolean, toggle: () => void) {
 		const chip = el.createEl("button", { cls: "langsoft-grid-chip" });
-		chip.createSpan({ cls: "langsoft-grid-dot" }).style.backgroundColor = colour;
+		chip.createSpan({ cls: "langsoft-grid-dot" }).setCssStyles({ backgroundColor: colour });
 		chip.appendText(label);
 		chip.toggleClass("is-active", on);
 		chip.setAttribute("aria-pressed", String(on));
@@ -444,7 +443,7 @@ export class GridView extends ItemView {
 	private drawVisible(force = false) {
 		if (!this.body) return;
 		const height = this.itemHeight;
-		this.body.style.height = `${this.items.length * height}px`;
+		this.body.setCssStyles({ height: `${this.items.length * height}px` });
 		const headerHeight = this.header?.offsetHeight ?? 0;
 		const top = Math.max(0, this.scroller.scrollTop - headerHeight);
 		const from = Math.max(0, Math.floor(top / height) - OVERSCAN);
@@ -461,8 +460,8 @@ export class GridView extends ItemView {
 					: Platform.isPhone
 						? this.drawCard(item.row)
 						: this.drawRow(item.row);
-			el.style.top = `${i * height}px`;
-			el.style.height = `${height}px`;
+			el.setCssStyles({ top: `${i * height}px` });
+			el.setCssStyles({ height: `${height}px` });
 		}
 	}
 
@@ -495,7 +494,7 @@ export class GridView extends ItemView {
 		this.text(cell("langsoft-grid-muted langsoft-grid-number"), row.level === "coworker" ? "" : String(row.changes));
 		const team = cell("langsoft-grid-team");
 		this.text(team, row.teammates.join(", "));
-		team.style.color = this.plugin.settings.coworkerColor;
+		team.setCssStyles({ color: this.plugin.settings.coworkerColor });
 		return el;
 	}
 
@@ -514,7 +513,7 @@ export class GridView extends ItemView {
 		if (date) meta.appendText(`${row.details.file ? " · " : ""}${date}`);
 		if (row.teammates.length) {
 			const team = meta.createSpan({ text: ` · ${row.teammates.join(", ")}` });
-			team.style.color = this.plugin.settings.coworkerColor;
+			team.setCssStyles({ color: this.plugin.settings.coworkerColor });
 		}
 		return el;
 	}
@@ -524,10 +523,9 @@ export class GridView extends ItemView {
 	private wordButton(el: HTMLElement, row: GridRow) {
 		const word = el.createEl("a", { cls: `langsoft-grid-term ${row.level === "coworker" ? "coworker" : row.level}`, text: row.term });
 		word.setAttribute("title", "Open in the Definer");
-		word.addEventListener("click", async (event) => {
+		word.addEventListener("click", (event) => {
 			event.preventDefault();
-			const definer = await this.plugin.openDefiner();
-			definer?.handleSelection(row.term, "");
+			void this.plugin.openDefiner().then((definer) => definer?.handleSelection(row.term, ""));
 		});
 		if (row.phrase && !Platform.isPhone) el.createSpan({ cls: "langsoft-grid-tag", text: "phrase" });
 	}
@@ -558,7 +556,7 @@ export class GridView extends ItemView {
 	private levelPill(el: HTMLElement, row: GridRow) {
 		const level = row.level;
 		const pill = el.createSpan({ cls: "langsoft-grid-pill", text: LEVEL_NAMES[level] });
-		pill.style.backgroundColor = level === "coworker" ? this.plugin.settings.coworkerColor : this.colour(level);
+		pill.setCssStyles({ backgroundColor: level === "coworker" ? this.plugin.settings.coworkerColor : this.colour(level) });
 		if (level === "coworker") {
 			pill.addClass("is-dark");
 			return;
@@ -666,7 +664,7 @@ export class GridView extends ItemView {
 		const remove = bar.createEl("button", { cls: "mod-warning", text: "Delete…" });
 		remove.addEventListener("click", () => this.deleteSelected());
 		const exportButton = bar.createEl("button", { text: "Export CSV" });
-		exportButton.addEventListener("click", () => this.exportCsv(this.shown.filter((r) => this.selected.has(r.term))));
+		exportButton.addEventListener("click", () => void this.exportCsv(this.shown.filter((r) => this.selected.has(r.term))));
 		const clear = bar.createEl("a", { text: "Clear selection", href: "#" });
 		clear.addEventListener("click", (event) => {
 			event.preventDefault();
@@ -753,7 +751,7 @@ export class GridView extends ItemView {
 		link.setAttribute("title", "Go to the sentence");
 		link.addEventListener("click", (event) => {
 			event.preventDefault();
-			this.plugin.goToDefinitionContext(row.details);
+			void this.plugin.goToDefinitionContext(row.details);
 		});
 	}
 
@@ -818,7 +816,7 @@ class ConfirmModal extends Modal {
 			.addButton((b) =>
 				b
 					.setButtonText(this.action)
-					.setWarning()
+					.setDestructive()
 					.onClick(() => {
 						this.close();
 						this.confirmed();

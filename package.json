@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-langsoft",
-	"version": "1.12.0",
+	"version": "1.12.1",
 	"description": "Highlight words by how well you know them, keep definitions with the sentence you found them in, and share dictionaries with coworkers.",
 	"main": "main.js",
 	"scripts": {
@@ -9,7 +9,8 @@
 		"typecheck": "tsc -noEmit -skipLibCheck",
 		"test": "vitest run",
 		"test:watch": "vitest",
-		"version": "node version-bump.mjs && git add manifest.json versions.json"
+		"version": "node version-bump.mjs && git add manifest.json versions.json",
+		"lint": "eslint ."
 	},
 	"keywords": [],
 	"author": "Ben Kirk",
@@ -20,15 +21,15 @@
 	},
 	"devDependencies": {
 		"@codemirror/state": "^6.7.6",
-		"@codemirror/view": "^6.44.0",
+		"@codemirror/view": "^6.43.13",
 		"@types/node": "^22.20.7",
-		"@typescript-eslint/eslint-plugin": "5.29.0",
-		"@typescript-eslint/parser": "5.29.0",
-		"builtin-modules": "3.3.0",
 		"esbuild": "^0.28.2",
-		"obsidian": "latest",
+		"eslint": "^9.39.5",
+		"eslint-plugin-obsidianmd": "^0.6.0",
+		"obsidian": "^1.14.4",
 		"tslib": "^2.9.1",
 		"typescript": "~5.9.3",
+		"typescript-eslint": "^8.74.0",
 		"vitest": "^5.1.2"
 	}
 }

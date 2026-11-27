@@ -1,3 +1,33 @@
+/* Highlight colours: the variables are set from Langsoft's settings */
+.unknown { background-color: var(--langsoft-unknown-background, transparent); }
+.semiknown { background-color: var(--langsoft-semiknown-background, transparent); }
+.known { background-color: var(--langsoft-known-background, transparent); }
+.coworker { background-color: var(--langsoft-coworker-background, transparent); }
+
+.unknownunderline,
+.semiknownunderline,
+.knownunderline,
+.coworkerunderline {
+    text-decoration-thickness: 5px;
+}
+.unknownunderline { text-decoration-line: var(--langsoft-unknown-underline-line, none); text-decoration-color: var(--langsoft-unknown-underline); }
+.semiknownunderline { text-decoration-line: var(--langsoft-semiknown-underline-line, none); text-decoration-color: var(--langsoft-semiknown-underline); }
+.knownunderline { text-decoration-line: var(--langsoft-known-underline-line, none); text-decoration-color: var(--langsoft-known-underline); }
+.coworkerunderline { text-decoration-line: var(--langsoft-coworker-underline-line, none); text-decoration-color: var(--langsoft-coworker-underline); }
+
+/* hover definitions */
+.tooltip.tooltip-adjusted {
+    margin-top: -16px;
+    transform-origin: center bottom;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: var(--background-primary);
+    color: var(--text-normal);
+    box-shadow: var(--shadow-s);
+    transition: transform 0.12s ease, opacity 0.12s ease;
+    opacity: 1;
+}
+
 /*
 
 This CSS file will be included with your plugin, and
@@ -417,6 +447,13 @@ If your plugin does not need CSS, delete this file.
     grid-template-rows: 14px repeat(7, 11px);
     gap: 2px;
     width: max-content;
+}
+/* weekday names in the first column, month names in the first row */
+.langsoft-activity-weekday {
+    grid-column: 1;
+}
+.langsoft-activity-month {
+    grid-row: 1;
 }
 .langsoft-activity-weekday,
 .langsoft-activity-month {

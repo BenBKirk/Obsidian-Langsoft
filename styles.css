@@ -539,3 +539,238 @@ p.langsoft-progress-hint {
     font-size: var(--font-ui-smaller);
     cursor: pointer;
 }
+
+/* "Langsoft: Open dictionary": every entry in a grid */
+.langsoft-grid.view-content {
+    padding: 0;
+    overflow: hidden;
+}
+.langsoft-grid-layout {
+    display: flex;
+    height: 100%;
+}
+.langsoft-grid-views {
+    width: 200px;
+    flex: none;
+    overflow-y: auto;
+    padding: var(--size-4-3) var(--size-4-2);
+    border-right: 1px solid var(--background-modifier-border);
+    font-size: var(--font-ui-small);
+}
+.langsoft-grid-views-heading {
+    margin: var(--size-4-3) var(--size-4-2) var(--size-4-1);
+    font-size: var(--font-ui-smallest);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-faint);
+}
+.langsoft-grid-views-heading:first-child {
+    margin-top: 0;
+}
+.langsoft-grid-view-item {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--size-4-2);
+    padding: var(--size-4-1) var(--size-4-2);
+    border-radius: var(--radius-s);
+    cursor: pointer;
+}
+.langsoft-grid-view-item:hover {
+    background: var(--background-modifier-hover);
+}
+.langsoft-grid-view-item.is-active {
+    background: var(--background-modifier-active-hover);
+    font-weight: var(--font-semibold);
+}
+.langsoft-grid-count {
+    color: var(--text-faint);
+    font-size: var(--font-ui-smaller);
+    font-variant-numeric: tabular-nums;
+}
+.langsoft-grid-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+.langsoft-grid-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--size-4-2);
+    padding: var(--size-4-2) var(--size-4-3);
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+.langsoft-grid-search {
+    flex: 1 1 260px;
+    display: flex;
+    gap: var(--size-4-1);
+}
+.langsoft-grid-search input {
+    flex: 1;
+    min-width: 0;
+}
+.langsoft-grid-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--size-4-1);
+}
+.langsoft-grid-chip {
+    height: auto;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: var(--font-ui-smaller);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    opacity: 0.55;
+}
+.langsoft-grid-chip.is-active {
+    opacity: 1;
+    box-shadow: 0 0 0 1px var(--interactive-accent);
+}
+.langsoft-grid-chip:disabled {
+    cursor: default;
+}
+.langsoft-grid-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: none;
+}
+
+/* the rows: one shared column layout for the header and every row */
+.langsoft-grid-scroller {
+    flex: 1;
+    overflow: auto;
+    --langsoft-grid-columns: minmax(150px, 1.2fr) 82px minmax(160px, 1.6fr) minmax(200px, 2fr) minmax(120px, 1fr) 82px 82px 64px minmax(90px, 0.8fr);
+}
+.langsoft-grid-row {
+    display: grid;
+    grid-template-columns: var(--langsoft-grid-columns);
+    min-width: 1100px;
+    font-size: var(--font-ui-small);
+}
+.langsoft-grid-body {
+    position: relative;
+    min-width: 1100px;
+}
+.langsoft-grid-body > * {
+    position: absolute;
+    left: 0;
+    right: 0;
+}
+.langsoft-grid-body .langsoft-grid-row:hover {
+    background: var(--background-modifier-hover);
+}
+.langsoft-grid-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--background-secondary);
+    color: var(--text-muted);
+    font-weight: var(--font-semibold);
+    font-size: var(--font-ui-smaller);
+}
+.langsoft-grid-cell {
+    padding: 0 var(--size-4-2);
+    line-height: 33px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-bottom: 1px solid var(--background-modifier-border);
+    border-right: 1px solid var(--background-modifier-border);
+}
+.langsoft-grid-header .langsoft-grid-cell.is-sortable {
+    cursor: pointer;
+}
+.langsoft-grid-header .langsoft-grid-cell.is-sorted {
+    color: var(--text-normal);
+}
+.langsoft-grid-muted {
+    color: var(--text-muted);
+}
+.langsoft-grid-muted u {
+    color: var(--text-normal);
+}
+.langsoft-grid-number {
+    font-variant-numeric: tabular-nums;
+}
+.langsoft-grid-term {
+    font-weight: var(--font-semibold);
+    color: var(--text-normal);
+    padding: 0 4px;
+    border-radius: var(--radius-s);
+    text-decoration: none;
+    cursor: pointer;
+}
+.langsoft-grid-tag {
+    margin-left: 6px;
+    padding: 0 4px;
+    font-size: var(--font-ui-smallest);
+    color: var(--text-faint);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-s);
+}
+.langsoft-grid-pill {
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: var(--font-ui-smaller);
+    color: #000;
+}
+.langsoft-grid-pill.is-dark {
+    color: #fff;
+}
+.langsoft-grid-group {
+    display: flex;
+    align-items: center;
+    gap: var(--size-4-2);
+    padding: 0 var(--size-4-3);
+    background: var(--background-secondary);
+    border-bottom: 1px solid var(--background-modifier-border);
+    font-weight: var(--font-semibold);
+    font-size: var(--font-ui-small);
+    cursor: pointer;
+}
+.langsoft-grid-status {
+    padding: var(--size-4-1) var(--size-4-3);
+    border-top: 1px solid var(--background-modifier-border);
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+}
+
+/* phones: a list of cards, and the views in a menu */
+.langsoft-grid.is-phone .langsoft-grid-layout {
+    flex-direction: column;
+}
+.langsoft-grid.is-phone .langsoft-grid-views {
+    width: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--background-modifier-border);
+    padding: var(--size-4-2) var(--size-4-3);
+}
+.langsoft-grid.is-phone .langsoft-grid-views select {
+    width: 100%;
+}
+.langsoft-grid.is-phone .langsoft-grid-body {
+    min-width: 0;
+}
+.langsoft-grid-card {
+    padding: var(--size-4-2) var(--size-4-3);
+    border-bottom: 1px solid var(--background-modifier-border);
+    overflow: hidden;
+}
+.langsoft-grid-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--size-4-2);
+    font-size: var(--font-ui-medium);
+}
+.langsoft-grid-card-line {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: var(--font-ui-small);
+    margin-top: 2px;
+}

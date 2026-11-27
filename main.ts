@@ -9,6 +9,7 @@ import { DEFAULT_FOLDER, LEGACY_FOLDER } from "dictionary-files";
 import { UserModal } from "user-modal";
 import { SearchModal } from "search-modal";
 import { ProgressView, VIEW_TYPE_PROGRESS } from "progress-view";
+import { GridView, VIEW_TYPE_GRID } from "grid-view";
 import { createCoveragePanel } from "coverage-panel";
 import { highlightElement } from "reading-view";
 import { createDefinerBottomPanel } from "definer-bottom-panel";
@@ -79,6 +80,7 @@ export default class LangsoftPlugin extends Plugin {
 			(leaf) => new DefinerView(leaf, this)
 		);
 		this.registerView(VIEW_TYPE_PROGRESS, (leaf) => new ProgressView(leaf, this));
+		this.registerView(VIEW_TYPE_GRID, (leaf) => new GridView(leaf, this));
 
 		this.addCommand({
 			id: "define-selection",
@@ -93,6 +95,12 @@ export default class LangsoftPlugin extends Plugin {
 			id: "show-progress",
 			name: "Show progress",
 			callback: () => this.openProgress(),
+		});
+
+		this.addCommand({
+			id: "open-dictionary",
+			name: "Open dictionary",
+			callback: () => this.openPage(VIEW_TYPE_GRID),
 		});
 
 		// the level of the word in the Definer; can be given hotkeys or put in the phone toolbar
@@ -433,16 +441,24 @@ export default class LangsoftPlugin extends Plugin {
 	}
 
 	async openProgress() {
-		const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_PROGRESS)[0];
+		await this.openPage(VIEW_TYPE_PROGRESS);
+	}
+
+	/** Open a page (progress, dictionary) in a tab, or switch to it if it is already open. */
+	async openPage(type: string) {
+		const existing = this.app.workspace.getLeavesOfType(type)[0];
 		const leaf = existing ?? this.app.workspace.getLeaf("tab");
-		if (!existing) await leaf.setViewState({ type: VIEW_TYPE_PROGRESS, active: true });
+		if (!existing) await leaf.setViewState({ type, active: true });
 		await this.app.workspace.revealLeaf(leaf);
 	}
 
-	/** Redraw open progress pages, at most once a second, after the dictionary changed. */
+	/** Redraw open progress and dictionary pages, at most once a second, after the dictionary changed. */
 	private refreshProgress = debounce(() => {
 		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_PROGRESS)) {
 			if (leaf.view instanceof ProgressView) leaf.view.render();
+		}
+		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_GRID)) {
+			if (leaf.view instanceof GridView) leaf.view.refresh();
 		}
 	}, 1000, true);
 

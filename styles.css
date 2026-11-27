@@ -832,3 +832,19 @@ p.langsoft-progress-hint {
 .langsoft-grid-save {
     color: var(--text-accent);
 }
+
+/* backups */
+.langsoft-grid-backup-info {
+    padding: 0 var(--size-4-2) var(--size-4-1);
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+}
+.langsoft-restore-list {
+    max-height: 40vh;
+    overflow-y: auto;
+    padding: var(--size-4-2) var(--size-4-3);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-m);
+    font-size: var(--font-ui-small);
+    line-height: 1.7;
+}

@@ -708,6 +708,8 @@ export class DictionaryManager {
 			this.userFolders.push(user);
 		}
 		await adapter.write(path, serializeDeviceFile(this.userDict));
+		// e.g. the daily backup; optional, as the tests' stand-in plugin doesn't have it
+		this.plugin.dictionarySaved?.();
 		this.deviceFileMtime = (await adapter.stat(path))?.mtime;
 		if (status === "merged") {
 			this.plugin.refreshHighlights();

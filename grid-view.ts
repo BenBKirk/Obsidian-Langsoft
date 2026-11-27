@@ -17,6 +17,8 @@ import {
 	viewCounts,
 	VIEWS,
 } from "dictionary-grid";
+import { listBackups } from "backup";
+import { backupNow, formatBackupDate, openRestore } from "backup-modal";
 import { splitContext } from "words";
 
 export const VIEW_TYPE_GRID = "langsoft-dictionary";
@@ -226,11 +228,15 @@ export class GridView extends ItemView {
 				select.createEl("option", { value: `saved:${i}`, text: `★ ${saved.name}` });
 			}
 			select.createEl("option", { value: "save", text: "+ Save current view…" });
+			select.createEl("option", { value: "backup", text: "Back up now" });
+			select.createEl("option", { value: "restore", text: "Restore from a backup…" });
 			select.value = this.state.view;
 			select.addEventListener("change", () => {
 				const value = select.value;
 				select.value = this.state.view;
 				if (value === "save") this.saveCurrentView();
+				else if (value === "backup") backupNow(this.plugin);
+				else if (value === "restore") openRestore(this.plugin);
 				else if (value.startsWith("saved:")) this.applySaved(this.savedViews()[Number(value.slice(6))]?.state ?? {});
 				else this.setView(value);
 			});
@@ -247,6 +253,23 @@ export class GridView extends ItemView {
 			}
 		}
 		this.renderSavedViews(el);
+		this.renderBackups(el);
+	}
+
+	/** The last backup, and buttons to back up and restore, at the bottom of the side bar. */
+	private renderBackups(el: HTMLElement) {
+		el.createDiv({ cls: "langsoft-grid-views-heading", text: "Backups" });
+		const last = el.createDiv({ cls: "langsoft-grid-backup-info", text: "…" });
+		listBackups(this.app.vault.adapter, this.plugin.currentUser).then((backups) => {
+			last.setText(backups.length ? `Last: ${formatBackupDate(backups[0].date)} · ${backups.length} kept` : "None yet");
+		});
+		const backup = el.createDiv({ cls: "langsoft-grid-view-item", text: "Back up now" });
+		backup.addEventListener("click", async () => {
+			await backupNow(this.plugin);
+			this.renderViews();
+		});
+		const restore = el.createDiv({ cls: "langsoft-grid-view-item", text: "Restore from a backup…" });
+		restore.addEventListener("click", () => openRestore(this.plugin));
 	}
 
 	private savedViews() {

@@ -18,6 +18,8 @@ export interface LangsoftPluginSettings {
 	highlightReadingView: boolean,
 	/** Views saved on the dictionary page, by user, so each person has their own. */
 	savedGridViews: Record<string, { name: string; state: Record<string, unknown> }[]>,
+	/** Back up your dictionary once a day, when it first changes that day. */
+	autoBackup: boolean,
 	/**
 	 * Only read to carry over the user from older versions. The current user
 	 * is now stored on each device (see LangsoftPlugin.currentUser), because
@@ -39,6 +41,7 @@ export const DEFAULT_SETTINGS: LangsoftPluginSettings = {
 	showNoteCoverage: true,
 	highlightReadingView: true,
 	savedGridViews: {},
+	autoBackup: true,
 	dictionaryFolder: DEFAULT_FOLDER
 }
 
@@ -88,6 +91,16 @@ export class LangsoftSettingsTab extends PluginSettingTab {
 		containerEl.empty();
 
 		this.displayUserSetting(containerEl);
+
+		new Setting(containerEl)
+			.setName("Back up every day")
+			.setDesc('A copy of your dictionary in "Langsoft backups", the first time it changes each day. About 30 are kept. Restore with the command "Langsoft: Restore from a backup".')
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.autoBackup).onChange(async (value) => {
+					this.plugin.settings.autoBackup = value;
+					await this.plugin.saveSettings();
+				})
+			);
 
 		new Setting(containerEl)
 			.setName("Highlight words in Reading view")

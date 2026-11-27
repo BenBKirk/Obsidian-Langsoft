@@ -16,6 +16,8 @@ export interface LangsoftPluginSettings {
 	showNoteCoverage: boolean,
 	/** Highlight words in Reading view too. */
 	highlightReadingView: boolean,
+	/** Views saved on the dictionary page, by user, so each person has their own. */
+	savedGridViews: Record<string, { name: string; state: Record<string, unknown> }[]>,
 	/**
 	 * Only read to carry over the user from older versions. The current user
 	 * is now stored on each device (see LangsoftPlugin.currentUser), because
@@ -36,6 +38,7 @@ export const DEFAULT_SETTINGS: LangsoftPluginSettings = {
 	coworkerColor: "#0080FF",
 	showNoteCoverage: true,
 	highlightReadingView: true,
+	savedGridViews: {},
 	dictionaryFolder: DEFAULT_FOLDER
 }
 

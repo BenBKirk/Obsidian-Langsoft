@@ -495,3 +495,62 @@ describe("timestamps", () => {
 		expect(history.every((h: { timestamp: string }) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(h.timestamp))).toBe(true);
 	});
 });
+
+describe("several words at once", () => {
+	const three = () => ({ a: word("unknown", "x"), b: word("known", "y"), c: word("unknown", "z") });
+
+	it("sets levels, saving once, and undoes it", async () => {
+		putDevice(adapter, three());
+		const { manager } = await makeManager(adapter);
+		let writes = 0;
+		const write = adapter.write.bind(adapter);
+		adapter.write = async (path: string, data: string) => {
+			writes++;
+			return write(path, data);
+		};
+
+		const changed = manager.setLevels(["a", "b", "c", "missing"], "known");
+		await manager.flush();
+		expect(writes).toBe(1);
+		expect(changed).toEqual([{ term: "a", previous: "unknown" }, { term: "c", previous: "unknown" }]);
+		expect(readDevice(adapter).a.highlight).toBe("known");
+
+		manager.restoreLevels(changed);
+		await manager.flush();
+		expect(readDevice(adapter).a.highlight).toBe("unknown");
+		expect(readDevice(adapter).b.highlight).toBe("known");
+		expect(writes).toBe(2);
+	});
+
+	it("deletes words and undoes it", async () => {
+		putDevice(adapter, { ...three(), a: { ...word("unknown", "x"), definitions: { x: context(), w: context() } } });
+		const { manager } = await makeManager(adapter);
+
+		const deleted = manager.deleteWords(["a", "b"]);
+		await manager.flush();
+		expect(deleted.map((d) => d.term)).toEqual(["a", "b"]);
+		expect(readDevice(adapter).a.highlight).toBe("None");
+		expect(Object.values(readDevice(adapter).a.definitions).every((d: any) => d.deleted)).toBe(true);
+
+		manager.restoreWords(deleted);
+		await manager.flush();
+		expect(readDevice(adapter).a.highlight).toBe("unknown");
+		expect(Object.values(readDevice(adapter).a.definitions).every((d: any) => !d.deleted)).toBe(true);
+		expect(readDevice(adapter).b.highlight).toBe("known");
+	});
+
+	it("edits a word's definitions", async () => {
+		putDevice(adapter, { hund: { ...word("known", "dgo"), definitions: { dgo: context(), hound: context() } } });
+		const { manager } = await makeManager(adapter);
+
+		manager.editDefinitions("hund", { renames: [["dgo", "dog"]], adds: ["puppy"], deletes: ["hound"] });
+		await manager.flush();
+		const live = Object.entries(readDevice(adapter).hund.definitions).filter(([, d]: any) => !d.deleted).map(([k]) => k);
+		expect(live.sort()).toEqual(["dog", "puppy"]);
+		expect(readDevice(adapter).hund.definitions.dog.sentence).toBe("ein <u>Hund </u>bellt");
+
+		// never leaves a word with no definition
+		manager.editDefinitions("hund", { renames: [], adds: [], deletes: ["dog", "puppy"] });
+		expect(Object.values(manager.userDict.hund.definitions).some((d) => !d.deleted)).toBe(true);
+	});
+});

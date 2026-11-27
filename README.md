@@ -16,6 +16,7 @@ A language-learning plugin for [Obsidian](https://obsidian.md). Read and write i
 - **Hover definitions.** Hover over a word you have defined to see its definitions.
 - **Search words.** Run the command **Langsoft: Search words** and type a word, or the start of one, to find your words and phrases with it and their definitions. Paste a whole sentence to see every word and phrase from your dictionaries in it. Words only your coworkers have defined are included, with their definitions. In either search window, Tab switches between searching words and searching by meaning.
 - **Search by meaning.** Run the command **Langsoft: Search definitions** and type part of a meaning, e.g. `dog`, to find every word defined with it, yours and your coworkers', with the sentence each was added in. Matching is by the beginnings of words, so `do` finds `dog` too. Choosing a result opens the word in the sidebar; **Go to sentence** opens the note it was added in, at the word, if that sentence is still there. The same link appears under each definition in the sidebar. When you rename a note in Obsidian, your definitions from it follow the new name. Coworkers' definitions, and renames made on another device or outside Obsidian, keep the old name; for those, Langsoft looks for the unchanged sentence in your other notes and tells you if it found it in a different one.
+- **Dictionary page.** Run the command **Langsoft: Open dictionary** to see every word and phrase you've defined in a grid, like a spreadsheet, with their definitions, sentences, notes and dates. Pick a view (for example *To learn*, *Added this week* or *Stuck for 2+ months*), search, filter by level, sort by any column and group by level, note, month or first letter. Teammates' words you don't have can be shown too. Click a word to open it in the sidebar, or a note to go to its sentence. On phones the entries are shown as cards.
 - **Progress.** Run the command **Langsoft: Show progress** to see how many of your words are known, semi-known and unknown, week by week, month by month or year by year, and how many reached each level or were added in each period. It also shows a growth curve, and a calendar of the days you worked on your words with your current and longest streak. With at least three people sharing dictionaries, a Team section shows figures about everyone together, never about one person: the team's combined vocabulary and how it has grown, and how many words your teammates have defined that you haven't.
 - **How much of a note you know.** A bar at the bottom of each note shows how many different words it has, and what share of them you know, half know or don't know, in your highlight colours, and what share only your coworkers have defined, in blue. It can be switched off in the settings.
 - **Shared dictionaries.** Dictionaries belonging to other people appear alongside yours. Words they have defined and you haven't are highlighted blue, and you can copy one of their definitions with a click.
@@ -97,13 +98,14 @@ For quick testing, clone the repository into `<vault>/.obsidian/plugins/langsoft
 | `locate.ts` | Finding the sentence a definition was added in |
 | `time.ts` | Saving and comparing timestamps |
 | `reading-view.ts` | Highlighting in Reading view |
+| `dictionary-grid.ts`, `grid-view.ts` | The dictionary page: its rows, views and filters, and the grid |
 | `merge.ts` | Merging two versions of a dictionary |
 | `dictionary-files.ts` | Dictionary file layouts, the device file format, and conflict copies |
 | `user-modal.ts` | The "Who are you?" window |
 | `users.ts` | Listing users and checking new user names |
 | `words.ts` | Splitting text into words |
 
-`words.ts`, `users.ts`, `search.ts`, `locate.ts`, `progress.ts`, `team.ts`, `coverage.ts`, `time.ts`, `merge.ts` and `dictionary-files.ts` don't depend on Obsidian, nor does `segmentText` in `reading-view.ts`. The tests in `tests/` cover them, and run `DictionaryManager` against an in-memory vault (`tests/fake-vault.ts`) with a stand-in for the `obsidian` module (`tests/obsidian-stub.ts`).
+`words.ts`, `users.ts`, `search.ts`, `locate.ts`, `progress.ts`, `team.ts`, `coverage.ts`, `dictionary-grid.ts`, `time.ts`, `merge.ts` and `dictionary-files.ts` don't depend on Obsidian, nor does `segmentText` in `reading-view.ts`. The tests in `tests/` cover them, and run `DictionaryManager` against an in-memory vault (`tests/fake-vault.ts`) with a stand-in for the `obsidian` module (`tests/obsidian-stub.ts`).
 
 ## Releasing
 

@@ -73,6 +73,8 @@ export default class LangsoftPlugin extends Plugin {
 		this.dictManager = new DictionaryManager(this);
 		void this.dictManager.init();
 		this.updateStyle();
+		// popout windows get the highlight colours too
+		this.registerEvent(this.app.workspace.on("window-open", (win) => win.doc.body.setCssProps(this.colourProps)));
 		this.registerEditorExtension(this.wordHover);
 
 
@@ -635,7 +637,19 @@ export default class LangsoftPlugin extends Plugin {
 			props[`--langsoft-${level}-underline`] = enabled ? this.hexToRGB(colour, 0.5) : "transparent";
 			props[`--langsoft-${level}-underline-line`] = enabled ? "underline" : "none";
 		}
-		activeDocument.body.setCssProps(props);
+		this.colourProps = props;
+		// every window: the main one, popouts, and wherever the settings are open
+		for (const doc of this.openDocuments()) doc.body.setCssProps(props);
+	}
+
+	/** The colour variables last set, for windows opened later. */
+	private colourProps: Record<string, string> = {};
+
+	/** The pages of all of Obsidian's open windows. */
+	private openDocuments(): Set<Document> {
+		const docs = new Set<Document>([this.app.workspace.containerEl.doc, activeDocument]);
+		this.app.workspace.iterateAllLeaves((leaf) => docs.add(leaf.view.containerEl.doc));
+		return docs;
 	}
 
 
@@ -821,7 +835,9 @@ export default class LangsoftPlugin extends Plugin {
 	}
 
 	onunload() {
-		for (const name of LangsoftPlugin.COLOUR_VARIABLES) activeDocument.body.style.removeProperty(name);
+		for (const doc of this.openDocuments()) {
+			for (const name of LangsoftPlugin.COLOUR_VARIABLES) doc.body.style.removeProperty(name);
+		}
 	}
 
 }

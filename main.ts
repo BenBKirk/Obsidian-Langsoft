@@ -37,7 +37,6 @@ export default class LangsoftPlugin extends Plugin {
 	bottomPanel = createDefinerBottomPanel(this);
 	settingsTab: LangsoftSettingsTab;
 	dictManager: DictionaryManager;
-	styleEl: Element;
 	SelectedText: Array<number>;
 	lastFile: TFile;
 	lastTabIndex: number;
@@ -72,9 +71,10 @@ export default class LangsoftPlugin extends Plugin {
 		}
 
 		this.dictManager = new DictionaryManager(this);
-		this.dictManager.init();
-		this.styleEl = document.head.createEl("style");
-		this.updateStyle()
+		void this.dictManager.init();
+		this.updateStyle();
+		// popout windows get the highlight colours too
+		this.registerEvent(this.app.workspace.on("window-open", (win) => win.doc.body.setCssProps(this.colourProps)));
 		this.registerEditorExtension(this.wordHover);
 
 
@@ -163,12 +163,12 @@ export default class LangsoftPlugin extends Plugin {
 
 		// first run on this device
 		this.app.workspace.onLayoutReady(() => {
-			this.turnOffOldCopy();
+			void this.turnOffOldCopy();
 			if (!this.currentUser) this.openUserPicker();
 		});
 
 
-		this.registerDomEvent(document.body, "mouseup", async (event) => {
+		this.registerDomEvent(activeDocument.body, "mouseup", async (event) => {
 			// desktop only: touch screens send mouse events for every tap; see showEditorSelection
 			if (Platform.isMobile) return;
 			this.SelectedText = [];
@@ -176,7 +176,7 @@ export default class LangsoftPlugin extends Plugin {
 			const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
 			if (markdownView?.getMode() === "preview") {
 				// Ctrl+click on a highlighted word is handled as a click; see registerReadingView
-				if (!event.ctrlKey && !event.metaKey) this.showReadingSelection();
+				if (!event.ctrlKey && !event.metaKey) void this.showReadingSelection();
 				return;
 			}
 
@@ -189,7 +189,7 @@ export default class LangsoftPlugin extends Plugin {
 				const parent = (tab as unknown as { parent: { children: (WorkspaceLeaf | null)[] } }).parent;
 				const tabIndex = parent.children.indexOf(tab);           // 0-based index
 				this.lastTabIndex = tabIndex
-			} catch (e) {
+			} catch {
 				this.lastTabIndex = 0
 			}
 
@@ -254,7 +254,7 @@ export default class LangsoftPlugin extends Plugin {
 				}
 
 
-				this.dictManager.reloadOtherDictsIfChanged();
+				void this.dictManager.reloadOtherDictsIfChanged();
 
 			})
 		);
@@ -306,14 +306,14 @@ export default class LangsoftPlugin extends Plugin {
 			highlightElement(el, this.dictManager.userDict, this.dictManager.otherDicts);
 		});
 
-		this.registerDomEvent(document, "click", async (event: MouseEvent) => {
+		this.registerDomEvent(activeDocument, "click", async (event: MouseEvent) => {
 			const target = event.target as HTMLElement | null;
 			const span = target?.closest<HTMLElement>(".markdown-reading-view .langsoft-rv[data-langsoft-term]");
 			// not inside links, which keep working as links
 			if (!span || span.closest("a")) return;
 			if (!Platform.isMobile && !event.ctrlKey && !event.metaKey) return;
 			event.preventDefault();
-			const range = document.createRange();
+			const range = activeDocument.createRange();
 			range.selectNodeContents(span);
 			const context = this.readingContext(range, span.textContent ?? "");
 			const definer = await this.openDefiner();
@@ -323,7 +323,7 @@ export default class LangsoftPlugin extends Plugin {
 		// on phones and tablets, long-pressing selects a word in Reading view too
 		if (Platform.isMobile) {
 			const show = debounce(() => this.showReadingSelection(), 600, true);
-			this.registerDomEvent(document, "selectionchange", () => {
+			this.registerDomEvent(activeDocument, "selectionchange", () => {
 				if (this.app.workspace.getActiveViewOfType(MarkdownView)?.getMode() === "preview") show();
 			});
 		}
@@ -335,7 +335,7 @@ export default class LangsoftPlugin extends Plugin {
 		const text = selection?.toString() ?? "";
 		if (!selection || selection.rangeCount === 0 || text.trim() === "" || text.length > 200) return;
 		const range = selection.getRangeAt(0);
-		const start = range.startContainer instanceof Element ? range.startContainer : range.startContainer.parentElement;
+		const start = range.startContainer.instanceOf(Element) ? range.startContainer : range.startContainer.parentElement;
 		if (!start?.closest(".markdown-reading-view")) return;
 		const context = this.readingContext(range, text);
 		const definer = await this.openDefiner();
@@ -344,10 +344,10 @@ export default class LangsoftPlugin extends Plugin {
 
 	/** The text around a selection in Reading view, as saved with definitions. */
 	private readingContext(range: Range, selected: string): string {
-		const end = range.endContainer instanceof Element ? range.endContainer : range.endContainer.parentElement;
+		const end = range.endContainer.instanceOf(Element) ? range.endContainer : range.endContainer.parentElement;
 		const block = end?.closest("p, li, h1, h2, h3, h4, h5, h6, td, th, blockquote, dd, dt") ?? end;
 		if (!block) return "";
-		const before = document.createRange();
+		const before = activeDocument.createRange();
 		before.setStart(block, 0);
 		before.setEnd(range.endContainer, range.endOffset);
 		const text = block.textContent ?? "";
@@ -465,12 +465,12 @@ export default class LangsoftPlugin extends Plugin {
 				const manifestPath = normalizePath(`${folder}/manifest.json`);
 				const dataPath = normalizePath(`${folder}/data.json`);
 				if (!(await adapter.exists(manifestPath)) || !(await adapter.exists(dataPath))) continue;
-				const manifest = JSON.parse(await adapter.read(manifestPath));
+				const manifest = JSON.parse(await adapter.read(manifestPath)) as { id?: unknown } | null;
 				if (manifest?.id !== LangsoftPlugin.OLD_ID) continue;
-				const data = JSON.parse(await adapter.read(dataPath));
-				if (data && typeof data === "object") {
+				const data = JSON.parse(await adapter.read(dataPath)) as unknown;
+				if (data && typeof data === "object" && !Array.isArray(data)) {
 					new Notice(`Langsoft: brought over your settings from the old copy of Langsoft in “${folder}”.`);
-					return data;
+					return data as Record<string, unknown>;
 				}
 			}
 		} catch (e) {
@@ -522,7 +522,7 @@ export default class LangsoftPlugin extends Plugin {
 		const existing = this.app.workspace.getLeavesOfType(type)[0];
 		const leaf = existing ?? this.app.workspace.getLeaf("tab");
 		if (!existing) await leaf.setViewState({ type, active: true });
-		await this.app.workspace.revealLeaf(leaf);
+		void this.app.workspace.revealLeaf(leaf);
 	}
 
 	/** Redraw open progress and dictionary pages, at most once a second, after the dictionary changed. */
@@ -547,8 +547,8 @@ export default class LangsoftPlugin extends Plugin {
 		for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
 			const mdView = leaf.view instanceof MarkdownView ? leaf.view : null;
 			if (mdView) {
-				const cm = (mdView.editor as any).cm as EditorView;
-				cm.dispatch({ effects: TriggerEffect.of(null) });
+				const cm = (mdView.editor as unknown as { cm?: EditorView }).cm;
+				cm?.dispatch({ effects: TriggerEffect.of(null) });
 			}
 		}
 	}
@@ -606,9 +606,10 @@ export default class LangsoftPlugin extends Plugin {
 
 	}
 
-	updateStyle() {
-		this.styleEl.textContent = this.settingsToStyle()
-	}
+	/** The highlight colours as CSS variables on the page; styles.css uses them. */
+	private static readonly COLOUR_VARIABLES = ["unknown", "semiknown", "known", "coworker"]
+		.map((level) => [`--langsoft-${level}-background`, `--langsoft-${level}-underline`, `--langsoft-${level}-underline-line`])
+		.reduce((all, names) => all.concat(names), []);
 
 	hexToRGB(hex: string, alpha: number) {
 		const r = parseInt(hex.slice(1, 3), 16),
@@ -622,72 +623,38 @@ export default class LangsoftPlugin extends Plugin {
 		}
 	}
 
-	settingsToStyle() {
-		let style = "";
-
-		const highlightTypes = ["unknown", "semiknown", "known", "coworker"];
-		const highlightTypesUnderline = ["unknownunderline", "semiknownunderline", "knownunderline", "coworkerunderline"];
-		const enabled = [
-			this.settings.unknownEnabled,
-			this.settings.semiknownEnabled,
-			this.settings.knownEnabled,
-			this.settings.coworkerEnabled
+	updateStyle() {
+		const settings = this.settings;
+		const levels: [string, boolean, string][] = [
+			["unknown", settings.unknownEnabled, settings.unknownColor],
+			["semiknown", settings.semiknownEnabled, settings.semiknownColor],
+			["known", settings.knownEnabled, settings.knownColor],
+			["coworker", settings.coworkerEnabled, settings.coworkerColor],
 		];
-		const colors = [
-			this.settings.unknownColor,
-			this.settings.semiknownColor,
-			this.settings.knownColor,
-			this.settings.coworkerColor
-		];
-
-		for (let i = 0; i < highlightTypes.length; i++) {
-			if (enabled[i]) {
-				style += `.${highlightTypes[i]} { 
-                background-color: ${this.hexToRGB(colors[i], 0.2)}; 
-            }\n`;
-			}
+		const props: Record<string, string> = {};
+		for (const [level, enabled, colour] of levels) {
+			props[`--langsoft-${level}-background`] = enabled ? this.hexToRGB(colour, 0.2) : "transparent";
+			props[`--langsoft-${level}-underline`] = enabled ? this.hexToRGB(colour, 0.5) : "transparent";
+			props[`--langsoft-${level}-underline-line`] = enabled ? "underline" : "none";
 		}
+		this.colourProps = props;
+		// every window: the main one, popouts, and wherever the settings are open
+		for (const doc of this.openDocuments()) doc.body.setCssProps(props);
+	}
 
-		for (let i = 0; i < highlightTypesUnderline.length; i++) {
-			if (enabled[i]) {
-				style += `.${highlightTypesUnderline[i]} { 
-                text-decoration: underline; 
-                text-decoration-color: ${this.hexToRGB(colors[i], 0.5)}; 
-                text-decoration-thickness: 5px; 
-            }\n`;
-			}
-		}
+	/** The colour variables last set, for windows opened later. */
+	private colourProps: Record<string, string> = {};
 
-		style += `
-
-		.tooltip.tooltip-adjusted {
-			margin-top: -16px;          /* move up; adjust value as needed (-6px .. -16px) */
-			transform-origin: center bottom;
-			padding: 6px 8px;
-			border-radius: 6px;
-			background: var(--background-primary);
-			color: var(--text-normal);
-			box-shadow: var(--shadow-s);
-		}
-
-		.tooltip.tooltip-adjusted {
-			transition: transform 0.12s ease, opacity 0.12s ease;
-			opacity: 1;
-		}
-		`;
-
-		return style;
+	/** The pages of all of Obsidian's open windows. */
+	private openDocuments(): Set<Document> {
+		const docs = new Set<Document>([this.app.workspace.containerEl.doc, activeDocument]);
+		this.app.workspace.iterateAllLeaves((leaf) => docs.add(leaf.view.containerEl.doc));
+		return docs;
 	}
 
 
-	//
-	// 	const highlightTypes = ["unknown", "semiknown", "known", "coworker"]
-	// 	const highlightTypesUnderline = ["unknownunderline", "semiknownunderline", "knownunderline", "coworkerunderline"]
-	// 	const enabled = [this.settings.unknownEnabled, this.settings.semiknownEnabled, this.settings.knownEnabled, this.settings.coworkerEnabled]
-	// 	const colors = [this.settings.unknownColor, this.settings.semiknownColor, this.settings.knownColor, this.settings.coworkerColor]
-
 	async loadSettings() {
-		let data = await this.loadData();
+		let data = (await this.loadData()) as Partial<LangsoftPluginSettings> | null;
 		// first run under the "langsoft" ID: bring over the settings of a copy installed under the old ID
 		if (data === null) {
 			data = await this.importOldSettings();
@@ -711,17 +678,40 @@ export default class LangsoftPlugin extends Plugin {
 	 * plugin's data.json: if the vault is synced between people, data.json is
 	 * shared, and everyone would end up editing the same dictionary.
 	 */
-	private currentUserStorageKey(): string {
-		return `langsoft:${this.app.vault.getName()}:current-user`;
-	}
-
-	private async loadCurrentUser() {
-		let stored: string | null = null;
+	/**
+	 * A value kept on this device for this vault, not synced: the current
+	 * user and the device ID. Kept with Obsidian's local storage for the
+	 * vault; before version 1.12.1 it was under a key with the vault's name,
+	 * which is carried over once.
+	 */
+	private readLocal(name: "current-user" | "device-id"): string | null {
+		const value: unknown = this.app.loadLocalStorage(`langsoft-${name}`);
+		if (typeof value === "string" && value) return value;
+		let old: string | null = null;
+		const oldKey = `langsoft:${this.app.vault.getName()}:${name}`;
 		try {
-			stored = window.localStorage.getItem(this.currentUserStorageKey());
+			old = window.localStorage.getItem(oldKey);
+			if (old) {
+				this.writeLocal(name, old);
+				window.localStorage.removeItem(oldKey);
+			}
 		} catch (e) {
 			console.warn("Langsoft: could not read local storage", e);
 		}
+		return old;
+	}
+
+	private writeLocal(name: "current-user" | "device-id", value: string) {
+		try {
+			this.app.saveLocalStorage(`langsoft-${name}`, value);
+		} catch (e) {
+			console.warn("Langsoft: could not save to local storage", e);
+		}
+	}
+
+
+	private async loadCurrentUser() {
+		const stored = this.readLocal("current-user");
 		if (stored) {
 			this.currentUser = stored;
 		} else if (this.settings.currentUser) {
@@ -766,22 +756,12 @@ export default class LangsoftPlugin extends Plugin {
 	}
 
 	private loadDeviceId() {
-		const key = `langsoft:${this.app.vault.getName()}:device-id`;
-		let id: string | null = null;
-		try {
-			id = window.localStorage.getItem(key);
-		} catch (e) {
-			console.warn("Langsoft: could not read local storage", e);
-		}
+		let id = this.readLocal("device-id");
 		if (!id || !/^[a-z]+-[0-9a-f]{8}$/.test(id)) {
 			const bytes = window.crypto.getRandomValues(new Uint8Array(4));
 			const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 			id = `${Platform.isMobile ? "mobile" : "desktop"}-${hex}`;
-			try {
-				window.localStorage.setItem(key, id);
-			} catch (e) {
-				console.warn("Langsoft: could not save to local storage", e);
-			}
+			this.writeLocal("device-id", id);
 		}
 		this.deviceId = id;
 	}
@@ -789,11 +769,7 @@ export default class LangsoftPlugin extends Plugin {
 	/** Remember the user on this device. Does not reload the dictionaries; see switchUser. */
 	storeCurrentUser(name: string) {
 		this.currentUser = name;
-		try {
-			window.localStorage.setItem(this.currentUserStorageKey(), name);
-		} catch (e) {
-			console.warn("Langsoft: could not save to local storage", e);
-		}
+		this.writeLocal("current-user", name);
 	}
 
 	wordHover = hoverTooltip((view, pos, side) => {
@@ -815,8 +791,7 @@ export default class LangsoftPlugin extends Plugin {
 			above: true,
 			strictSide: true,
 			create() {
-				const dom = document.createElement("div");
-				dom.classList.add("tooltip", "tooltip-adjusted");
+				const dom = createDiv({ cls: ["tooltip", "tooltip-adjusted"] });
 				dom.textContent = defs.join(" / ");
 				return { dom };
 			},
@@ -844,7 +819,7 @@ export default class LangsoftPlugin extends Plugin {
 
 		// "Reveal" the leaf in case it is in a collapsed sidebar
 		// newer Obsidian versions return a promise here and only load the view once revealed
-		await workspace.revealLeaf(leaf);
+		void workspace.revealLeaf(leaf);
 		return this.getDefinerViewLeaf();
 	}
 
@@ -859,8 +834,10 @@ export default class LangsoftPlugin extends Plugin {
 		return splitIntoWords(text, offset);
 	}
 
-		onunload() {
-		this.styleEl.remove();
+	onunload() {
+		for (const doc of this.openDocuments()) {
+			for (const name of LangsoftPlugin.COLOUR_VARIABLES) doc.body.style.removeProperty(name);
+		}
 	}
 
 }

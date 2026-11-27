@@ -122,7 +122,7 @@ export class ProgressView extends ItemView {
 		for (const level of LEVEL_ORDER) {
 			const row = table.createEl("tr");
 			const name = row.createEl("td");
-			name.createSpan({ cls: "langsoft-progress-swatch" }).style.backgroundColor = this.colour(level);
+			name.createSpan({ cls: "langsoft-progress-swatch" }).setCssStyles({ backgroundColor: this.colour(level) });
 			name.appendText(LEVEL_NAMES[level]);
 			row.createEl("td", { cls: "langsoft-progress-number", text: String(period.totals[level]) });
 			row.createEl("td", {
@@ -224,7 +224,7 @@ export class ProgressView extends ItemView {
 		const legend = el.createDiv({ cls: "langsoft-progress-legend" });
 		for (const level of LEVEL_ORDER) {
 			const item = legend.createSpan();
-			item.createSpan({ cls: "langsoft-progress-swatch" }).style.backgroundColor = this.colour(level);
+			item.createSpan({ cls: "langsoft-progress-swatch" }).setCssStyles({ backgroundColor: this.colour(level) });
 			item.appendText(LEVEL_NAMES[level]);
 		}
 		legend.createSpan({ cls: "langsoft-progress-hint", text: "Click a period to see its numbers above." });
@@ -252,7 +252,7 @@ export class ProgressView extends ItemView {
 		const row = (label: string, value: number, colour?: string) => {
 			const tr = table.createEl("tr");
 			const name = tr.createEl("td");
-			if (colour) name.createSpan({ cls: "langsoft-progress-swatch" }).style.backgroundColor = colour;
+			if (colour) name.createSpan({ cls: "langsoft-progress-swatch" }).setCssStyles({ backgroundColor: colour });
 			name.appendText(label);
 			tr.createEl("td", { cls: "langsoft-progress-number", text: number(value) });
 		};
@@ -319,7 +319,7 @@ export class ProgressView extends ItemView {
 			["Defined, not yet known by anyone", this.plugin.settings.coworkerColor],
 		]) {
 			const item = legend.createSpan();
-			item.createSpan({ cls: "langsoft-progress-swatch" }).style.backgroundColor = colour;
+			item.createSpan({ cls: "langsoft-progress-swatch" }).setCssStyles({ backgroundColor: colour });
 			item.appendText(label);
 		}
 	}
@@ -339,14 +339,13 @@ export class ProgressView extends ItemView {
 		const scroller = el.createDiv({ cls: "langsoft-activity-scroller" });
 		const grid = scroller.createDiv({ cls: "langsoft-activity-grid" });
 		const weeks = Math.ceil(calendar.days.length / 7);
-		grid.style.gridTemplateColumns = `28px repeat(${weeks}, 11px)`;
+		grid.setCssStyles({ gridTemplateColumns: `28px repeat(${weeks}, 11px)` });
 
 		// Mon, Wed, Fri down the side
 		for (const [row, name] of WEEKDAYS.entries()) {
 			if (!name) continue;
 			const label = grid.createDiv({ cls: "langsoft-activity-weekday", text: name });
-			label.style.gridColumn = "1";
-			label.style.gridRow = String(row + 2);
+			label.setCssStyles({ gridRow: String(row + 2) });
 		}
 
 		// month names along the top, over the week a month starts in
@@ -357,8 +356,7 @@ export class ProgressView extends ItemView {
 			// at least three weeks apart, so the names don't overlap
 			if (!firstDay || week - lastLabelWeek < 3) continue;
 			const month = grid.createDiv({ cls: "langsoft-activity-month", text: MONTH_NAMES[firstDay.date.getMonth()] });
-			month.style.gridColumn = `${week + 2} / span 3`;
-			month.style.gridRow = "1";
+			month.setCssStyles({ gridColumn: `${week + 2} / span 3` });
 			lastLabelWeek = week;
 		}
 
@@ -366,8 +364,8 @@ export class ProgressView extends ItemView {
 		for (const [i, day] of calendar.days.entries()) {
 			const shade = day.count === 0 ? 0 : Math.min(4, Math.ceil((day.count / Math.max(1, calendar.max)) * 4));
 			const cell = grid.createDiv({ cls: `langsoft-activity-day langsoft-activity-${shade}` });
-			cell.style.gridColumn = String(Math.floor(i / 7) + 2);
-			cell.style.gridRow = String((i % 7) + 2);
+			cell.setCssStyles({ gridColumn: String(Math.floor(i / 7) + 2) });
+			cell.setCssStyles({ gridRow: String((i % 7) + 2) });
 			cell.toggleClass("is-today", dayKey(day.date) === today);
 			// Obsidian shows aria-label as a tooltip, so no title as well
 			cell.setAttribute("aria-label", `${day.date.toDateString()}: ${plural(day.count, "change")}`);
@@ -394,7 +392,7 @@ export class ProgressView extends ItemView {
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 function svg(tag: string, attributes: Record<string, string | number>, parent?: Element): SVGElement {
-	const element = document.createElementNS(SVG_NS, tag);
+	const element = activeDocument.createElementNS(SVG_NS, tag);
 	for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, String(value));
 	parent?.appendChild(element);
 	return element;

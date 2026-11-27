@@ -47,8 +47,8 @@ export function createCoveragePanel(plugin: LangsoftPlugin) {
 			for (const level of ORDER) {
 				if (coverage.counts[level] === 0) continue;
 				const segment = bar.createDiv({ cls: `langsoft-coverage-segment langsoft-coverage-${level}` });
-				segment.style.width = `${(coverage.counts[level] / coverage.words) * 100}%`;
-				if (colour(level)) segment.style.backgroundColor = colour(level);
+				segment.setCssStyles({ width: `${(coverage.counts[level] / coverage.words) * 100}%` });
+				if (colour(level)) segment.setCssStyles({ backgroundColor: colour(level) });
 			}
 
 			const text = dom.createDiv({ cls: "langsoft-coverage-text" });

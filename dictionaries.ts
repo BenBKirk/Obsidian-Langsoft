@@ -507,6 +507,26 @@ export class DictionaryManager {
 		this.plugin.refreshHighlights();
 	}
 
+	/**
+	 * A note was renamed: point the definitions added in it at its new name.
+	 * Their timestamps are kept, since they say when each was added. Saves
+	 * only if something changed; returns how many definitions changed.
+	 */
+	renameNote(from: string, to: string): number {
+		if (from === to) return 0;
+		let changed = 0;
+		for (const entry of Object.values(this.userDict)) {
+			for (const details of Object.values(entry?.definitions ?? {})) {
+				if (details?.file === from) {
+					details.file = to;
+					changed++;
+				}
+			}
+		}
+		if (changed > 0) this.writeUserDictToJson();
+		return changed;
+	}
+
 	/** Save the user's dictionary to this device's file. */
 	writeUserDictToJson(): Promise<void> {
 		return this.queueUserDictTask(() => this.saveNow());

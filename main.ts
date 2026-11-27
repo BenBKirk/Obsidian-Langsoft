@@ -211,6 +211,19 @@ export default class LangsoftPlugin extends Plugin {
 		}
 		);
 
+		// keep definitions pointing at their note when it is renamed in Obsidian
+		this.registerEvent(
+			this.app.vault.on("rename", (file, oldPath) => {
+				if (!(file instanceof TFile) || file.extension !== "md") return;
+				const oldName = oldPath.slice(oldPath.lastIndexOf("/") + 1);
+				if (oldName === file.name) return; // only moved to another folder
+				// only the name is saved, so if another note still has the old name,
+				// the definitions may be from that one: leave them
+				if (this.app.vault.getMarkdownFiles().some((note) => note.name === oldName)) return;
+				this.dictManager.renameNote(oldName, file.name);
+			})
+		);
+
 		this.registerEvent(
 			this.app.workspace.on("active-leaf-change", (leaf) => {
 				const file = this.app.workspace.getActiveFile()
@@ -366,18 +379,28 @@ export default class LangsoftPlugin extends Plugin {
 			return;
 		}
 		// only the file name is saved, not its folder, so try every note with that name
-		const notes = this.app.vault.getMarkdownFiles().filter((file) => file.name === name);
-		if (notes.length === 0) {
-			new Notice(`Langsoft: there is no note called "${name}" in this vault.`);
-			return;
-		}
+		const allNotes = this.app.vault.getMarkdownFiles();
+		const notes = allNotes.filter((file) => file.name === name);
 		let best: { file: TFile; match: ContextMatch } | null = null;
 		for (const file of notes) {
 			const match = findContext(await this.app.vault.cachedRead(file), details.sentence);
 			if (match && (!best || (match.exact && !best.match.exact))) best = { file, match };
 		}
+		// the note may have been renamed or moved: look for the exact sentence in every other note
+		let elsewhere = 0;
 		if (!best) {
-			new Notice(`Langsoft: the sentence this was added from isn't in "${name}" any more.`);
+			for (const file of allNotes) {
+				if (file.name === name) continue;
+				const match = findContext(await this.app.vault.cachedRead(file), details.sentence);
+				if (!match?.exact) continue;
+				if (!best) best = { file, match };
+				elsewhere++;
+			}
+		}
+		if (!best) {
+			new Notice(notes.length === 0
+				? `Langsoft: there is no note called "${name}" in this vault, and the sentence this was added from isn't in any other note.`
+				: `Langsoft: the sentence this was added from isn't in "${name}" any more, or in any other note.`);
 			return;
 		}
 
@@ -401,7 +424,10 @@ export default class LangsoftPlugin extends Plugin {
 			this.refreshHighlights(false);
 			editor.focus();
 		}
-		if (!best.match.exact) {
+		if (elsewhere > 0) {
+			const others = elsewhere > 1 ? ` (it is also in ${elsewhere - 1} other note${elsewhere > 2 ? "s" : ""})` : "";
+			new Notice(`Langsoft: this was added in "${name}", but its sentence is now in "${best.file.name}"${others}. The note may have been renamed or moved.`, 8000);
+		} else if (!best.match.exact) {
 			new Notice("Langsoft: the sentence has changed since this was added; this is the closest match.");
 		}
 	}

@@ -312,5 +312,5 @@ export function toCsv(rows: GridRow[]): string {
 			.join(",")
 	);
 	// a byte order mark, so spreadsheet programs read the file as UTF-8
-	return `﻿${[header.join(","), ...lines].join("\r\n")}\r\n`;
+	return `\uFEFF${[header.join(","), ...lines].join("\r\n")}\r\n`;
 }

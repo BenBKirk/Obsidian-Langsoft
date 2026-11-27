@@ -37,7 +37,6 @@ export function wasTriggered(update: ViewUpdate): boolean {
 }
 
 
-
 export function createHighlightPlugin(plugin: LangsoftPlugin) {
 	return ViewPlugin.fromClass(
 		class implements PluginValue {
@@ -51,7 +50,6 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 
 			update(update: ViewUpdate) {
 				if (update.docChanged || update.viewportChanged || wasTriggered(update)) {
-					// if (update.docChanged || update.viewportChanged) {
 					this.decorations = this.buildDecorations(update.view);
 				}
 			}
@@ -117,10 +115,7 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 				dict: DictionaryData
 			) {
 				if (!phrase) return;
-				// const regex = /\b\w+\b/g;
 				const parts = this.plugin.parseIntoWords(termKey(phrase), 0)
-				// const regex = /[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu;
-				// const parts = phrase.match(regex);
 				if (!parts) return;
 
 				const lookAhead: string[] = [];
@@ -143,7 +138,6 @@ export function createHighlightPlugin(plugin: LangsoftPlugin) {
 
 
 				if (lookAhead.length && lookAhead.join(" ") === reconstructedPhrase.join(" ")) {
-					// const dict = this.plugin?.dictManager?.userDict;
 					const phraseResult = dict?.[phrase];
 					if (phraseResult) {
 						if (iscoworker) {
@@ -188,21 +182,12 @@ export function createSelectionHighlightPlugin(plugin: LangsoftPlugin) {
 
 			update(update: ViewUpdate) {
 				if (update.docChanged || update.viewportChanged || wasTriggered(update)) {
-					// if (update.docChanged || update.viewportChanged) {
 					this.decorations = this.buildDecorations(update.view);
-					// console.log(update.state.selection.ranges[0])
 				}
 			}
 
 			buildDecorations(view: EditorView): DecorationSet {
 				const builder = new RangeSetBuilder<Decoration>();
-				// for (const { from, to } of view.visibleRanges) {
-				// 	const text = view.state.doc.sliceString(from, to);
-				// 	const words = this.plugin.parseIntoWords(text, from);
-				// 	for (const [index, word] of words.entries()) {
-				// 		this.highlightWord(builder, word, words, index);
-				// 	}
-				// }
 				if (this.plugin.SelectedText.length > 0) {
 					if (view.state.doc.length > this.plugin.SelectedText[1]) { // would be out of bounds
 

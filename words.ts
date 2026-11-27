@@ -8,7 +8,7 @@
  * or typographic) or a hyphen: "don't", "don’t", "well-known", "Straße",
  * "हिन्दी", "日本語".
  */
-const WORD_PATTERN = /[\p{L}\p{N}][\p{L}\p{N}\p{M}\u200C\u200D]*(?:['\u2019\-][\p{L}\p{N}][\p{L}\p{N}\p{M}\u200C\u200D]*)*/gu;
+const WORD_PATTERN = /[\p{L}\p{N}][\p{L}\p{N}\p{M}\u200C\u200D]*(?:['\u2019-][\p{L}\p{N}][\p{L}\p{N}\p{M}\u200C\u200D]*)*/gu;
 
 export interface WordToken {
 	text: string;

@@ -129,6 +129,7 @@ export class DefinitionIndex {
 				a.entry.definition.localeCompare(b.entry.definition)
 		);
 		return matches.slice(0, limit).map(({ entry }) => {
+			// eslint-disable-next-line @typescript-eslint/no-unused-vars -- left out of the result
 			const { tokens, ...result } = entry;
 			return { ...result, coworkers: [...result.coworkers] };
 		});
@@ -269,6 +270,7 @@ export class TermIndex {
 	}
 
 	private result(i: number, inQuery: boolean): WordResult {
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars -- left out of the result
 		const { tokens, ...term } = this.terms[i];
 		return { ...term, coworkers: [...term.coworkers], definitions: [...term.definitions], inQuery };
 	}
